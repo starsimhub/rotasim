@@ -1,0 +1,1 @@
+This repository contains code for the rotavirus genetic diversity project.  We initially plan to calibrate this model to data from Bangladesh, focusing on the pre-vaccine period.  Files containing more documentation for the model will be added soon. 
