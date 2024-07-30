@@ -746,7 +746,7 @@ def get_probability_of_severe(pathogen_in, vaccine, immunity_count):
 
 
 ########## Set Parameters ##########
-N = 100000  # population size
+N = 1_000  # population size
 mu = 1.0/70.0     # average life span is 70 years
 gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
 omega = 365/273  # duration of immunity by infection= 39 weeks
