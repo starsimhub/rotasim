@@ -153,12 +153,6 @@ def main(defaults=None, vb=0):
             all_pathogens = [pathogen(True, t, host = self, strain=tuple(i)) for i in all_strains]
     
             # The commented code below is for the old version where all parts reassort
-            #for i in range(numSegments):
-            #    availableVariants = set([])                 
-            #    for j in self.infecting_pathogen:
-            #        availableVariants.add((j.strain[i]))
-            #    segCombinations.append(availableVariants)
-            #all_pathogens = [pathogen(True, host = self, strain=tuple(i)) for i in itertools.product(*segCombinations)]
             return all_pathogens
     
         def getPossibleCombinations(self):
