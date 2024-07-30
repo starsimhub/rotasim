@@ -549,7 +549,11 @@ def main(defaults=None, vb=0):
         # ages += np.random.rand(len(ages))*1e-12 # Add noise to break ties
         # immunity_sort_inds = np.argsort(ages)[::-1]
         # immunity_sort_inds = immunity_sort_inds[:wanings]
-        hosts_with_immunity = sorted([h for h in host_pop if h.isImmune()], key = lambda x: (x.get_oldest_infection(), rnd.random()), reverse=True)
+        
+        h_immune = [h for h in host_pop if h.is_immune]
+        hosts_with_immunity = sorted(h_immune, key = lambda x: (x.get_oldest_infection(), rnd.random()), reverse=True)
+        
+        # hosts_with_immunity = sorted([h for h in host_pop if h.isImmune()], key = lambda x: (x.get_oldest_infection(), rnd.random()), reverse=True)
         # hosts_with_immunity = sorted([h for h in host_pop if h.isImmune()], key = lambda x: x.get_oldest_infection(), reverse=True)
     
         # For the selcted hosts set the immunity to be None

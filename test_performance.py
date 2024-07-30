@@ -32,7 +32,7 @@ def cprofile():
 
 
 if __name__ == '__main__':
-    do_profile = 1
+    do_profile = 0
     if not do_profile:
         update_performance()
     else:
