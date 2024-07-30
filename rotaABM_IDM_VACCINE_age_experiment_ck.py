@@ -10,20 +10,21 @@ import sys
 import math
 
 
-def main():
+def main(defaults=None, vb=0):
 
     global cases, immunityCounts  
     global pop_id
     global t
     
     args = sys.argv
-    defaults = ['', # Placeholder (file name)
-        1,   # immunity_hypothesis
-        0.1, # reassortment_rate
-        1,   # fitness_hypothesis
-        1,   # vaccine_hypothesis
-        1,   # experimentNumber
-    ]
+    if defaults is None:
+        defaults = ['', # Placeholder (file name)
+            1,   # immunity_hypothesis
+            0.1, # reassortment_rate
+            1,   # fitness_hypothesis
+            1,   # vaccine_hypothesis
+            1,   # experimentNumber
+        ]
     print(args)
     if len(args) < 6:
         args = args + defaults[len(args):]
@@ -885,7 +886,7 @@ def main():
     while t<timelimit:
         if tau_steps % 10 == 0:
             print("Current time: %f (Number of steps = %d)" % (t, tau_steps))
-            print(strainCount)
+            if vb: print(strainCount)
     
         ### Every 100 steps, write the age distribution of the population to a file
         if tau_steps % 100 == 0:
@@ -894,7 +895,7 @@ def main():
                 age_dict[age_range] = 0
             for h in host_pop:
                 age_dict[h.get_age_category()] += 1
-            print("Ages: ", age_dict)
+            if vb: print("Ages: ", age_dict)
             with open(age_outputfilename, "a", newline='') as outputfile:
                 write = csv.writer(outputfile)
                 write.writerow(["{:.2}".format(t)] + list(age_dict.values()))
@@ -911,7 +912,7 @@ def main():
     
         # Get the number of events in a single tau step
         births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = get_event_counts(len(host_pop), cases, immunityCounts, tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
-        print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
+        if vb: print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
     
         # perform the events for the obtained counts
         birth_events(births, host_pop)
@@ -940,8 +941,8 @@ def main():
             # Use the vaccination rate to determine the number of hosts to vaccinate
             vaccination_count = int(len(child_host_pop)*vaccine_first_dose_rate)            
             sample_population = rnd.sample(child_host_pop, vaccination_count)
-            print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
-            print("Number of people vaccinated: {} NUmber of people under 6 weeks: {}".format(len(sample_population), len(child_host_pop)))
+            if vb: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
+            if vb: print("Number of people vaccinated: {} NUmber of people under 6 weeks: {}".format(len(sample_population), len(child_host_pop)))
             for h in sample_population:
                 h.vaccinate(vaccinated_strain)
                 single_dose_vaccinated_pop.append(h)
