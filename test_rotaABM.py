@@ -55,6 +55,6 @@ def test_alt(make=False):
 
 
 if __name__ == '__main__':
-    make = False # Set to True to regenerate results
+    make = True # Set to True to regenerate results
     test_default(make=make)
     test_alt(make=make)
