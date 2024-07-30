@@ -6,14 +6,18 @@ import sciris as sc
 import rotaABM as rota
 
 
-def update_performance():
+def update_performance(save=False):
     sc.heading('Updating performance')
     filename = 'test_performance.json'
 
     T = sc.timer()
     rota.main()
     T.toc()
-    sc.savejson(filename, dict(time=f'{T.elapsed:0.2f}'))
+    string = f'{T.elapsed:0.2f}'
+    data = dict(time=string)
+    if save:
+        sc.savejson(filename, data)
+    print(data)
         
     return
 
@@ -32,9 +36,10 @@ def cprofile():
 
 
 if __name__ == '__main__':
+    save = 0
     do_profile = 0
     if not do_profile:
-        update_performance()
+        update_performance(save=save)
     else:
         prf = profile()
         cpr = cprofile()

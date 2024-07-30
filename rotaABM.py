@@ -544,25 +544,20 @@ def main(defaults=None, vb=0):
         global immunityCounts
     
         # Get all the hosts in the population that has an immunity
+        h_immune = [h for h in host_pop if h.is_immune]
+        age_tiebreak = lambda x: (x.get_oldest_infection(), rnd.random())
+        hosts_with_immunity = sorted(h_immune, key=age_tiebreak, reverse=True)
+        
+        # Alternate implementation -- not faster
         # immune_inds = sc.findinds([h.isImmune() for h in host_pop])
         # ages = np.array([host_pop[i].get_oldest_infection() for i in immune_inds])
         # ages += np.random.rand(len(ages))*1e-12 # Add noise to break ties
         # immunity_sort_inds = np.argsort(ages)[::-1]
         # immunity_sort_inds = immunity_sort_inds[:wanings]
-        
-        h_immune = [h for h in host_pop if h.is_immune]
-        hosts_with_immunity = sorted(h_immune, key = lambda x: (x.get_oldest_infection(), rnd.random()), reverse=True)
-        
-        # hosts_with_immunity = sorted([h for h in host_pop if h.isImmune()], key = lambda x: (x.get_oldest_infection(), rnd.random()), reverse=True)
-        # hosts_with_immunity = sorted([h for h in host_pop if h.isImmune()], key = lambda x: x.get_oldest_infection(), reverse=True)
     
         # For the selcted hosts set the immunity to be None
         for i in range(min(len(hosts_with_immunity), wanings)):
             h = hosts_with_immunity[i]
-        # for i in immunity_sort_inds:
-        #     ind = immune_inds[i]
-        #     h = host_pop[ind]
-            #for path in h.infecting_pathogens:
             h.immunity =  {}
             h.is_immune = False
             h.immunityCount = 0
