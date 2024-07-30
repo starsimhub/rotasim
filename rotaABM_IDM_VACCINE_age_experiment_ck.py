@@ -8,6 +8,7 @@ import time
 from enum import Enum
 import sys
 import math
+import sciris as sc
 
 
 def main(defaults=None, vb=0):
@@ -761,7 +762,7 @@ def main(defaults=None, vb=0):
     birth_rate = mu * 4
     
     cont = 365/1     # assumption
-    timelimit = 20  #### 50 years 
+    timelimit = 10  #### 50 years 
     initialInfecteds = 10        ### for each strain infect initialInfecteds (with 2)
     
     reassortmentRate_GP = reassortment_rate
@@ -883,6 +884,16 @@ def main(defaults=None, vb=0):
             total_strain_counts_vaccine[strain[:numAgSegments]] = count
     
     ########## run simulation ##########
+    event_dict = sc.objdict(
+        births=0,
+        deaths=0,
+        recoveries=0,
+        contacts=0,
+        wanings=0,
+        reassortments=0,
+        vaccine_dose_1_wanings=0,
+        vaccine_dose_2_wanings=0,
+    )
     while t<timelimit:
         if tau_steps % 10 == 0:
             print("Current time: %f (Number of steps = %d)" % (t, tau_steps))
@@ -911,9 +922,13 @@ def main(defaults=None, vb=0):
                     double_dose_hosts.append(h)
     
         # Get the number of events in a single tau step
-        births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = get_event_counts(len(host_pop), cases, immunityCounts, tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
+        events = get_event_counts(len(host_pop), cases, immunityCounts, tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
+        births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = events
         if vb: print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
     
+        # Parse into dict
+        event_dict[:] += events
+        
         # perform the events for the obtained counts
         birth_events(births, host_pop)
         reassortment_event(infected_pop, reassortments) # calling the function
@@ -981,7 +996,9 @@ def main(defaults=None, vb=0):
     t1 = time.time()
     total_time = t1-t0
     print("Time to run experiment: ", total_time)
+    
+    return event_dict
 
 
 if __name__ == '__main__':
-    main()
+    events = main()
