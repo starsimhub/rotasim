@@ -11,6 +11,371 @@ import math
 import sciris as sc
 
 
+def solve_quadratic(a, b, c):
+    discriminant = b**2 - 4*a*c
+    if discriminant >= 0:
+        root1 = (-b + discriminant**0.5) / (2*a)
+        root2 = (-b - discriminant**0.5) / (2*a)
+        return tuple(sorted([root1, root2]))
+    else:
+        return "No real roots"
+
+
+def breakdown_vaccine_efficacy(ve, x):
+    (r1, r2) = solve_quadratic(x, -(1+x), ve)
+    print(r1, r2)
+    if r1 >= 0 and r1 <= 1:
+        ve_s = r1
+    elif r2 >= 0 and r2 <= 1:
+        ve_s = r2
+    else:
+        print("No valid solution to the equation: x: %d, ve: %d. Solutions: %f %f" % (x, ve, r1, r2))
+        exit(-1)
+    ve_i = x * ve_s
+    return (ve_i, ve_s)
+
+
+########## Set Parameters ##########
+N = 2000  # population size
+mu = 1.0/70.0     # average life span is 70 years
+gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
+omega = 365/273  # duration of immunity by infection= 39 weeks
+birth_rate = mu * 4
+
+cont = 365/1     # assumption
+timelimit = 10  #### 50 years 
+initialInfecteds = 10        ### for each strain infect initialInfecteds (with 2)
+
+
+vaccination_time =  6
+ve_i_to_ve_s_ratio = 0.5
+
+# Effectiveness of the vaccine first dose
+vaccine_efficacy_d1 = {
+    PathogenMatch.HOMOTYPIC: 0.6,
+    PathogenMatch.PARTIAL_HETERO: 0.45,
+    PathogenMatch.COMPLETE_HETERO:0.15,
+}
+# Effectiveness of the vaccine second dose
+vaccine_efficacy_d2 = {
+    PathogenMatch.HOMOTYPIC: 0.8,
+    PathogenMatch.PARTIAL_HETERO: 0.65,
+    PathogenMatch.COMPLETE_HETERO:0.35,
+}
+
+vaccine_efficacy_i_d1 = {}
+vaccine_efficacy_s_d1 = {}
+vaccine_efficacy_i_d2 = {}
+vaccine_efficacy_s_d2 = {}
+for (k, v) in vaccine_efficacy_d1.items():
+    (ve_i, ve_s) = breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
+    vaccine_efficacy_i_d1[k] = ve_i
+    vaccine_efficacy_s_d1[k] = ve_s
+for (k, v) in vaccine_efficacy_d2.items():
+    (ve_i, ve_s) = breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
+    vaccine_efficacy_i_d2[k] = ve_i
+    vaccine_efficacy_s_d2[k] = ve_s
+
+print("VE_i: ", vaccine_efficacy_i_d1)
+print("VE_s: ", vaccine_efficacy_s_d1)
+
+# Vaccination rates are derived based on the following formula
+vaccine_second_dose_rate = 0.8
+vaccine_first_dose_rate = math.sqrt(vaccine_second_dose_rate)
+print("Vaccination - first dose rate: %s, second dose rate %s" % (vaccine_first_dose_rate, vaccine_second_dose_rate))
+
+vacinnation_single_dose_waning_rate = 365/273 #365/1273
+vacinnation_double_dose_waning_rate = 365/546 #365/2600
+# vacinnation_waning_lower_bound = 20 * 7 / 365.0
+
+total_strain_counts_vaccine = {}
+
+### Tau leap parametes
+tau = 1/365.0
+
+numSegments = 4
+numNoneAgSegments = 2
+numAgSegments = numSegments - numNoneAgSegments
+segmentVariants = [[i for i in range(1, 5)], [i for i in range(1, 5)], [i for i in range(1, 3)], [i for i in range(1, 3)]]     ## creating variats for the segments
+segmentCombinations = [tuple(i) for i in itertools.product(*segmentVariants)]  # getting all possible combinations from a list of list
+initialSegmentCombinations = [(1,1,1,1), (2,2,1,1), (3,3,1,1), (4,4,1,1)] #, (4,1,1,1)] #[(1,1,1,1), (2,2,1,1), (1,2,1,1), (2,1,1,1)]
+rnd.shuffle(segmentCombinations)
+number_all_strains = len(segmentCombinations)
+
+
+
+############## Class Host ###########################
+class host(object): ## host class
+    # Define age bins and labels
+    age_bins = [2/12, 4/12, 6/12, 12/12, 24/12, 36/12, 48/12, 60/12, 100]
+    age_labels = ['0-2', '2-4', '4-6', '6-12', '12-24', '24-36', '36-48', '48-60', '60+']
+    age_distribution = [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.84]
+
+    def __init__(self, id):
+        self.id = id
+        self.bday = t - host.get_random_age()
+        # set of strains the host is immune to
+        self.immunity = {}
+        self.vaccine = None
+        self.infecting_pathogen = []
+        self.immunityCount = 0
+        self.prior_vaccinations = []
+        self.infections_with_vaccination = []
+        self.infections_without_vaccination = []
+
+    def get_random_age():
+        # pick a age bin
+        random_age_bin = np.random.choice(list(range(len(host.age_bins))), p=host.age_distribution)
+        # generate a random age in the bin
+        if random_age_bin > 0:
+            min_age = host.age_bins[random_age_bin-1]
+        else:
+            min_age = 0
+        max_age = host.age_bins[random_age_bin]
+        return rnd.uniform(min_age, max_age)
+
+    def get_age_category(self):
+        # Bin the age into categories
+        for i in range(len(host.age_bins)):
+            if t - self.bday < host.age_bins[i]:
+                return self.age_labels[i]
+        return self.age_labels[-1]
+    
+    def get_oldest_current_infection(self):
+        max_infection_times = max([t - p.creation_time for p in self.infecting_pathogen])
+        return max_infection_times
+
+    def get_oldest_infection(self):
+        max_infection_times = max([t - p[1] for p in self.immunity.items()])
+        return max_infection_times
+    
+    def computePossibleCombinations(self):
+        segCombinations = []
+
+        # We want to only reassort the GP types
+        # Assumes that antigenic segments are at the start
+        for i in range(numAgSegments):
+            availableVariants = set([])                 
+            for j in self.infecting_pathogen:
+                availableVariants.add((j.strain[i]))
+            segCombinations.append(availableVariants)
+
+        # compute the parental strains (duplicate work?)
+        parantal_strains = [j.strain[:numAgSegments] for j in self.infecting_pathogen]
+
+        # Itertools product returns all possible combinations
+        # We are only interested in strain combinations that are reassortants of the parental strains
+        # We need to skip all existing combinations from the parents
+        # Ex: (1, 1, 2, 2) and (2, 2, 1, 1) should not create (1, 1, 1, 1) as a possible reassortant if only the antigenic parts reassort
+        all_antigenic_combinations = [i for i in itertools.product(*segCombinations) if i not in parantal_strains]
+        all_nonantigenic_combinations = [j.strain[numAgSegments:] for j in self.infecting_pathogen]
+        all_strains = set([(i[0] + i[1]) for i in itertools.product(all_antigenic_combinations, all_nonantigenic_combinations)])
+        
+
+        #print("Parents: ", [j.strain for j in self.infecting_pathogen], "Reassortants: ", all_strains)
+        all_pathogens = [pathogen(True, t, host = self, strain=tuple(i)) for i in all_strains]
+
+        # The commented code below is for the old version where all parts reassort
+        return all_pathogens
+
+    def getPossibleCombinations(self):
+        return self.computePossibleCombinations()
+
+    def isInfected(self):
+        return len(self.infecting_pathogen) != 0
+
+    def recover(self,strainCounts):
+        # We will use the pathogen creation time to count the number of infections
+        creation_times = set()
+        for path in self.infecting_pathogen:
+            if not path.is_reassortant:
+                strainCounts[path.strain] -= 1
+                creation_times.add(path.creation_time)
+                self.immunity[path.strain] = t        
+        self.immunityCount += len(creation_times)
+        self.infecting_pathogen = []                  
+        self.possibleCombinations = []
+    
+    def isImmune(self):
+        return len(self.immunity) != 0
+    
+    def vaccinate(self, vaccinated_strain):
+        if len(self.prior_vaccinations) == 0:
+            self.prior_vaccinations.append(vaccinated_strain)
+            self.vaccine = ([vaccinated_strain], t, 1)
+        else:
+            self.prior_vaccinations.append(vaccinated_strain)
+            self.vaccine = ([vaccinated_strain], t, 2)
+    
+    def isVaccineimmune(self, strainIn):
+        # Effectiveness of the vaccination depends on the number of doses
+        if self.vaccine[2] == 1:
+            ve_i_rates = vaccine_efficacy_i_d1
+        elif self.vaccine[2] == 2:
+            ve_i_rates = vaccine_efficacy_i_d2
+        else:
+            print("Unsupported vaccine dose")
+            exit(-1)
+        
+        if vaccine_hypothesis == 0:
+            return False
+        if vaccine_hypothesis == 1:            
+            if strainIn[:numAgSegments] in self.vaccine[0]:
+                if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
+                    return True
+                else:
+                    return False
+        elif vaccine_hypothesis == 2:
+            if strainIn[:numAgSegments] in self.vaccine[0]:
+                if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
+                    return True
+                else:
+                    return False
+            strains_match = False
+            for i in range(numAgSegments):         
+                immune_genotypes = [strain[i] for strain in self.vaccine[0]]
+                if strainIn[i] in immune_genotypes:
+                    strains_match = True
+            if strains_match:
+                if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
+                    return True
+            else:
+                return False
+        elif vaccine_hypothesis == 3:
+            if strainIn[:numAgSegments] in self.vaccine[0]:
+                if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
+                    return True
+                else:
+                    return False
+            strains_match = False
+            for i in range(numAgSegments):         
+                immune_genotypes = [strain[i] for strain in self.vaccine[0]]
+                if strainIn[i] in immune_genotypes:
+                    strains_match = True
+            if strains_match:
+                if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
+                    return True
+            else:
+                if rnd.random() < ve_i_rates[PathogenMatch.COMPLETE_HETERO]:
+                    return True
+                else:
+                    return False
+        else:
+            print("Unsupported vaccine hypothesis")
+            exit(-1)
+        
+    def can_variant_infect_host(self, strainIn, currentInfections):
+        if (self.vaccine is not None) and self.isVaccineimmune(strainIn):
+            return False
+        
+        if immunity_hypothesis == 1:
+            current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+            if strainIn[:numAgSegments] in current_infecting_strains:
+                return False
+            # Only immune if antigenic segments match exactly
+            immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
+            if strainIn[:numAgSegments] in immune_strains:
+                return False
+            return True
+        elif immunity_hypothesis == 2:
+            current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+            if strainIn[:numAgSegments] in current_infecting_strains:
+                return False
+            # Complete heterotypic immunity
+            for i in range(numAgSegments):         
+                immune_genotypes = [strain[i] for strain in self.immunity.keys()]
+                if strainIn[i] in immune_genotypes:
+                    return False
+            return True
+        elif immunity_hypothesis == 3:
+            current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+            if strainIn[:numAgSegments] in current_infecting_strains:
+                return False
+            
+            # completely immune if antigenic segments match exactly
+            immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
+            if strainIn[:numAgSegments] in immune_strains:
+                return False
+
+            # Partial heterotypic immunity if not
+            shared_genotype = False
+            for i in range(numAgSegments):         
+                immune_genotypes = [strain[i] for strain in self.immunity.keys()]
+                if strainIn[i] in immune_genotypes:
+                    shared_genotype = True
+            if shared_genotype:
+                temp = rnd.random()
+                if temp<partialCrossImmunityRate:
+                    return False
+            return True
+        elif immunity_hypothesis == 4:
+            current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+            if strainIn[:numAgSegments] in current_infecting_strains:
+                return False
+            # Partial heterotypic immunity
+            shared_genotype = False      
+            immune_ptypes = [strain[1] for strain in self.immunity.keys()]
+            if strainIn[1] in immune_ptypes:
+                return False
+            else:
+                return True
+        elif immunity_hypothesis == 5:
+            current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+            if strainIn[:numAgSegments] in current_infecting_strains:
+                return False
+            # Partial heterotypic immunity
+            shared_genotype = False      
+            immune_gtypes = [strain[0] for strain in self.immunity.keys()]
+            if strainIn[0] in immune_ptypes:
+                return False
+            else:
+                return True
+        else:
+            print("[Error] Immunity hypothesis not implemented")
+            exit(-1)
+
+    def record_infection(self, new_p):        
+        if len(self.prior_vaccinations) != 0:
+            vaccine_strain = self.prior_vaccinations[-1]            
+            self.infections_with_vaccination.append((new_p, new_p.match(vaccine_strain)))
+        else:
+            self.infections_without_vaccination.append(new_p)
+            
+    def infect_with_pathogen(self, pathogenIn, strainCounts):
+        #this function returns a fitness value to a strain based on the hypo. 
+        fitness = pathogenIn.getFitness()           
+        # e.g. fitness = 0.8 (theres a 80% chance the virus infecteing a host).then 20% of the time virus will not infect the host. 
+        # in the following if condition, we generate random number between 0 and 1. 
+        # this random number has a 20% chance of being greater than 0.8.
+        # in this case we go inside the if condition, and return back without going forward with the remaining function.
+        # if it is false i.e random number is less than 0.8, we infect the host. 
+        if rnd.random()> fitness:                
+            return False
+        
+        # Probability of getting a severe decease depends on the vaccination status of the host and the number of previous infections
+        severity_probability = get_probability_of_severe(pathogenIn, self.vaccine, self.immunityCount)
+        if rnd.random() < severity_probability:
+            severe = True
+        else:
+            severe = False
+
+        new_p = pathogen(False, t, host = self, strain= pathogenIn.strain, is_severe=severe)
+        self.infecting_pathogen.append(new_p)
+        self.record_infection(new_p)
+
+        strainCounts[new_p.strain] += 1
+
+        return True
+
+    def infect_with_reassortant(self, reassortant_virus):
+        self.infecting_pathogen.append(reassortant_virus)
+
+class PathogenMatch(Enum):
+    COMPLETE_HETERO = 1
+    PARTIAL_HETERO = 2
+    HOMOTYPIC = 3
+
+
 def main(defaults=None, vb=0):
 
     global cases, immunityCounts  
@@ -81,276 +446,7 @@ def main(defaults=None, vb=0):
             write = csv.writer(outputfile)
             write.writerow(["time"] + list(host.age_labels))    
     
-    ############## Class Host ###########################
-    class host(object): ## host class
-        # Define age bins and labels
-        age_bins = [2/12, 4/12, 6/12, 12/12, 24/12, 36/12, 48/12, 60/12, 100]
-        age_labels = ['0-2', '2-4', '4-6', '6-12', '12-24', '24-36', '36-48', '48-60', '60+']
-        age_distribution = [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.84]
-    
-        def __init__(self, id):
-            self.id = id
-            self.bday = t - host.get_random_age()
-            # set of strains the host is immune to
-            self.immunity = {}
-            self.vaccine = None
-            self.infecting_pathogen = []
-            self.immunityCount = 0
-            self.prior_vaccinations = []
-            self.infections_with_vaccination = []
-            self.infections_without_vaccination = []
-    
-        def get_random_age():
-            # pick a age bin
-            random_age_bin = np.random.choice(list(range(len(host.age_bins))), p=host.age_distribution)
-            # generate a random age in the bin
-            if random_age_bin > 0:
-                min_age = host.age_bins[random_age_bin-1]
-            else:
-                min_age = 0
-            max_age = host.age_bins[random_age_bin]
-            return rnd.uniform(min_age, max_age)
-    
-        def get_age_category(self):
-            # Bin the age into categories
-            for i in range(len(host.age_bins)):
-                if t - self.bday < host.age_bins[i]:
-                    return self.age_labels[i]
-            return self.age_labels[-1]
-        
-        def get_oldest_current_infection(self):
-            max_infection_times = max([t - p.creation_time for p in self.infecting_pathogen])
-            return max_infection_times
-    
-        def get_oldest_infection(self):
-            max_infection_times = max([t - p[1] for p in self.immunity.items()])
-            return max_infection_times
-        
-        def computePossibleCombinations(self):
-            segCombinations = []
-    
-            # We want to only reassort the GP types
-            # Assumes that antigenic segments are at the start
-            for i in range(numAgSegments):
-                availableVariants = set([])                 
-                for j in self.infecting_pathogen:
-                    availableVariants.add((j.strain[i]))
-                segCombinations.append(availableVariants)
-    
-            # compute the parental strains (duplicate work?)
-            parantal_strains = [j.strain[:numAgSegments] for j in self.infecting_pathogen]
-    
-            # Itertools product returns all possible combinations
-            # We are only interested in strain combinations that are reassortants of the parental strains
-            # We need to skip all existing combinations from the parents
-            # Ex: (1, 1, 2, 2) and (2, 2, 1, 1) should not create (1, 1, 1, 1) as a possible reassortant if only the antigenic parts reassort
-            all_antigenic_combinations = [i for i in itertools.product(*segCombinations) if i not in parantal_strains]
-            all_nonantigenic_combinations = [j.strain[numAgSegments:] for j in self.infecting_pathogen]
-            all_strains = set([(i[0] + i[1]) for i in itertools.product(all_antigenic_combinations, all_nonantigenic_combinations)])
-            
-    
-            #print("Parents: ", [j.strain for j in self.infecting_pathogen], "Reassortants: ", all_strains)
-            all_pathogens = [pathogen(True, t, host = self, strain=tuple(i)) for i in all_strains]
-    
-            # The commented code below is for the old version where all parts reassort
-            return all_pathogens
-    
-        def getPossibleCombinations(self):
-            return self.computePossibleCombinations()
-    
-        def isInfected(self):
-            return len(self.infecting_pathogen) != 0
-    
-        def recover(self,strainCounts):
-            # We will use the pathogen creation time to count the number of infections
-            creation_times = set()
-            for path in self.infecting_pathogen:
-                if not path.is_reassortant:
-                    strainCounts[path.strain] -= 1
-                    creation_times.add(path.creation_time)
-                    self.immunity[path.strain] = t        
-            self.immunityCount += len(creation_times)
-            self.infecting_pathogen = []                  
-            self.possibleCombinations = []
-        
-        def isImmune(self):
-            return len(self.immunity) != 0
-        
-        def vaccinate(self, vaccinated_strain):
-            if len(self.prior_vaccinations) == 0:
-                self.prior_vaccinations.append(vaccinated_strain)
-                self.vaccine = ([vaccinated_strain], t, 1)
-            else:
-                self.prior_vaccinations.append(vaccinated_strain)
-                self.vaccine = ([vaccinated_strain], t, 2)
-        
-        def isVaccineimmune(self, strainIn):
-            # Effectiveness of the vaccination depends on the number of doses
-            if self.vaccine[2] == 1:
-                ve_i_rates = vaccine_efficacy_i_d1
-            elif self.vaccine[2] == 2:
-                ve_i_rates = vaccine_efficacy_i_d2
-            else:
-                print("Unsupported vaccine dose")
-                exit(-1)
-            
-            if vaccine_hypothesis == 0:
-                return False
-            if vaccine_hypothesis == 1:            
-                if strainIn[:numAgSegments] in self.vaccine[0]:
-                    if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
-                        return True
-                    else:
-                        return False
-            elif vaccine_hypothesis == 2:
-                if strainIn[:numAgSegments] in self.vaccine[0]:
-                    if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
-                        return True
-                    else:
-                        return False
-                strains_match = False
-                for i in range(numAgSegments):         
-                    immune_genotypes = [strain[i] for strain in self.vaccine[0]]
-                    if strainIn[i] in immune_genotypes:
-                        strains_match = True
-                if strains_match:
-                    if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
-                        return True
-                else:
-                    return False
-            elif vaccine_hypothesis == 3:
-                if strainIn[:numAgSegments] in self.vaccine[0]:
-                    if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
-                        return True
-                    else:
-                        return False
-                strains_match = False
-                for i in range(numAgSegments):         
-                    immune_genotypes = [strain[i] for strain in self.vaccine[0]]
-                    if strainIn[i] in immune_genotypes:
-                        strains_match = True
-                if strains_match:
-                    if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
-                        return True
-                else:
-                    if rnd.random() < ve_i_rates[PathogenMatch.COMPLETE_HETERO]:
-                        return True
-                    else:
-                        return False
-            else:
-                print("Unsupported vaccine hypothesis")
-                exit(-1)
-            
-        def can_variant_infect_host(self, strainIn, currentInfections):
-            if (self.vaccine is not None) and self.isVaccineimmune(strainIn):
-                return False
-            
-            if immunity_hypothesis == 1:
-                current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
-                if strainIn[:numAgSegments] in current_infecting_strains:
-                    return False
-                # Only immune if antigenic segments match exactly
-                immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
-                if strainIn[:numAgSegments] in immune_strains:
-                    return False
-                return True
-            elif immunity_hypothesis == 2:
-                current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
-                if strainIn[:numAgSegments] in current_infecting_strains:
-                    return False
-                # Complete heterotypic immunity
-                for i in range(numAgSegments):         
-                    immune_genotypes = [strain[i] for strain in self.immunity.keys()]
-                    if strainIn[i] in immune_genotypes:
-                        return False
-                return True
-            elif immunity_hypothesis == 3:
-                current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
-                if strainIn[:numAgSegments] in current_infecting_strains:
-                    return False
-                
-                # completely immune if antigenic segments match exactly
-                immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
-                if strainIn[:numAgSegments] in immune_strains:
-                    return False
-    
-                # Partial heterotypic immunity if not
-                shared_genotype = False
-                for i in range(numAgSegments):         
-                    immune_genotypes = [strain[i] for strain in self.immunity.keys()]
-                    if strainIn[i] in immune_genotypes:
-                        shared_genotype = True
-                if shared_genotype:
-                    temp = rnd.random()
-                    if temp<partialCrossImmunityRate:
-                        return False
-                return True
-            elif immunity_hypothesis == 4:
-                current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
-                if strainIn[:numAgSegments] in current_infecting_strains:
-                    return False
-                # Partial heterotypic immunity
-                shared_genotype = False      
-                immune_ptypes = [strain[1] for strain in self.immunity.keys()]
-                if strainIn[1] in immune_ptypes:
-                    return False
-                else:
-                    return True
-            elif immunity_hypothesis == 5:
-                current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
-                if strainIn[:numAgSegments] in current_infecting_strains:
-                    return False
-                # Partial heterotypic immunity
-                shared_genotype = False      
-                immune_gtypes = [strain[0] for strain in self.immunity.keys()]
-                if strainIn[0] in immune_ptypes:
-                    return False
-                else:
-                    return True
-            else:
-                print("[Error] Immunity hypothesis not implemented")
-                exit(-1)
-    
-        def record_infection(self, new_p):        
-            if len(self.prior_vaccinations) != 0:
-                vaccine_strain = self.prior_vaccinations[-1]            
-                self.infections_with_vaccination.append((new_p, new_p.match(vaccine_strain)))
-            else:
-                self.infections_without_vaccination.append(new_p)
-                
-        def infect_with_pathogen(self, pathogenIn, strainCounts):
-            #this function returns a fitness value to a strain based on the hypo. 
-            fitness = pathogenIn.getFitness()           
-            # e.g. fitness = 0.8 (theres a 80% chance the virus infecteing a host).then 20% of the time virus will not infect the host. 
-            # in the following if condition, we generate random number between 0 and 1. 
-            # this random number has a 20% chance of being greater than 0.8.
-            # in this case we go inside the if condition, and return back without going forward with the remaining function.
-            # if it is false i.e random number is less than 0.8, we infect the host. 
-            if rnd.random()> fitness:                
-                return False
-            
-            # Probability of getting a severe decease depends on the vaccination status of the host and the number of previous infections
-            severity_probability = get_probability_of_severe(pathogenIn, self.vaccine, self.immunityCount)
-            if rnd.random() < severity_probability:
-                severe = True
-            else:
-                severe = False
-    
-            new_p = pathogen(False, t, host = self, strain= pathogenIn.strain, is_severe=severe)
-            self.infecting_pathogen.append(new_p)
-            self.record_infection(new_p)
-    
-            strainCounts[new_p.strain] += 1
-    
-            return True
-    
-        def infect_with_reassortant(self, reassortant_virus):
-            self.infecting_pathogen.append(reassortant_virus)
-    
-    class PathogenMatch(Enum):
-        COMPLETE_HETERO = 1
-        PARTIAL_HETERO = 2
-        HOMOTYPIC = 3
+
     
     ############## class Pathogen ###########################
     class pathogen(object): 
@@ -486,7 +582,7 @@ def main(defaults=None, vb=0):
         return weights
     
     def death_event(num_deaths, infected_pop, host_pop, strainCount):
-        global cases, immunityCounts    
+        global cases, immunityCounts
         dying_hosts = np.random.choice(host_pop, p=get_weights_by_age(host_pop), size=num_deaths, replace=False)
         for h in dying_hosts:
             if h.isInfected():
@@ -696,30 +792,7 @@ def main(defaults=None, vb=0):
             with open(vaccine_output_filename, "a", newline='') as outputfile:
                 writer = csv.writer(outputfile)
                 writer.writerows(collected_vaccination_data)
-    
-    
-    def solve_quadratic(a, b, c):
-        discriminant = b**2 - 4*a*c
-        if discriminant >= 0:
-            root1 = (-b + discriminant**0.5) / (2*a)
-            root2 = (-b - discriminant**0.5) / (2*a)
-            return tuple(sorted([root1, root2]))
-        else:
-            return "No real roots"
         
-    def breakdown_vaccine_efficacy(ve, x):
-        (r1, r2) = solve_quadratic(x, -(1+x), ve)
-        print(r1, r2)
-        if r1 >= 0 and r1 <= 1:
-            ve_s = r1
-        elif r2 >= 0 and r2 <= 1:
-            ve_s = r2
-        else:
-            print("No valid solution to the equation: x: %d, ve: %d. Solutions: %f %f" % (x, ve, r1, r2))
-            exit(-1)
-        ve_i = x * ve_s
-        return (ve_i, ve_s)
-    
     def get_probability_of_severe(pathogen_in, vaccine, immunity_count):
         if immunity_count >= 3:
             severity_probability = 0.18
@@ -748,19 +821,11 @@ def main(defaults=None, vb=0):
             return severity_probability
         
     
-    ########## Set Parameters ##########
-    N = 2000  # population size
-    mu = 1.0/70.0     # average life span is 70 years
-    gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
-    omega = 365/273  # duration of immunity by infection= 39 weeks
-    birth_rate = mu * 4
     
-    cont = 365/1     # assumption
-    timelimit = 10  #### 50 years 
-    initialInfecteds = 10        ### for each strain infect initialInfecteds (with 2)
+    done_vaccinated = False
     
     reassortmentRate_GP = reassortment_rate
-    
+
     if immunity_hypothesis == 1 or immunity_hypothesis == 4 or immunity_hypothesis == 5:
         partialCrossImmunityRate = 0
     elif immunity_hypothesis == 2 :
@@ -771,61 +836,6 @@ def main(defaults=None, vb=0):
         print("No partial cross immunity rate for immunity hypothesis: ", immunity_hypothesis)
         exit(-1) 
     
-    done_vaccinated = False
-    vaccination_time =  6
-    ve_i_to_ve_s_ratio = 0.5
-    
-    # Effectiveness of the vaccine first dose
-    vaccine_efficacy_d1 = {
-        PathogenMatch.HOMOTYPIC: 0.6,
-        PathogenMatch.PARTIAL_HETERO: 0.45,
-        PathogenMatch.COMPLETE_HETERO:0.15,
-    }
-    # Effectiveness of the vaccine second dose
-    vaccine_efficacy_d2 = {
-        PathogenMatch.HOMOTYPIC: 0.8,
-        PathogenMatch.PARTIAL_HETERO: 0.65,
-        PathogenMatch.COMPLETE_HETERO:0.35,
-    }
-    
-    vaccine_efficacy_i_d1 = {}
-    vaccine_efficacy_s_d1 = {}
-    vaccine_efficacy_i_d2 = {}
-    vaccine_efficacy_s_d2 = {}
-    for (k, v) in vaccine_efficacy_d1.items():
-        (ve_i, ve_s) = breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
-        vaccine_efficacy_i_d1[k] = ve_i
-        vaccine_efficacy_s_d1[k] = ve_s
-    for (k, v) in vaccine_efficacy_d2.items():
-        (ve_i, ve_s) = breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
-        vaccine_efficacy_i_d2[k] = ve_i
-        vaccine_efficacy_s_d2[k] = ve_s
-    
-    print("VE_i: ", vaccine_efficacy_i_d1)
-    print("VE_s: ", vaccine_efficacy_s_d1)
-    
-    # Vaccination rates are derived based on the following formula
-    vaccine_second_dose_rate = 0.8
-    vaccine_first_dose_rate = math.sqrt(vaccine_second_dose_rate)
-    print("Vaccination - first dose rate: %s, second dose rate %s" % (vaccine_first_dose_rate, vaccine_second_dose_rate))
-    
-    vacinnation_single_dose_waning_rate = 365/273 #365/1273
-    vacinnation_double_dose_waning_rate = 365/546 #365/2600
-    # vacinnation_waning_lower_bound = 20 * 7 / 365.0
-    
-    total_strain_counts_vaccine = {}
-    
-    ### Tau leap parametes
-    tau = 1/365.0
-    
-    numSegments = 4
-    numNoneAgSegments = 2
-    numAgSegments = numSegments - numNoneAgSegments
-    segmentVariants = [[i for i in range(1, 5)], [i for i in range(1, 5)], [i for i in range(1, 3)], [i for i in range(1, 3)]]     ## creating variats for the segments
-    segmentCombinations = [tuple(i) for i in itertools.product(*segmentVariants)]  # getting all possible combinations from a list of list
-    initialSegmentCombinations = [(1,1,1,1), (2,2,1,1), (3,3,1,1), (4,4,1,1)] #, (4,1,1,1)] #[(1,1,1,1), (2,2,1,1), (1,2,1,1), (2,1,1,1)]
-    rnd.shuffle(segmentCombinations)
-    number_all_strains = len(segmentCombinations)
     
     # Track the number of cases(infected) and the number of immune hosts(immunityCounts) in the host population
     cases = 0
