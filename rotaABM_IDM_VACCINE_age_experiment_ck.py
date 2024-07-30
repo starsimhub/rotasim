@@ -72,6 +72,209 @@ def initialize_files(strainCount):
         write = csv.writer(outputfile)
         write.writerow(["time"] + list(host.age_labels))    
 
+
+
+##### Define pathogens
+
+class PathogenMatch(Enum):
+    COMPLETE_HETERO = 1
+    PARTIAL_HETERO = 2
+    HOMOTYPIC = 3
+    
+
+
+############## class Pathogen ###########################
+class pathogen(object): 
+    def __init__(self, is_reassortant, creation_time, is_severe=False, host=None, strain=None): 
+        self.host = host
+        self.creation_time = creation_time
+        self.is_reassortant = is_reassortant
+        self.strain = strain
+        self.is_severe = is_severe
+
+    def death(self):
+        pathogens_pop.remove(self)
+
+    def match(self, strainIn):
+        if strainIn[:numAgSegments] == self.strain[:numAgSegments]:
+            return PathogenMatch.HOMOTYPIC
+        
+        strains_match = False
+        for i in range(numAgSegments):
+            if strainIn[i] == self.strain[i]:
+                strains_match = True
+
+        if strains_match:
+            return PathogenMatch.PARTIAL_HETERO
+        else:
+            return PathogenMatch.COMPLETE_HETERO
+            
+    def getFitness(self):
+        if fitness_hypothesis == 1:
+            return 1
+        elif fitness_hypothesis == 2:
+            if self.strain[0] == 1 and self.strain[1] == 1:
+                return 0.93
+            elif self.strain[0] == 2 and self.strain[1] == 2:
+                return 0.93
+            elif self.strain[0] == 3 and self.strain[1] == 3:
+                return 0.93
+            elif self.strain[0] == 4 and self.strain[1] == 4:
+                return 0.93
+            else:
+                return 0.85 
+        elif fitness_hypothesis == 3:
+            if self.strain[0] == 1 and self.strain[1] == 1:
+                return 1
+            elif self.strain[0] == 2 and self.strain[1] == 2:
+                return 0.8
+            else:
+                return 0.5 
+        else:
+            print("Invalid fitness_hypothesis: ", fitness_hypothesis)
+            exit(-1)
+        
+    def get_strain_name(self):
+        return "G" + str(self.strain[0]) + "P" + str(self.strain[1]) + "A" + str(self.strain[2]) + "B" + str(self.strain[3])
+
+
+
+
+########## Set Parameters ##########
+N = 2000  # population size
+mu = 1.0/70.0     # average life span is 70 years
+gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
+omega = 365/273  # duration of immunity by infection= 39 weeks
+birth_rate = mu * 4
+
+cont = 365/1     # assumption
+timelimit = 20  #### 50 years 
+initialInfecteds = 10        ### for each strain infect initialInfecteds (with 2)
+
+reassortmentRate_GP = reassortment_rate
+
+if immunity_hypothesis == 1 or immunity_hypothesis == 4 or immunity_hypothesis == 5:
+    partialCrossImmunityRate = 0
+elif immunity_hypothesis == 2 :
+    partialCrossImmunityRate = 1
+elif immunity_hypothesis == 3:
+    partialCrossImmunityRate = 0.5
+else:
+    print("No partial cross immunity rate for immunity hypothesis: ", immunity_hypothesis)
+    exit(-1) 
+
+done_vaccinated = False
+vaccination_time =  6
+ve_i_to_ve_s_ratio = 0.5
+
+# Effectiveness of the vaccine first dose
+vaccine_efficacy_d1 = {
+    PathogenMatch.HOMOTYPIC: 0.6,
+    PathogenMatch.PARTIAL_HETERO: 0.45,
+    PathogenMatch.COMPLETE_HETERO:0.15,
+}
+# Effectiveness of the vaccine second dose
+vaccine_efficacy_d2 = {
+    PathogenMatch.HOMOTYPIC: 0.8,
+    PathogenMatch.PARTIAL_HETERO: 0.65,
+    PathogenMatch.COMPLETE_HETERO:0.35,
+}
+
+vaccine_efficacy_i_d1 = {}
+vaccine_efficacy_s_d1 = {}
+vaccine_efficacy_i_d2 = {}
+vaccine_efficacy_s_d2 = {}
+for (k, v) in vaccine_efficacy_d1.items():
+    (ve_i, ve_s) = breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
+    vaccine_efficacy_i_d1[k] = ve_i
+    vaccine_efficacy_s_d1[k] = ve_s
+for (k, v) in vaccine_efficacy_d2.items():
+    (ve_i, ve_s) = breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
+    vaccine_efficacy_i_d2[k] = ve_i
+    vaccine_efficacy_s_d2[k] = ve_s
+
+print("VE_i: ", vaccine_efficacy_i_d1)
+print("VE_s: ", vaccine_efficacy_s_d1)
+
+# Vaccination rates are derived based on the following formula
+vaccine_second_dose_rate = 0.8
+vaccine_first_dose_rate = math.sqrt(vaccine_second_dose_rate)
+print("Vaccination - first dose rate: %s, second dose rate %s" % (vaccine_first_dose_rate, vaccine_second_dose_rate))
+
+vacinnation_single_dose_waning_rate = 365/273 #365/1273
+vacinnation_double_dose_waning_rate = 365/546 #365/2600
+# vacinnation_waning_lower_bound = 20 * 7 / 365.0
+
+total_strain_counts_vaccine = {}
+
+### Tau leap parametes
+tau = 1/365.0
+
+numSegments = 4
+numNoneAgSegments = 2
+numAgSegments = numSegments - numNoneAgSegments
+segmentVariants = [[i for i in range(1, 5)], [i for i in range(1, 5)], [i for i in range(1, 3)], [i for i in range(1, 3)]]     ## creating variats for the segments
+segmentCombinations = [tuple(i) for i in itertools.product(*segmentVariants)]  # getting all possible combinations from a list of list
+initialSegmentCombinations = [(1,1,1,1), (2,2,1,1), (3,3,1,1), (4,4,1,1)] #, (4,1,1,1)] #[(1,1,1,1), (2,2,1,1), (1,2,1,1), (2,1,1,1)]
+rnd.shuffle(segmentCombinations)
+number_all_strains = len(segmentCombinations)
+
+# Track the number of cases(infected) and the number of immune hosts(immunityCounts) in the host population
+cases = 0
+immunityCounts = 0
+ReassortmentCount = 0
+pop_id = 0
+
+infected_pop = []
+pathogens_pop = []
+#pathogen_diver = defaultdict(int)
+
+# for each strain track the number of hosts infected with it at current time: strainCount  
+strainCount = {}   # a defaultdict eliminates the need to check if a key exist in the the dictionary
+
+# reset simulation time for each replicate
+t = 0.0
+
+host_pop = [host(i) for i in range(N)]   # for each number in range of N, make a new Host object-> line37, i is the id.
+pop_id = N
+to_be_vaccinated_pop = [] 
+single_dose_vaccinated_pop = []
+
+for i in range(number_all_strains):
+    strainCount[segmentCombinations[i]] = 0
+
+### infecting the initial infecteds
+for initial_strain in initialSegmentCombinations:             
+    for j in range(initialInfecteds):                     
+        h = rnd.choice(host_pop)
+        if not h.isInfected():
+            cases+=1
+            infected_pop.append(h) 
+        p = pathogen(False, t, host = h, strain = initial_strain)
+        pathogens_pop.append(p)
+        h.infecting_pathogen.append(p)
+        strainCount[p.strain] += 1                       # count the strain of each strain. e.g. if p.strain contains strain1, then add 1 to strainCount of strain1
+print(strainCount)
+
+initialize_files(strainCount)   
+
+tau_steps = 0
+t0 = time.time() # for us to track the time it takes to run the simulation
+last_data_colllected = 0
+data_collection_rate = 0.1
+
+for strain, count in strainCount.items():
+    if strain[:numAgSegments] in total_strain_counts_vaccine:
+        total_strain_counts_vaccine[strain[:numAgSegments]] += count
+    else:
+        total_strain_counts_vaccine[strain[:numAgSegments]] = count
+
+
+
+
+
+
+
 ############## Class Host ###########################
 class host(object): ## host class
     # Define age bins and labels
@@ -344,64 +547,9 @@ class host(object): ## host class
     def infect_with_reassortant(self, reassortant_virus):
         self.infecting_pathogen.append(reassortant_virus)
 
-class PathogenMatch(Enum):
-    COMPLETE_HETERO = 1
-    PARTIAL_HETERO = 2
-    HOMOTYPIC = 3
 
-############## class Pathogen ###########################
-class pathogen(object): 
-    def __init__(self, is_reassortant, creation_time, is_severe=False, host=None, strain=None): 
-        self.host = host
-        self.creation_time = creation_time
-        self.is_reassortant = is_reassortant
-        self.strain = strain
-        self.is_severe = is_severe
 
-    def death(self):
-        pathogens_pop.remove(self)
 
-    def match(self, strainIn):
-        if strainIn[:numAgSegments] == self.strain[:numAgSegments]:
-            return PathogenMatch.HOMOTYPIC
-        
-        strains_match = False
-        for i in range(numAgSegments):
-            if strainIn[i] == self.strain[i]:
-                strains_match = True
-
-        if strains_match:
-            return PathogenMatch.PARTIAL_HETERO
-        else:
-            return PathogenMatch.COMPLETE_HETERO
-            
-    def getFitness(self):
-        if fitness_hypothesis == 1:
-            return 1
-        elif fitness_hypothesis == 2:
-            if self.strain[0] == 1 and self.strain[1] == 1:
-                return 0.93
-            elif self.strain[0] == 2 and self.strain[1] == 2:
-                return 0.93
-            elif self.strain[0] == 3 and self.strain[1] == 3:
-                return 0.93
-            elif self.strain[0] == 4 and self.strain[1] == 4:
-                return 0.93
-            else:
-                return 0.85 
-        elif fitness_hypothesis == 3:
-            if self.strain[0] == 1 and self.strain[1] == 1:
-                return 1
-            elif self.strain[0] == 2 and self.strain[1] == 2:
-                return 0.8
-            else:
-                return 0.5 
-        else:
-            print("Invalid fitness_hypothesis: ", fitness_hypothesis)
-            exit(-1)
-        
-    def get_strain_name(self):
-        return "G" + str(self.strain[0]) + "P" + str(self.strain[1]) + "A" + str(self.strain[2]) + "B" + str(self.strain[3])
 
 ############# tau-Function to calculate event counts ############################
 def get_event_counts(N,I,R, tau, RR_GP, single_dose_count, double_dose_count): 
@@ -743,234 +891,111 @@ def get_probability_of_severe(pathogen_in, vaccine, immunity_count):
         return severity_probability * (1-ve_s)
     else:
         return severity_probability
-
-
-########## Set Parameters ##########
-N = 1_000  # population size
-mu = 1.0/70.0     # average life span is 70 years
-gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
-omega = 365/273  # duration of immunity by infection= 39 weeks
-birth_rate = mu * 4
-
-cont = 365/1     # assumption
-timelimit = 20  #### 50 years 
-initialInfecteds = 10        ### for each strain infect initialInfecteds (with 2)
-
-reassortmentRate_GP = reassortment_rate
-
-if immunity_hypothesis == 1 or immunity_hypothesis == 4 or immunity_hypothesis == 5:
-    partialCrossImmunityRate = 0
-elif immunity_hypothesis == 2 :
-    partialCrossImmunityRate = 1
-elif immunity_hypothesis == 3:
-    partialCrossImmunityRate = 0.5
-else:
-    print("No partial cross immunity rate for immunity hypothesis: ", immunity_hypothesis)
-    exit(-1) 
-
-done_vaccinated = False
-vaccination_time =  6
-ve_i_to_ve_s_ratio = 0.5
-
-# Effectiveness of the vaccine first dose
-vaccine_efficacy_d1 = {
-    PathogenMatch.HOMOTYPIC: 0.6,
-    PathogenMatch.PARTIAL_HETERO: 0.45,
-    PathogenMatch.COMPLETE_HETERO:0.15,
-}
-# Effectiveness of the vaccine second dose
-vaccine_efficacy_d2 = {
-    PathogenMatch.HOMOTYPIC: 0.8,
-    PathogenMatch.PARTIAL_HETERO: 0.65,
-    PathogenMatch.COMPLETE_HETERO:0.35,
-}
-
-vaccine_efficacy_i_d1 = {}
-vaccine_efficacy_s_d1 = {}
-vaccine_efficacy_i_d2 = {}
-vaccine_efficacy_s_d2 = {}
-for (k, v) in vaccine_efficacy_d1.items():
-    (ve_i, ve_s) = breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
-    vaccine_efficacy_i_d1[k] = ve_i
-    vaccine_efficacy_s_d1[k] = ve_s
-for (k, v) in vaccine_efficacy_d2.items():
-    (ve_i, ve_s) = breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
-    vaccine_efficacy_i_d2[k] = ve_i
-    vaccine_efficacy_s_d2[k] = ve_s
-
-print("VE_i: ", vaccine_efficacy_i_d1)
-print("VE_s: ", vaccine_efficacy_s_d1)
-
-# Vaccination rates are derived based on the following formula
-vaccine_second_dose_rate = 0.8
-vaccine_first_dose_rate = math.sqrt(vaccine_second_dose_rate)
-print("Vaccination - first dose rate: %s, second dose rate %s" % (vaccine_first_dose_rate, vaccine_second_dose_rate))
-
-vacinnation_single_dose_waning_rate = 365/273 #365/1273
-vacinnation_double_dose_waning_rate = 365/546 #365/2600
-# vacinnation_waning_lower_bound = 20 * 7 / 365.0
-
-total_strain_counts_vaccine = {}
-
-### Tau leap parametes
-tau = 1/365.0
-
-numSegments = 4
-numNoneAgSegments = 2
-numAgSegments = numSegments - numNoneAgSegments
-segmentVariants = [[i for i in range(1, 5)], [i for i in range(1, 5)], [i for i in range(1, 3)], [i for i in range(1, 3)]]     ## creating variats for the segments
-segmentCombinations = [tuple(i) for i in itertools.product(*segmentVariants)]  # getting all possible combinations from a list of list
-initialSegmentCombinations = [(1,1,1,1), (2,2,1,1), (3,3,1,1), (4,4,1,1)] #, (4,1,1,1)] #[(1,1,1,1), (2,2,1,1), (1,2,1,1), (2,1,1,1)]
-rnd.shuffle(segmentCombinations)
-number_all_strains = len(segmentCombinations)
-
-# Track the number of cases(infected) and the number of immune hosts(immunityCounts) in the host population
-cases = 0
-immunityCounts = 0
-ReassortmentCount = 0
-pop_id = 0
-
-infected_pop = []
-pathogens_pop = []
-#pathogen_diver = defaultdict(int)
-
-# for each strain track the number of hosts infected with it at current time: strainCount  
-strainCount = {}   # a defaultdict eliminates the need to check if a key exist in the the dictionary
-
-# reset simulation time for each replicate
-t = 0.0
-
-host_pop = [host(i) for i in range(N)]   # for each number in range of N, make a new Host object-> line37, i is the id.
-pop_id = N
-to_be_vaccinated_pop = [] 
-single_dose_vaccinated_pop = []
-
-for i in range(number_all_strains):
-    strainCount[segmentCombinations[i]] = 0
-
-### infecting the initial infecteds
-for initial_strain in initialSegmentCombinations:             
-    for j in range(initialInfecteds):                     
-        h = rnd.choice(host_pop)
-        if not h.isInfected():
-            cases+=1
-            infected_pop.append(h) 
-        p = pathogen(False, t, host = h, strain = initial_strain)
-        pathogens_pop.append(p)
-        h.infecting_pathogen.append(p)
-        strainCount[p.strain] += 1                       # count the strain of each strain. e.g. if p.strain contains strain1, then add 1 to strainCount of strain1
-print(strainCount)
-
-initialize_files(strainCount)   
-
-tau_steps = 0
-t0 = time.time() # for us to track the time it takes to run the simulation
-last_data_colllected = 0
-data_collection_rate = 0.1
-
-for strain, count in strainCount.items():
-    if strain[:numAgSegments] in total_strain_counts_vaccine:
-        total_strain_counts_vaccine[strain[:numAgSegments]] += count
-    else:
-        total_strain_counts_vaccine[strain[:numAgSegments]] = count
-
-########## run simulation ##########
-while t<timelimit:
-    if tau_steps % 10 == 0:
-        print("Current time: %f (Number of steps = %d)" % (t, tau_steps))
-        print(strainCount)
-
-    ### Every 100 steps, write the age distribution of the population to a file
-    if tau_steps % 100 == 0:
-        age_dict = {}
-        for age_range in host.age_labels:
-            age_dict[age_range] = 0
-        for h in host_pop:
-            age_dict[h.get_age_category()] += 1
-        print("Ages: ", age_dict)
-        with open(age_outputfilename, "a", newline='') as outputfile:
-            write = csv.writer(outputfile)
-            write.writerow(["{:.2}".format(t)] + list(age_dict.values()))
     
-    # Count the number of hosts with 1 or 2 vaccinations
-    single_dose_hosts = []
-    double_dose_hosts = []
-    for h in host_pop:
-        if h.vaccine is not None:
-            if h.vaccine[2] == 1:
-                single_dose_hosts.append(h)
-            elif h.vaccine[2] == 2:
-                double_dose_hosts.append(h)
-
-    # Get the number of events in a single tau step
-    births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = get_event_counts(len(host_pop), cases, immunityCounts, tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
-    print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
-
-    # perform the events for the obtained counts
-    birth_events(births, host_pop)
-    reassortment_event(infected_pop, reassortments) # calling the function
-    for _ in range(contacts):
-        contact_event(infected_pop, host_pop, strainCount)
-    death_event(deaths, infected_pop, host_pop, strainCount)
-    recovery_event(recoveries, infected_pop, strainCount)    
-    waning_event(host_pop, wanings)
-    waning_vaccinations_first_dose(single_dose_hosts, vaccine_dose_1_wanings)
-    waning_vaccinations_second_dose(double_dose_hosts, vaccine_dose_2_wanings)
     
-    # Collect the total counts of strains at each time step to determine the most prevalent strain for vaccination
-    if not done_vaccinated:
-        for strain, count in strainCount.items():
-            total_strain_counts_vaccine[strain[:numAgSegments]] += count
+def run():
     
-    # Administer the first dose of the vaccine
-    # Vaccination strain is the most prevalent strain in the population before the vaccination starts
-    if vaccine_hypothesis!=0 and (not done_vaccinated) and t >= vaccination_time:
-        # Sort the strains by the number of hosts infected with it in the past
-        # Pick the last one from the sorted list as the most prevalent strain
-        vaccinated_strain = sorted(list(total_strain_counts_vaccine.keys()), key=lambda x: total_strain_counts_vaccine[x])[-1]
-        # Select hosts under 6 weeks of age for vaccinate
-        child_host_pop = [h for h in host_pop if t - h.bday <= 0.13 and t - h.bday >= 0.09]
-        # Use the vaccination rate to determine the number of hosts to vaccinate
-        vaccination_count = int(len(child_host_pop)*vaccine_first_dose_rate)            
-        sample_population = rnd.sample(child_host_pop, vaccination_count)
-        print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
-        print("Number of people vaccinated: {} NUmber of people under 6 weeks: {}".format(len(sample_population), len(child_host_pop)))
-        for h in sample_population:
-            h.vaccinate(vaccinated_strain)
-            single_dose_vaccinated_pop.append(h)
-        done_vaccinated = True
-    elif done_vaccinated:
-        for child in to_be_vaccinated_pop:
-            if t - child.bday >= 0.11:
-                child.vaccinate(vaccinated_strain)
-                to_be_vaccinated_pop.remove(child)
-                single_dose_vaccinated_pop.append(child)
-
-    # Administer the second dose of the vaccine if first dose has already been administered.
-    # The second dose is administered 6 weeks after the first dose with probability vaccine_second_dose_rate
-    if done_vaccinated:
-        while len(single_dose_vaccinated_pop) > 0:
-            # If the first dose of the vaccine is older than 6 weeks then administer the second dose
-            if t - single_dose_vaccinated_pop[0].vaccine[1] >= 0.11:
-                child = single_dose_vaccinated_pop.pop(0)
-                if rnd.random() < vaccine_second_dose_rate:
-                    child.vaccinate(vaccinated_strain)
-            else:
-                break
-
-    if t >= last_data_colllected:
-        collect_and_write_data(host_pop, sample_outputfilename, vaccinations_outputfilename, sample_vaccine_efficacy_output_filename, sample=True)
-        collect_and_write_data(host_pop, infected_all_outputfilename, vaccinations_outputfilename, vaccine_efficacy_output_filename, sample=False)
-        last_data_colllected += data_collection_rate
+    ########## run simulation ##########
+    while t<timelimit:
+        if tau_steps % 10 == 0:
+            print("Current time: %f (Number of steps = %d)" % (t, tau_steps))
+            print(strainCount)
+    
+        ### Every 100 steps, write the age distribution of the population to a file
+        if tau_steps % 100 == 0:
+            age_dict = {}
+            for age_range in host.age_labels:
+                age_dict[age_range] = 0
+            for h in host_pop:
+                age_dict[h.get_age_category()] += 1
+            print("Ages: ", age_dict)
+            with open(age_outputfilename, "a", newline='') as outputfile:
+                write = csv.writer(outputfile)
+                write.writerow(["{:.2}".format(t)] + list(age_dict.values()))
         
-    with open(outputfilename, "a", newline='') as outputfile:
-        write = csv.writer(outputfile)
-        write.writerow([t] + list(strainCount.values()) + [ReassortmentCount])
+        # Count the number of hosts with 1 or 2 vaccinations
+        single_dose_hosts = []
+        double_dose_hosts = []
+        for h in host_pop:
+            if h.vaccine is not None:
+                if h.vaccine[2] == 1:
+                    single_dose_hosts.append(h)
+                elif h.vaccine[2] == 2:
+                    double_dose_hosts.append(h)
+    
+        # Get the number of events in a single tau step
+        births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = get_event_counts(len(host_pop), cases, immunityCounts, tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
+        print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
+    
+        # perform the events for the obtained counts
+        birth_events(births, host_pop)
+        reassortment_event(infected_pop, reassortments) # calling the function
+        for _ in range(contacts):
+            contact_event(infected_pop, host_pop, strainCount)
+        death_event(deaths, infected_pop, host_pop, strainCount)
+        recovery_event(recoveries, infected_pop, strainCount)    
+        waning_event(host_pop, wanings)
+        waning_vaccinations_first_dose(single_dose_hosts, vaccine_dose_1_wanings)
+        waning_vaccinations_second_dose(double_dose_hosts, vaccine_dose_2_wanings)
+        
+        # Collect the total counts of strains at each time step to determine the most prevalent strain for vaccination
+        if not done_vaccinated:
+            for strain, count in strainCount.items():
+                total_strain_counts_vaccine[strain[:numAgSegments]] += count
+        
+        # Administer the first dose of the vaccine
+        # Vaccination strain is the most prevalent strain in the population before the vaccination starts
+        if vaccine_hypothesis!=0 and (not done_vaccinated) and t >= vaccination_time:
+            # Sort the strains by the number of hosts infected with it in the past
+            # Pick the last one from the sorted list as the most prevalent strain
+            vaccinated_strain = sorted(list(total_strain_counts_vaccine.keys()), key=lambda x: total_strain_counts_vaccine[x])[-1]
+            # Select hosts under 6 weeks of age for vaccinate
+            child_host_pop = [h for h in host_pop if t - h.bday <= 0.13 and t - h.bday >= 0.09]
+            # Use the vaccination rate to determine the number of hosts to vaccinate
+            vaccination_count = int(len(child_host_pop)*vaccine_first_dose_rate)            
+            sample_population = rnd.sample(child_host_pop, vaccination_count)
+            print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
+            print("Number of people vaccinated: {} NUmber of people under 6 weeks: {}".format(len(sample_population), len(child_host_pop)))
+            for h in sample_population:
+                h.vaccinate(vaccinated_strain)
+                single_dose_vaccinated_pop.append(h)
+            done_vaccinated = True
+        elif done_vaccinated:
+            for child in to_be_vaccinated_pop:
+                if t - child.bday >= 0.11:
+                    child.vaccinate(vaccinated_strain)
+                    to_be_vaccinated_pop.remove(child)
+                    single_dose_vaccinated_pop.append(child)
+    
+        # Administer the second dose of the vaccine if first dose has already been administered.
+        # The second dose is administered 6 weeks after the first dose with probability vaccine_second_dose_rate
+        if done_vaccinated:
+            while len(single_dose_vaccinated_pop) > 0:
+                # If the first dose of the vaccine is older than 6 weeks then administer the second dose
+                if t - single_dose_vaccinated_pop[0].vaccine[1] >= 0.11:
+                    child = single_dose_vaccinated_pop.pop(0)
+                    if rnd.random() < vaccine_second_dose_rate:
+                        child.vaccinate(vaccinated_strain)
+                else:
+                    break
+    
+        if t >= last_data_colllected:
+            collect_and_write_data(host_pop, sample_outputfilename, vaccinations_outputfilename, sample_vaccine_efficacy_output_filename, sample=True)
+            collect_and_write_data(host_pop, infected_all_outputfilename, vaccinations_outputfilename, vaccine_efficacy_output_filename, sample=False)
+            last_data_colllected += data_collection_rate
+            
+        with open(outputfilename, "a", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow([t] + list(strainCount.values()) + [ReassortmentCount])
+    
+        tau_steps += 1
+        t+=tau
+    
+    t1 = time.time()
+    total_time = t1-t0
+    print("Time to run experiment: ", total_time)
+    
 
-    tau_steps += 1
-    t+=tau
-
-t1 = time.time()
-total_time = t1-t0
-print("Time to run experiment: ", total_time)
+if __name__ == '__main__': 
+    run()
 
