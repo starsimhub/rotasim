@@ -20,7 +20,10 @@ def test_default(make=False):
         
     # Check old baseline
     else:
+        T = sc.timer()
         events = rota.main()
+        T.toc()
+        sc.savejson('test_performance.json', dict(time=f'{T.elapsed:0.1f}'))
         saved = sc.objdict(sc.loadjson(filename))
         assert events == saved, 'Events do not match for default simulation'
         print(f'Defaults matched:\n{events}')
