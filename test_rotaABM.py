@@ -46,7 +46,7 @@ def test_alt(make=False):
         
     # Check old baseline
     else:
-        events = rota.main()
+        events = rota.main(inputs)
         saved = sc.objdict(sc.loadjson(filename))
         assert events == saved, 'Events do not match for alternate parameters simulation'
         print(f'Alternate parameters matched:\n{events}')
@@ -55,6 +55,6 @@ def test_alt(make=False):
 
 
 if __name__ == '__main__':
-    make = True # Set to True to regenerate results
+    make = False # Set to True to regenerate results
     test_default(make=make)
     test_alt(make=make)
