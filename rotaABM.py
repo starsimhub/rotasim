@@ -550,6 +550,7 @@ def main(defaults=None, vb=0):
         # immunity_sort_inds = np.argsort(ages)[::-1]
         # immunity_sort_inds = immunity_sort_inds[:wanings]
         hosts_with_immunity = sorted([h for h in host_pop if h.isImmune()], key = lambda x: (x.get_oldest_infection(), rnd.random()), reverse=True)
+        # hosts_with_immunity = sorted([h for h in host_pop if h.isImmune()], key = lambda x: x.get_oldest_infection(), reverse=True)
     
         # For the selcted hosts set the immunity to be None
         for i in range(min(len(hosts_with_immunity), wanings)):
