@@ -40,7 +40,7 @@ def main(defaults=None, vb=0):
     now = datetime.now() # current date and time
     date_time = now.strftime("%m_%d_%Y_%H_%M")
     print("date and time:", date_time)
-    myseed = int(datetime.now().timestamp())
+    myseed = experimentNumber #int(datetime.now().timestamp())
     rnd.seed(myseed)
     np.random.seed(myseed)
     
