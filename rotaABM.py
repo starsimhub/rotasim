@@ -9,7 +9,6 @@ from enum import Enum
 import sys
 import math
 import sciris as sc
-import numba as nb
 
 
 def main(defaults=None, vb=0):
