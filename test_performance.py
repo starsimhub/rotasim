@@ -18,5 +18,23 @@ def update_performance():
     return
 
 
+def profile():
+    sc.heading('Running sc.profile')
+    prf = sc.profile(rota.main)
+    return prf
+
+
+def cprofile():
+    sc.heading('Running sc.cprofile')
+    with sc.cprofile() as cpr:
+        rota.main()
+    return cpr
+
+
 if __name__ == '__main__':
-    update_performance()
+    do_profile = 1
+    if not do_profile:
+        update_performance()
+    else:
+        prf = profile()
+        cpr = cprofile()

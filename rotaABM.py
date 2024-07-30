@@ -100,6 +100,7 @@ def main(defaults=None, vb=0):
             self.infections_with_vaccination = []
             self.infections_without_vaccination = []
             self.oldest_infection = None
+            self.is_immune = False
     
         def get_random_age():
             # pick a age bin
@@ -170,13 +171,16 @@ def main(defaults=None, vb=0):
                     creation_times.add(path.creation_time)
                     self.immunity[path.strain] = t   
                     self.oldest_infection = min(self.immunity.values())
+                    self.is_immune = True
             self.immunityCount += len(creation_times)
             self.infecting_pathogen = []                  
             self.possibleCombinations = []
             
         
         def isImmune(self):
-            return len(self.immunity) != 0
+            # assert (len(self.immunity) != 0) == self.is_immune
+            return self.is_immune
+            # return len(self.immunity) != 0
         
         def vaccinate(self, vaccinated_strain):
             if len(self.prior_vaccinations) == 0:
@@ -555,6 +559,7 @@ def main(defaults=None, vb=0):
         #     h = host_pop[ind]
             #for path in h.infecting_pathogens:
             h.immunity =  {}
+            h.is_immune = False
             h.immunityCount = 0
             immunityCounts -= 1
     
