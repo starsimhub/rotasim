@@ -31,13 +31,13 @@ def profile():
 def cprofile():
     sc.heading('Running sc.cprofile')
     with sc.cprofile() as cpr:
-        rota.main()
+        rota.main(verbose=False)
     return cpr
 
 
 if __name__ == '__main__':
     save = 0
-    do_profile = 0
+    do_profile = 1
     if not do_profile:
         update_performance(save=save)
     else:

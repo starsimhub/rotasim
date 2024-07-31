@@ -11,7 +11,14 @@ import math
 import sciris as sc
 
 
-def main(defaults=None, vb=0):
+def main(defaults=None, verbose=None):
+    """
+    The main script used to run the simulation.
+    
+    Args:
+        defaults (list): a list of parameters matching the command-line inputs; see below
+        verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
+    """
 
     global cases, immunityCounts  
     global pop_id
@@ -26,7 +33,7 @@ def main(defaults=None, vb=0):
             1,   # vaccine_hypothesis
             1,   # experimentNumber
         ]
-    print(args)
+    if verbose is not False: print(args)
     if len(args) < 6:
         args = args + defaults[len(args):]
         
@@ -39,8 +46,8 @@ def main(defaults=None, vb=0):
     
     now = datetime.now() # current date and time
     date_time = now.strftime("%m_%d_%Y_%H_%M")
-    print("date and time:", date_time)
-    myseed = experimentNumber #int(datetime.now().timestamp())
+    if verbose is not False: print("date and time:", date_time)
+    myseed = experimentNumber # Was int(datetime.now().timestamp())
     rnd.seed(myseed)
     np.random.seed(myseed)
     
@@ -176,11 +183,6 @@ def main(defaults=None, vb=0):
             self.infecting_pathogen = []                  
             self.possibleCombinations = []
             
-        
-        def isImmune(self):
-            # assert (len(self.immunity) != 0) == self.is_immune
-            return self.is_immune
-            # return len(self.immunity) != 0
         
         def vaccinate(self, vaccinated_strain):
             if len(self.prior_vaccinations) == 0:
@@ -503,7 +505,7 @@ def main(defaults=None, vb=0):
                 for path in h.infecting_pathogen:
                     if not path.is_reassortant:
                         strainCount[path.strain] -= 1
-            if h.isImmune():
+            if h.is_immune:
                 immunityCounts -= 1
             host_pop.remove(h)
     
@@ -520,7 +522,7 @@ def main(defaults=None, vb=0):
     
         recovering_hosts = np.random.choice(infected_pop, p=weights, size=num_recovered, replace=False)
         for host in recovering_hosts:
-            if not host.isImmune():
+            if not host.is_immune:
                 immunityCounts +=1 
             host.recover(strainCount)
             cases-=1
@@ -548,8 +550,8 @@ def main(defaults=None, vb=0):
         age_tiebreak = lambda x: (x.get_oldest_infection(), rnd.random())
         hosts_with_immunity = sorted(h_immune, key=age_tiebreak, reverse=True)
         
-        # Alternate implementation -- not faster
-        # immune_inds = sc.findinds([h.isImmune() for h in host_pop])
+        # Alternate implementation -- not faster, but left in as a placeholder 
+        # immune_inds = sc.findinds([h.is_immune for h in host_pop])
         # ages = np.array([host_pop[i].get_oldest_infection() for i in immune_inds])
         # ages += np.random.rand(len(ages))*1e-12 # Add noise to break ties
         # immunity_sort_inds = np.argsort(ages)[::-1]
@@ -564,9 +566,7 @@ def main(defaults=None, vb=0):
             immunityCounts -= 1
     
     def waning_vaccinations_first_dose(single_dose_pop, wanings):
-        # Get all the hosts in the population that has an vaccine immunity
-        # hosts_with_immunity = sorted([h for h in host_pop if len(h.vaccinations)>=1 and h.get_oldest_vaccination()>=vacinnation_waning_lower_bound], key = lambda x: (x.get_oldest_vaccination(), rnd.random()), reverse=True)
-    
+        """ Get all the hosts in the population that has an vaccine immunity """
         rnd.shuffle(single_dose_pop)
         # For the selcted hosts set the immunity to be None
         for i in range(min(len(single_dose_pop), wanings)):
@@ -726,7 +726,7 @@ def main(defaults=None, vb=0):
         
     def breakdown_vaccine_efficacy(ve, x):
         (r1, r2) = solve_quadratic(x, -(1+x), ve)
-        print(r1, r2)
+        if verbose: print(r1, r2)
         if r1 >= 0 and r1 <= 1:
             ve_s = r1
         elif r2 >= 0 and r2 <= 1:
@@ -818,13 +818,13 @@ def main(defaults=None, vb=0):
         vaccine_efficacy_i_d2[k] = ve_i
         vaccine_efficacy_s_d2[k] = ve_s
     
-    print("VE_i: ", vaccine_efficacy_i_d1)
-    print("VE_s: ", vaccine_efficacy_s_d1)
+    if verbose: print("VE_i: ", vaccine_efficacy_i_d1)
+    if verbose: print("VE_s: ", vaccine_efficacy_s_d1)
     
     # Vaccination rates are derived based on the following formula
     vaccine_second_dose_rate = 0.8
     vaccine_first_dose_rate = math.sqrt(vaccine_second_dose_rate)
-    print("Vaccination - first dose rate: %s, second dose rate %s" % (vaccine_first_dose_rate, vaccine_second_dose_rate))
+    if verbose: print("Vaccination - first dose rate: %s, second dose rate %s" % (vaccine_first_dose_rate, vaccine_second_dose_rate))
     
     vacinnation_single_dose_waning_rate = 365/273 #365/1273
     vacinnation_double_dose_waning_rate = 365/546 #365/2600
@@ -852,7 +852,6 @@ def main(defaults=None, vb=0):
     
     infected_pop = []
     pathogens_pop = []
-    #pathogen_diver = defaultdict(int)
     
     # for each strain track the number of hosts infected with it at current time: strainCount  
     strainCount = {}   # a defaultdict eliminates the need to check if a key exist in the the dictionary
@@ -879,7 +878,7 @@ def main(defaults=None, vb=0):
             pathogens_pop.append(p)
             h.infecting_pathogen.append(p)
             strainCount[p.strain] += 1                       # count the strain of each strain. e.g. if p.strain contains strain1, then add 1 to strainCount of strain1
-    print(strainCount)
+    if verbose: print(strainCount)
     
     initialize_files(strainCount)   
     
@@ -907,8 +906,8 @@ def main(defaults=None, vb=0):
     )
     while t<timelimit:
         if tau_steps % 10 == 0:
-            print("Current time: %f (Number of steps = %d)" % (t, tau_steps))
-            if vb: print(strainCount)
+            if verbose is not False: print("Current time: %f (Number of steps = %d)" % (t, tau_steps))
+            if verbose: print(strainCount)
     
         ### Every 100 steps, write the age distribution of the population to a file
         if tau_steps % 100 == 0:
@@ -917,7 +916,7 @@ def main(defaults=None, vb=0):
                 age_dict[age_range] = 0
             for h in host_pop:
                 age_dict[h.get_age_category()] += 1
-            if vb: print("Ages: ", age_dict)
+            if verbose: print("Ages: ", age_dict)
             with open(age_outputfilename, "a", newline='') as outputfile:
                 write = csv.writer(outputfile)
                 write.writerow(["{:.2}".format(t)] + list(age_dict.values()))
@@ -935,7 +934,7 @@ def main(defaults=None, vb=0):
         # Get the number of events in a single tau step
         events = get_event_counts(len(host_pop), cases, immunityCounts, tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
         births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = events
-        if vb: print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
+        if verbose: print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
     
         # Parse into dict
         event_dict[:] += events
@@ -967,8 +966,8 @@ def main(defaults=None, vb=0):
             # Use the vaccination rate to determine the number of hosts to vaccinate
             vaccination_count = int(len(child_host_pop)*vaccine_first_dose_rate)            
             sample_population = rnd.sample(child_host_pop, vaccination_count)
-            if vb: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
-            if vb: print("Number of people vaccinated: {} NUmber of people under 6 weeks: {}".format(len(sample_population), len(child_host_pop)))
+            if verbose: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
+            if verbose: print("Number of people vaccinated: {} NUmber of people under 6 weeks: {}".format(len(sample_population), len(child_host_pop)))
             for h in sample_population:
                 h.vaccinate(vaccinated_strain)
                 single_dose_vaccinated_pop.append(h)
@@ -1006,7 +1005,7 @@ def main(defaults=None, vb=0):
     
     t1 = time.time()
     total_time = t1-t0
-    print("Time to run experiment: ", total_time)
+    if verbose is not False: print("Time to run experiment: ", total_time)
     
     return event_dict
 

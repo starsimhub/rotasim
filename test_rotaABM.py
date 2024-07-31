@@ -6,7 +6,6 @@ NB: the two tests could be combined into one, but are left separate for clarity.
 
 import sciris as sc
 import rotaABM as rota
-import rotaABM_IDM_VACCINE_age_experiment_ck as rota_orig
 
 
 def test_default(make=False):
@@ -15,7 +14,7 @@ def test_default(make=False):
     
     # Generate new baseline
     if make:
-        events = rota_orig.main()
+        events = rota.main()
         sc.savejson(filename, events)
         
     # Check old baseline
@@ -44,7 +43,7 @@ def test_alt(make=False):
     
     # Generate new baseline
     if make:
-        events = rota_orig.main(inputs)
+        events = rota.main(inputs)
         sc.savejson(filename, events)
         
     # Check old baseline
