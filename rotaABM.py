@@ -1,6 +1,7 @@
 #########################################
 import csv
 import itertools
+from re import T
 import numpy as np
 import random as rnd
 from datetime import datetime
@@ -20,39 +21,45 @@ def main(defaults=None, verbose=None):
         verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
     """
 
-    global cases, immunityCounts  
+    global immunityCounts  
     global pop_id
     global t
     
     args = sys.argv
     if defaults is None:
         defaults = ['', # Placeholder (file name)
-            1,   # immunity_hypothesis
+            1,   # immunity_hypothesis. Defines the immunity rates for Homotypic, Partial Heterotypic, Complete Heterotypic infections.
             0.1, # reassortment_rate
-            1,   # fitness_hypothesis
+            1,   # fitness_hypothesis. Defines how the fitness is computed for a strain.
             1,   # vaccine_hypothesis
+            1,   # waning_hypothesis
+            0,   # initial_immunity
+            0.5, # ve_i_to_ve_s_ratio
             1,   # experimentNumber
         ]
     if verbose is not False: print(args)
-    if len(args) < 6:
+    if len(args) < 8:
         args = args + defaults[len(args):]
-        
     
     immunity_hypothesis = int(args[1])
     reassortment_rate = float(args[2])
     fitness_hypothesis = int(args[3])
     vaccine_hypothesis = int(args[4])
-    experimentNumber = int(args[5])
+    waning_hypothesis = int(args[5])
+    initial_immunity = int(args[6]) # 0 = no immunity
+    ve_i_to_ve_s_ratio = float(args[7])
+    experimentNumber = int(args[8])
     
     now = datetime.now() # current date and time
     date_time = now.strftime("%m_%d_%Y_%H_%M")
     if verbose is not False: print("date and time:", date_time)
-    myseed = experimentNumber # Was int(datetime.now().timestamp())
+
+    myseed = experimentNumber
     rnd.seed(myseed)
     np.random.seed(myseed)
     
-    name_suffix =  '%r_%r_%r_%r_%r' % (immunity_hypothesis, reassortment_rate, fitness_hypothesis, vaccine_hypothesis, experimentNumber)
-    
+    name_suffix =  '%r_%r_%r_%r_%r_%r_%r_%r' % (immunity_hypothesis, reassortment_rate, fitness_hypothesis, vaccine_hypothesis, waning_hypothesis, initial_immunity, ve_i_to_ve_s_ratio, experimentNumber)
+
     outputfilename = './results/rota_straincount_%s.csv' % (name_suffix)
     vaccinations_outputfilename = './results/rota_vaccinecount_%s.csv' % (name_suffix)
     sample_outputfilename = './results/rota_strains_sampled_%s.csv' % (name_suffix)
@@ -70,10 +77,10 @@ def main(defaults=None, verbose=None):
     
         with open(sample_outputfilename, "w+", newline='') as outputfile:
             write = csv.writer(outputfile)
-            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity"])  # header for the csv file
+            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
         with open(infected_all_outputfilename, "w+", newline='') as outputfile:
             write = csv.writer(outputfile)
-            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity"])  # header for the csv file
+            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
         with open(vaccinations_outputfilename, "w+", newline='') as outputfile:
             write = csv.writer(outputfile)
             write.writerow(["id", "VaccineStrain", "CollectionTime", "Age", "Dose"])  # header for the csv file        
@@ -92,8 +99,8 @@ def main(defaults=None, verbose=None):
     class host(object): ## host class
         # Define age bins and labels
         age_bins = [2/12, 4/12, 6/12, 12/12, 24/12, 36/12, 48/12, 60/12, 100]
-        age_labels = ['0-2', '2-4', '4-6', '6-12', '12-24', '24-36', '36-48', '48-60', '60+']
         age_distribution = [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.84]
+        age_labels = ['0-2', '2-4', '4-6', '6-12', '12-24', '24-36', '36-48', '48-60', '60+']
     
         def __init__(self, id):
             self.id = id
@@ -102,12 +109,10 @@ def main(defaults=None, verbose=None):
             self.immunity = {}
             self.vaccine = None
             self.infecting_pathogen = []
-            self.immunityCount = 0
+            self.priorInfections = 0
             self.prior_vaccinations = []
             self.infections_with_vaccination = []
             self.infections_without_vaccination = []
-            self.oldest_infection = None
-            self.is_immune = False
     
         def get_random_age():
             # pick a age bin
@@ -132,7 +137,8 @@ def main(defaults=None, verbose=None):
             return max_infection_times
     
         def get_oldest_infection(self):
-            return t - self.oldest_infection
+            max_infection_times = max([t - p[1] for p in self.immunity.items()])
+            return max_infection_times
         
         def computePossibleCombinations(self):
             segCombinations = []
@@ -176,13 +182,13 @@ def main(defaults=None, verbose=None):
                 if not path.is_reassortant:
                     strainCounts[path.strain] -= 1
                     creation_times.add(path.creation_time)
-                    self.immunity[path.strain] = t   
-                    self.oldest_infection = min(self.immunity.values())
-                    self.is_immune = True
-            self.immunityCount += len(creation_times)
+                    self.immunity[path.strain] = t
+            self.priorInfections += len(creation_times)
             self.infecting_pathogen = []                  
             self.possibleCombinations = []
-            
+        
+        def isImmune(self):
+            return len(self.immunity) != 0
         
         def vaccinate(self, vaccinated_strain):
             if len(self.prior_vaccinations) == 0:
@@ -192,7 +198,7 @@ def main(defaults=None, verbose=None):
                 self.prior_vaccinations.append(vaccinated_strain)
                 self.vaccine = ([vaccinated_strain], t, 2)
         
-        def isVaccineimmune(self, strainIn):
+        def isVaccineimmune(self, infecting_strain):
             # Effectiveness of the vaccination depends on the number of doses
             if self.vaccine[2] == 1:
                 ve_i_rates = vaccine_efficacy_i_d1
@@ -201,25 +207,28 @@ def main(defaults=None, verbose=None):
             else:
                 print("Unsupported vaccine dose")
                 exit(-1)
+
+            # Vaccine strain only contains the antigenic parts
+            vaccine_strain = self.vaccine[0]
             
             if vaccine_hypothesis == 0:
                 return False
             if vaccine_hypothesis == 1:            
-                if strainIn[:numAgSegments] in self.vaccine[0]:
+                if infecting_strain[:numAgSegments] in vaccine_strain:
                     if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
                         return True
                     else:
                         return False
             elif vaccine_hypothesis == 2:
-                if strainIn[:numAgSegments] in self.vaccine[0]:
+                if infecting_strain[:numAgSegments] in vaccine_strain:
                     if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
                         return True
                     else:
                         return False
                 strains_match = False
                 for i in range(numAgSegments):         
-                    immune_genotypes = [strain[i] for strain in self.vaccine[0]]
-                    if strainIn[i] in immune_genotypes:
+                    immune_genotypes = [strain[i] for strain in vaccine_strain]
+                    if infecting_strain[i] in immune_genotypes:
                         strains_match = True
                 if strains_match:
                     if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
@@ -227,15 +236,15 @@ def main(defaults=None, verbose=None):
                 else:
                     return False
             elif vaccine_hypothesis == 3:
-                if strainIn[:numAgSegments] in self.vaccine[0]:
+                if infecting_strain[:numAgSegments] in vaccine_strain:
                     if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
                         return True
                     else:
                         return False
                 strains_match = False
                 for i in range(numAgSegments):         
-                    immune_genotypes = [strain[i] for strain in self.vaccine[0]]
-                    if strainIn[i] in immune_genotypes:
+                    immune_genotypes = [strain[i] for strain in vaccine_strain]
+                    if infecting_strain[i] in immune_genotypes:
                         strains_match = True
                 if strains_match:
                     if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
@@ -248,45 +257,46 @@ def main(defaults=None, verbose=None):
             else:
                 print("Unsupported vaccine hypothesis")
                 exit(-1)
-            
-        def can_variant_infect_host(self, strainIn, currentInfections):
-            if (self.vaccine is not None) and self.isVaccineimmune(strainIn):
+        
+
+        def can_variant_infect_host(self, infecting_strain, currentInfections):
+            if (self.vaccine is not None) and self.isVaccineimmune(infecting_strain):
                 return False
             
             if immunity_hypothesis == 1:
                 current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
-                if strainIn[:numAgSegments] in current_infecting_strains:
+                if infecting_strain[:numAgSegments] in current_infecting_strains:
                     return False
                 # Only immune if antigenic segments match exactly
                 immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
-                if strainIn[:numAgSegments] in immune_strains:
+                if infecting_strain[:numAgSegments] in immune_strains:
                     return False
                 return True
             elif immunity_hypothesis == 2:
                 current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
-                if strainIn[:numAgSegments] in current_infecting_strains:
+                if infecting_strain[:numAgSegments] in current_infecting_strains:
                     return False
-                # Complete heterotypic immunity
+                # Completely immune for partial heterotypic strains
                 for i in range(numAgSegments):         
                     immune_genotypes = [strain[i] for strain in self.immunity.keys()]
-                    if strainIn[i] in immune_genotypes:
+                    if infecting_strain[i] in immune_genotypes:
                         return False
                 return True
             elif immunity_hypothesis == 3:
                 current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
-                if strainIn[:numAgSegments] in current_infecting_strains:
+                if infecting_strain[:numAgSegments] in current_infecting_strains:
                     return False
                 
                 # completely immune if antigenic segments match exactly
                 immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
-                if strainIn[:numAgSegments] in immune_strains:
+                if infecting_strain[:numAgSegments] in immune_strains:
                     return False
     
                 # Partial heterotypic immunity if not
                 shared_genotype = False
                 for i in range(numAgSegments):         
                     immune_genotypes = [strain[i] for strain in self.immunity.keys()]
-                    if strainIn[i] in immune_genotypes:
+                    if infecting_strain[i] in immune_genotypes:
                         shared_genotype = True
                 if shared_genotype:
                     temp = rnd.random()
@@ -295,26 +305,79 @@ def main(defaults=None, verbose=None):
                 return True
             elif immunity_hypothesis == 4:
                 current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
-                if strainIn[:numAgSegments] in current_infecting_strains:
+                if infecting_strain[:numAgSegments] in current_infecting_strains:
                     return False
+                
+                # completely immune if antigenic segments match exactly
+                immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
+                if infecting_strain[:numAgSegments] in immune_strains:
+                    return False
+
+                # Partial heterotypic immunity if not
+                shared_genotype = False
+                for i in range(numAgSegments):         
+                    immune_genotypes = [strain[i] for strain in self.immunity.keys()]
+                    if infecting_strain[i] in immune_genotypes:
+                        shared_genotype = True
+                if shared_genotype:
+                    temp = rnd.random()
+                    if temp<partialCrossImmunityRate:
+                        return False
+                else:
+                    temp = rnd.random()
+                    if temp<completeHeterotypicImmunityrate:
+                        return False
+                return True
+            elif immunity_hypothesis == 5:
+                current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+                if infecting_strain[:numAgSegments] in current_infecting_strains:
+                    return False
+                
                 # Partial heterotypic immunity
                 shared_genotype = False      
                 immune_ptypes = [strain[1] for strain in self.immunity.keys()]
-                if strainIn[1] in immune_ptypes:
+                if infecting_strain[1] in immune_ptypes:
                     return False
                 else:
                     return True
-            elif immunity_hypothesis == 5:
+            elif immunity_hypothesis == 6:
                 current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
-                if strainIn[:numAgSegments] in current_infecting_strains:
+                if infecting_strain[:numAgSegments] in current_infecting_strains:
                     return False
                 # Partial heterotypic immunity
                 shared_genotype = False      
                 immune_gtypes = [strain[0] for strain in self.immunity.keys()]
-                if strainIn[0] in immune_ptypes:
+                if infecting_strain[0] in immune_ptypes:
                     return False
                 else:
                     return True
+            elif immunity_hypothesis == 7 or immunity_hypothesis == 8 or immunity_hypothesis == 9 or immunity_hypothesis == 10:
+                current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+                if infecting_strain[:numAgSegments] in current_infecting_strains:
+                    return False
+                
+                # completely immune if antigenic segments match exactly
+                immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
+                if infecting_strain[:numAgSegments] in immune_strains:
+                    temp = rnd.random()
+                    if temp<HomotypicImmunityRate:
+                        return False
+
+                # Partial heterotypic immunity if not
+                shared_genotype = False
+                for i in range(numAgSegments):         
+                    immune_genotypes = [strain[i] for strain in self.immunity.keys()]
+                    if infecting_strain[i] in immune_genotypes:
+                        shared_genotype = True
+                if shared_genotype:
+                    temp = rnd.random()
+                    if temp<partialCrossImmunityRate:
+                        return False
+                else:
+                    temp = rnd.random()
+                    if temp<completeHeterotypicImmunityrate:
+                        return False
+                return True
             else:
                 print("[Error] Immunity hypothesis not implemented")
                 exit(-1)
@@ -328,7 +391,8 @@ def main(defaults=None, verbose=None):
                 
         def infect_with_pathogen(self, pathogenIn, strainCounts):
             #this function returns a fitness value to a strain based on the hypo. 
-            fitness = pathogenIn.getFitness()           
+            fitness = pathogenIn.getFitness()
+            
             # e.g. fitness = 0.8 (theres a 80% chance the virus infecteing a host).then 20% of the time virus will not infect the host. 
             # in the following if condition, we generate random number between 0 and 1. 
             # this random number has a 20% chance of being greater than 0.8.
@@ -338,7 +402,7 @@ def main(defaults=None, verbose=None):
                 return False
             
             # Probability of getting a severe decease depends on the vaccination status of the host and the number of previous infections
-            severity_probability = get_probability_of_severe(pathogenIn, self.vaccine, self.immunityCount)
+            severity_probability = get_probability_of_severe(pathogenIn, self.vaccine, self.priorInfections)
             if rnd.random() < severity_probability:
                 severe = True
             else:
@@ -399,32 +463,263 @@ def main(defaults=None, verbose=None):
                 elif self.strain[0] == 4 and self.strain[1] == 4:
                     return 0.93
                 else:
-                    return 0.85 
+                    return 0.90
+            
             elif fitness_hypothesis == 3:
+                if self.strain[0] == 1 and self.strain[1] == 1:
+                    return 0.93
+                elif self.strain[0] == 2 and self.strain[1] == 2:
+                    return 0.93
+                elif self.strain[0] == 3 and self.strain[1] == 3:
+                    return 0.90
+                elif self.strain[0] == 4 and self.strain[1] == 4:
+                    return 0.90
+                else:
+                    return 0.87
+                
+            elif fitness_hypothesis == 4:
                 if self.strain[0] == 1 and self.strain[1] == 1:
                     return 1
                 elif self.strain[0] == 2 and self.strain[1] == 2:
+                    return 0.2
+                else:
+                    return 1
+            
+            elif fitness_hypothesis == 5:
+                if self.strain[0] == 1 and self.strain[1] == 1:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 1 or self.strain[0] == 1 and self.strain[1] == 3:
+                    return 0.5
+                else:
+                    return 0.2 
+            elif fitness_hypothesis == 6:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.2
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.4
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.5
+                else:
+                    return 0.05
+            elif fitness_hypothesis == 7:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.3
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.7
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.6
+                else:
+                    return 0.05
+            elif fitness_hypothesis == 8:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.4
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.9
+                elif self.strain[0] == 4 and self.strain[1] == 8:
                     return 0.8
                 else:
-                    return 0.5 
+                    return 0.05
+            elif fitness_hypothesis == 9:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.5
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.9
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.8
+                else:
+                    return 0.2
+            elif fitness_hypothesis == 10:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.6
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.9
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.9
+                else:
+                    return 0.4
+            elif fitness_hypothesis == 11:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 0.98
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.7
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.8
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.8
+                else:
+                    return 0.5
+            elif fitness_hypothesis == 12:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 0.98
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.8
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.9
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.9
+                else:
+                    return 0.5
+            elif fitness_hypothesis == 13:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 0.98
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.8
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.9
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.9
+                else:
+                    return 0.7
+            elif fitness_hypothesis == 14:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 0.98
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.4
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.7
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.6
+                elif self.strain[0] == 9 and self.strain[1] == 8:
+                    return 0.7
+                elif self.strain[0] == 12 and self.strain[1] == 8:
+                    return 0.75
+                elif self.strain[0] == 9 and self.strain[1] == 6:
+                    return 0.58
+                elif self.strain[0] == 11 and self.strain[1] == 8:
+                    return 0.2
+                else:
+                    return 0.05
+            elif fitness_hypothesis == 15:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.7
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.93
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.93
+                elif self.strain[0] == 9 and self.strain[1] == 8:
+                    return 0.95
+                elif self.strain[0] == 12 and self.strain[1] == 8:
+                    return 0.94
+                elif self.strain[0] == 9 and self.strain[1] == 6:
+                    return 0.3
+                elif self.strain[0] == 11 and self.strain[1] == 8:
+                    return 0.35
+                else:
+                    return 0.4
+            elif fitness_hypothesis == 16:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.7
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.85
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.88
+                elif self.strain[0] == 9 and self.strain[1] == 8:
+                    return 0.95
+                elif self.strain[0] == 12 and self.strain[1] == 8:
+                    return 0.93
+                elif self.strain[0] == 9 and self.strain[1] == 6:
+                    return 0.85
+                elif self.strain[0] == 12 and self.strain[1] == 6:
+                    return 0.90
+                elif self.strain[0] == 9 and self.strain[1] == 4:
+                    return 0.90
+                elif self.strain[0] == 1 and self.strain[1] == 6:
+                    return 0.6
+                elif self.strain[0] == 2 and self.strain[1] == 8:
+                    return 0.6
+                elif self.strain[0] == 2 and self.strain[1] == 6:
+                    return 0.6
+                else:
+                    return 0.4
+            elif fitness_hypothesis == 17:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.85
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.85
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.88
+                elif self.strain[0] == 9 and self.strain[1] == 8:
+                    return 0.95
+                elif self.strain[0] == 12 and self.strain[1] == 8:
+                    return 0.93
+                elif self.strain[0] == 9 and self.strain[1] == 6:
+                    return 0.83
+                elif self.strain[0] == 12 and self.strain[1] == 6:
+                    return 0.90
+                elif self.strain[0] == 9 and self.strain[1] == 4:
+                    return 0.90
+                elif self.strain[0] == 1 and self.strain[1] == 6:
+                    return 0.8
+                elif self.strain[0] == 2 and self.strain[1] == 8:
+                    return 0.8
+                elif self.strain[0] == 2 and self.strain[1] == 6:
+                    return 0.8
+                else:
+                    return 0.7
+            elif fitness_hypothesis == 18:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.92
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.79
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.81
+                elif self.strain[0] == 9 and self.strain[1] == 8:
+                    return 0.95
+                elif self.strain[0] == 12 and self.strain[1] == 8:
+                    return 0.89
+                elif self.strain[0] == 9 and self.strain[1] == 6:
+                    return 0.80
+                elif self.strain[0] == 12 and self.strain[1] == 6:
+                    return 0.86
+                elif self.strain[0] == 9 and self.strain[1] == 4:
+                    return 0.83
+                elif self.strain[0] == 1 and self.strain[1] == 6:
+                    return 0.75
+                elif self.strain[0] == 2 and self.strain[1] == 8:
+                    return 0.75
+                elif self.strain[0] == 2 and self.strain[1] == 6:
+                    return 0.75
+                else:
+                    return 0.65
             else:
                 print("Invalid fitness_hypothesis: ", fitness_hypothesis)
                 exit(-1)
             
         def get_strain_name(self):
             return "G" + str(self.strain[0]) + "P" + str(self.strain[1]) + "A" + str(self.strain[2]) + "B" + str(self.strain[3])
-    
+        
+        def __str__(self): 
+            return "Strain: " + self.get_strain_name() + " Severe: " + str(self.is_severe) + " Host: " + str(self.host.id) + str(self.creation_time)
+
     ############# tau-Function to calculate event counts ############################
-    def get_event_counts(N,I,R, tau, RR_GP, single_dose_count, double_dose_count): 
+    def get_event_counts(N, I, R, tau, RR_GP, single_dose_count, double_dose_count): 
         births = np.random.poisson(size=1, lam=tau*N*birth_rate)[0]
         deaths = np.random.poisson(size=1, lam=tau*N*mu)[0]
         recoveries = np.random.poisson(size=1, lam=tau*gamma*I)[0]
         contacts = np.random.poisson(size=1, lam=tau*cont*I)[0]
         wanings = np.random.poisson(size=1, lam=tau*omega*R)[0]
-        reassortants = np.random.poisson(size=1, lam=tau*RR_GP*I)[0]
+        reassortments = np.random.poisson(size=1, lam=tau*RR_GP*I)[0]
         vaccination_wanings_one_dose = np.random.poisson(size=1, lam=tau*vacinnation_single_dose_waning_rate*single_dose_count)[0]
         vaccination_wanings_two_dose = np.random.poisson(size=1, lam=tau*vacinnation_double_dose_waning_rate*double_dose_count)[0]
-        return (births, deaths, recoveries, contacts, wanings, reassortants, vaccination_wanings_one_dose, vaccination_wanings_two_dose)
+        return (births, deaths, recoveries, contacts, wanings, reassortments, vaccination_wanings_one_dose, vaccination_wanings_two_dose)
     
     def coInfected_contacts(host1, host2, strainCounts):  
         global ReassortmentCount
@@ -446,8 +741,6 @@ def main(defaults=None, verbose=None):
                         break
                 
     def contact_event(infected_pop, host_pop, strainCount):
-        global cases
-        
         if len(infected_pop) == 0:
             print("[Warning] No infected hosts in a contact event. Skipping")
             return
@@ -457,15 +750,18 @@ def main(defaults=None, verbose=None):
     
         while h1 == h2:
             h2 = rnd.choice(host_pop)
-    
-        # based on proir infections, the relative risk of subsequent infections
-        if h2.immunityCount == 0:
+
+        # based on proir infections and current infections, the relative risk of subsequent infections
+        """ number_of_current_infections = len(h2.infecting_pathogen) """
+        number_of_current_infections = 0
+
+        if h2.priorInfections + number_of_current_infections == 0:
             infecting_probability = 1
-        elif h2.immunityCount==1:
+        elif h2.priorInfections + number_of_current_infections == 1:
             infecting_probability = 0.61
-        elif h2.immunityCount == 2:  
+        elif h2.priorInfections + number_of_current_infections == 2:  
             infecting_probability = 0.48
-        elif h2.immunityCount == 3:
+        elif h2.priorInfections + number_of_current_infections == 3:
             infecting_probability = 0.33
         else:
             infecting_probability = 0         
@@ -483,7 +779,6 @@ def main(defaults=None, verbose=None):
         
         # in this case h2 was not infected before but is infected now
         if not h2_previously_infected and h2.isInfected():
-            cases+=1
             infected_pop.append(h2)
     
     def get_weights_by_age(host_pop):
@@ -493,24 +788,23 @@ def main(defaults=None, verbose=None):
         return weights
     
     def death_event(num_deaths, infected_pop, host_pop, strainCount):
-        global cases, immunityCounts
+        global immunityCounts
         host_list = np.arange(len(host_pop))
         p = get_weights_by_age(host_pop)
         inds = np.random.choice(host_list, p=p, size=num_deaths, replace=False)
         dying_hosts = [host_pop[ind] for ind in inds]
         for h in dying_hosts:
             if h.isInfected():
-                cases -= 1
                 infected_pop.remove(h)
                 for path in h.infecting_pathogen:
                     if not path.is_reassortant:
                         strainCount[path.strain] -= 1
-            if h.is_immune:
+            if h.isImmune():
                 immunityCounts -= 1
             host_pop.remove(h)
     
     def recovery_event(num_recovered, infected_pop, strainCount):
-        global cases, immunityCounts
+        global immunityCounts
     
         weights=np.array([x.get_oldest_current_infection() for x in infected_pop])
         # If there is no one with an infection older than 0 return without recovery
@@ -522,10 +816,9 @@ def main(defaults=None, verbose=None):
     
         recovering_hosts = np.random.choice(infected_pop, p=weights, size=num_recovered, replace=False)
         for host in recovering_hosts:
-            if not host.is_immune:
+            if not host.isImmune():
                 immunityCounts +=1 
             host.recover(strainCount)
-            cases-=1
             infected_pop.remove(host)
     
     def reassortment_event(infected_pop, reassortment_count):
@@ -536,7 +829,6 @@ def main(defaults=None, verbose=None):
         rnd.shuffle(coinfectedhosts)
     
         for i in range(min(len(coinfectedhosts),reassortment_count)):
-            coinfectedhosts[i]
             parentalstrains = [path.strain for path in coinfectedhosts[i].infecting_pathogen]
             possible_reassortants = [path for path in coinfectedhosts[i].getPossibleCombinations() if path not in parentalstrains]
             for path in possible_reassortants:
@@ -546,7 +838,7 @@ def main(defaults=None, verbose=None):
         global immunityCounts
     
         # Get all the hosts in the population that has an immunity
-        h_immune = [h for h in host_pop if h.is_immune]
+        h_immune = [h for h in host_pop if h.isImmune()]
         age_tiebreak = lambda x: (x.get_oldest_infection(), rnd.random())
         hosts_with_immunity = sorted(h_immune, key=age_tiebreak, reverse=True)
         
@@ -562,7 +854,7 @@ def main(defaults=None, verbose=None):
             h = hosts_with_immunity[i]
             h.immunity =  {}
             h.is_immune = False
-            h.immunityCount = 0
+            h.priorInfections = 0
             immunityCounts -= 1
     
     def waning_vaccinations_first_dose(single_dose_pop, wanings):
@@ -639,10 +931,10 @@ def main(defaults=None, verbose=None):
                 if len(unvaccinated_hosts) < 1000:
                     unvaccinated_hosts.append(h)
             if h.isInfected():
-                strain_str = [(path.get_strain_name(), path.is_severe) for path in h.infecting_pathogen if not sample or not path.is_reassortant]
+                strain_str = [(path.get_strain_name(), path.is_severe, path.creation_time) for path in h.infecting_pathogen if not sample or not path.is_reassortant]
                 for strain in strain_str:
-                    collected_data.append((h.id, strain[0], t, h.get_age_category(), strain[1]))
-    
+                    collected_data.append((h.id, strain[0], t, h.get_age_category(), strain[1], strain[2], len(host_pop)))
+                    
         # Only collect the vaccine efficacy data if we have vaccinated hosts
         if done_vaccinated:
             num_vaccinated = len(vaccinated_hosts)
@@ -766,32 +1058,61 @@ def main(defaults=None, verbose=None):
         
     
     ########## Set Parameters ##########
-    N = 2000  # population size
+    N = 100000  # population size
     mu = 1.0/70.0     # average life span is 70 years
     gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
-    omega = 365/273  # duration of immunity by infection= 39 weeks
+    if waning_hypothesis == 1:
+        omega = 365/273  # duration of immunity by infection= 39 weeks
+    elif waning_hypothesis == 2:
+        omega = 365/50  # duration of immunity by infection= 1 year
+    elif waning_hypothesis == 3:
+        omega = 365/100  # duration of immunity by infection= 2 years
     birth_rate = mu * 4
     
     cont = 365/1     # assumption
-    timelimit = 10  #### 50 years 
+    timelimit = 40  #### 50 years 
     initialInfecteds = 10        ### for each strain infect initialInfecteds (with 2)
     
     reassortmentRate_GP = reassortment_rate
     
     if immunity_hypothesis == 1 or immunity_hypothesis == 4 or immunity_hypothesis == 5:
         partialCrossImmunityRate = 0
+        completeHeterotypicImmunityrate = 0
     elif immunity_hypothesis == 2 :
         partialCrossImmunityRate = 1
+        completeHeterotypicImmunityrate = 0
     elif immunity_hypothesis == 3:
         partialCrossImmunityRate = 0.5
+        completeHeterotypicImmunityrate = 0
+    elif immunity_hypothesis == 4:
+        partialCrossImmunityRate = 0.95
+        completeHeterotypicImmunityrate = 0.9
+    elif immunity_hypothesis == 5:
+        partialCrossImmunityRate = 0.95
+        completeHeterotypicImmunityrate = 0.90
+    elif immunity_hypothesis == 7:
+        HomotypicImmunityRate = 0.95
+        partialCrossImmunityRate = 0.90
+        completeHeterotypicImmunityrate = 0.2
+    elif immunity_hypothesis == 8:
+        HomotypicImmunityRate = 0.9
+        partialCrossImmunityRate = 0.5
+        completeHeterotypicImmunityrate = 0
+    elif immunity_hypothesis == 9:
+        HomotypicImmunityRate = 0.9
+        partialCrossImmunityRate = 0.45
+        completeHeterotypicImmunityrate = 0.35
+    elif immunity_hypothesis == 10:
+        HomotypicImmunityRate = 0.8
+        partialCrossImmunityRate = 0.45
+        completeHeterotypicImmunityrate = 0.35
     else:
         print("No partial cross immunity rate for immunity hypothesis: ", immunity_hypothesis)
         exit(-1) 
     
     done_vaccinated = False
-    vaccination_time =  6
-    ve_i_to_ve_s_ratio = 0.5
-    
+    vaccination_time =  20
+
     # Effectiveness of the vaccine first dose
     vaccine_efficacy_d1 = {
         PathogenMatch.HOMOTYPIC: 0.6,
@@ -838,14 +1159,17 @@ def main(defaults=None, verbose=None):
     numSegments = 4
     numNoneAgSegments = 2
     numAgSegments = numSegments - numNoneAgSegments
-    segmentVariants = [[i for i in range(1, 5)], [i for i in range(1, 5)], [i for i in range(1, 3)], [i for i in range(1, 3)]]     ## creating variats for the segments
+    #segmentVariants = [[i for i in range(1, 3)], [i for i in range(1, 3)], [i for i in range(1, 2)], [i for i in range(1, 2)]]     ## creating variats for the segments
+    segmentVariants = [[1,2,3,4,9,11,12], [8,4,6], [i for i in range(1, 2)], [i for i in range(1, 2)]]
     segmentCombinations = [tuple(i) for i in itertools.product(*segmentVariants)]  # getting all possible combinations from a list of list
-    initialSegmentCombinations = [(1,1,1,1), (2,2,1,1), (3,3,1,1), (4,4,1,1)] #, (4,1,1,1)] #[(1,1,1,1), (2,2,1,1), (1,2,1,1), (2,1,1,1)]
     rnd.shuffle(segmentCombinations)
     number_all_strains = len(segmentCombinations)
-    
-    # Track the number of cases(infected) and the number of immune hosts(immunityCounts) in the host population
-    cases = 0
+    initialSegmentCombinations = {(1,8,1,1): 100, (2,4,1,1): 100 ,(9,8,1,1): 100, (4,8,1,1): 100, (3,8,1,1): 100, (12,8,1,1): 100, (12,6,1,1): 100 ,(9,4,1,1): 100, (9,6,1,1): 100, (1,6,1,1): 100, (2,8,1,1): 100, (2,6,1,1): 100, (11,8,1,1): 100, (11,6,1,1): 100 ,(1,4,1,1): 100, (12,4,1,1): 100 }
+    #initialSegmentCombinations = {(1,1,1,1): 500, (2,2,1,1): 10} #, (1,3,1,1): 3} #, (4,1,1,1): 3} #, (5,1,1,1): 10, (6,1,1,1): 10, (7,1,1,1): 10, (8,1,1,1): 10}
+
+    num_initial_immune = 10000
+
+    # Track the number of immune hosts(immunityCounts) in the host population
     immunityCounts = 0
     ReassortmentCount = 0
     pop_id = 0
@@ -866,13 +1190,24 @@ def main(defaults=None, verbose=None):
     
     for i in range(number_all_strains):
         strainCount[segmentCombinations[i]] = 0
-    
+
+    if verbose:
+        if initial_immunity:
+            print("Initial immunity is set to True")
+        else:
+            print("Initial immunity is set to False")
+
     ### infecting the initial infecteds
-    for initial_strain in initialSegmentCombinations:             
-        for j in range(initialInfecteds):                     
+    for (initial_strain, num_infected) in initialSegmentCombinations.items():
+        if initial_immunity:
+            for j in range(num_initial_immune):
+                h = rnd.choice(host_pop)
+                h.immunity[initial_strain] = t
+                immunityCounts += 1
+        
+        for j in range(num_infected):                     
             h = rnd.choice(host_pop)
             if not h.isInfected():
-                cases+=1
                 infected_pop.append(h) 
             p = pathogen(False, t, host = h, strain = initial_strain)
             pathogens_pop.append(p)
@@ -932,7 +1267,7 @@ def main(defaults=None, verbose=None):
                     double_dose_hosts.append(h)
     
         # Get the number of events in a single tau step
-        events = get_event_counts(len(host_pop), cases, immunityCounts, tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
+        events = get_event_counts(len(host_pop), len(infected_pop), immunityCounts, tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
         births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = events
         if verbose: print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
     
