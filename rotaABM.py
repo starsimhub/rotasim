@@ -7,19 +7,22 @@ Usage:
     rota.run()
     
 TODO:
-    - 
+    - Rename camelcase
+    - Do performance benchmarking
+    - Replace host with array
+    - Replace pathogen with array
+    - Replace random with numpy
+    - Replace math with numpy
+    - Try to simplify Host.can_variant_infect_host()
+    - Refactor Pathogen.getFitness()
 """
 
-
-import csv
-import itertools
-import numpy as np
-import random as rnd
-from datetime import datetime
-import time
-from enum import Enum
 import sys
+import csv
 import math
+import random as rnd
+import numpy as np
+import itertools
 import sciris as sc
 
 # Define age bins and labels
@@ -28,7 +31,7 @@ age_distribution = [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.84]       
 age_labels = ['0-2', '2-4', '4-6', '6-12', '12-24', '24-36', '36-48', '48-60', '60+']
 
 
-#%% Host class
+### Host class
 class Host:
     """
     A rotavirus host
@@ -36,9 +39,8 @@ class Host:
     def __init__(self, host_id, sim):
         self.sim = sim
         self.id = host_id
-        self.bday = self.t - Host.get_random_age()
-        # set of strains the host is immune to
-        self.immunity = {}
+        self.bday = self.t - self.get_random_age()
+        self.immunity = {} # set of strains the host is immune to
         self.vaccine = None
         self.infecting_pathogen = []
         self.priorInfections = 0
@@ -54,6 +56,7 @@ class Host:
     def numAgSegments(self):
         return self.sim.numAgSegments
 
+    @staticmethod
     def get_random_age():
         # pick a age bin
         random_age_bin = np.random.choice(list(range(len(age_bins))), p=age_distribution)
@@ -195,8 +198,7 @@ class Host:
                 else:
                     return False
         else:
-            print("Unsupported vaccine hypothesis")
-            exit(-1)
+            raise NotImplementedError("Unsupported vaccine hypothesis")
     
     def can_variant_infect_host(self, infecting_strain, currentInfections):
         numAgSegments = self.numAgSegments
@@ -337,11 +339,11 @@ class Host:
             self.infections_without_vaccination.append(new_p)
             
     def infect_with_pathogen(self, pathogenIn, strainCounts):
-        #this function returns a fitness value to a strain based on the hypo. 
+        """ This function returns a fitness value to a strain based on the hypothesis """ 
         fitness = pathogenIn.getFitness()
         
-        # e.g. fitness = 0.8 (theres a 80% chance the virus infecting a host)
-        if rnd.random()> fitness:                
+        # e.g. fitness = 0.8 (there's a 80% chance the virus infecting a host)
+        if rnd.random() > fitness:                
             return False
         
         # Probability of getting a severe decease depends on the number of previous infections and vaccination status of the host   
@@ -364,9 +366,10 @@ class Host:
 
 
 
-#%% Pathogen classes
+### Pathogen classes
 
-class PathogenMatch(Enum): 
+class PathogenMatch:
+    """ Define whether pathogens are completely heterotypic, partially heterotypic, or homotypic """
     COMPLETE_HETERO = 1
     PARTIAL_HETERO = 2
     HOMOTYPIC = 3
@@ -671,13 +674,14 @@ class Pathogen(object):
             exit(-1)
         
     def get_strain_name(self):
-        return "G" + str(self.strain[0]) + "P" + str(self.strain[1]) + "A" + str(self.strain[2]) + "B" + str(self.strain[3])
+        G,P,A,B = [str(self.strain[i]) for i in range(4)]
+        return f'G{G}P{P}A{A}B{B}'
     
     def __str__(self): 
         return "Strain: " + self.get_strain_name() + " Severe: " + str(self.is_severe) + " Host: " + str(self.host.id) + str(self.creation_time)
 
 
-#%% RotaABM class
+### RotaABM class
 class RotaABM:
     """
     Run the simulation
