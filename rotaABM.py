@@ -97,15 +97,8 @@ class host(object): ## host class
         all_antigenic_combinations = [i for i in itertools.product(*segCombinations) if i not in parantal_strains]
         all_nonantigenic_combinations = [j.strain[self.numAgSegments:] for j in self.infecting_pathogen]
         all_strains = set([(i[0] + i[1]) for i in itertools.product(all_antigenic_combinations, all_nonantigenic_combinations)])
-        all_pathogens = [pathogen(True, self.t, host = self, strain=tuple(i)) for i in all_strains]
+        all_pathogens = [pathogen(self.sim, True, self.t, host = self, strain=tuple(i)) for i in all_strains]
 
-        # The commented code below is for the version where all parts reassort 
-        #for i in range(numSegments):
-        #    availableVariants = set([])                 
-        #    for j in self.infecting_pathogen:
-        #        availableVariants.add((j.strain[i]))
-        #    segCombinations.append(availableVariants)
-        #all_pathogens = [pathogen(True, host = self, strain=tuple(i)) for i in itertools.product(*segCombinations)]
         return all_pathogens
 
     def getPossibleCombinations(self):
@@ -140,15 +133,16 @@ class host(object): ## host class
     def isVaccineimmune(self, infecting_strain):
         # Effectiveness of the vaccination depends on the number of doses
         if self.vaccine[2] == 1:
-            ve_i_rates = vaccine_efficacy_i_d1
+            ve_i_rates = self.sim.vaccine_efficacy_i_d1
         elif self.vaccine[2] == 2:
-            ve_i_rates = vaccine_efficacy_i_d2
+            ve_i_rates = self.sim.vaccine_efficacy_i_d2
         else:
             print("Unsupported vaccine dose")
             exit(-1)
 
         # Vaccine strain only contains the antigenic parts
         vaccine_strain = self.vaccine[0]
+        vaccine_hypothesis = self.sim.vaccine_hypothesis
         
         if vaccine_hypothesis == 0:
             return False
@@ -202,6 +196,10 @@ class host(object): ## host class
     def can_variant_infect_host(self, infecting_strain, currentInfections):
         numAgSegments = self.numAgSegments
         immunity_hypothesis = self.sim.immunity_hypothesis
+        partialCrossImmunityRate = self.sim.partialCrossImmunityRate
+        completeHeterotypicImmunityrate = self.sim.completeHeterotypicImmunityrate
+        HomotypicImmunityRate = self.sim.HomotypicImmunityRate
+        
         if (self.vaccine is not None) and self.isVaccineimmune(infecting_strain):
             return False
         
@@ -343,13 +341,13 @@ class host(object): ## host class
             return False
         
         # Probability of getting a severe decease depends on the number of previous infections and vaccination status of the host   
-        severity_probability = get_probability_of_severe(pathogenIn, self.vaccine, self.priorInfections)
+        severity_probability = self.sim.get_probability_of_severe(self.sim, pathogenIn, self.vaccine, self.priorInfections)
         if rnd.random() < severity_probability:
             severe = True
         else:
             severe = False
 
-        new_p = pathogen(False, self.t, host = self, strain= pathogenIn.strain, is_severe=severe)
+        new_p = pathogen(self.sim, False, self.t, host = self, strain= pathogenIn.strain, is_severe=severe)
         self.infecting_pathogen.append(new_p)
         self.record_infection(new_p)
 
@@ -369,7 +367,8 @@ class PathogenMatch(Enum):
 
 ############## class Pathogen ###########################
 class pathogen(object): 
-    def __init__(self, is_reassortant, creation_time, is_severe=False, host=None, strain=None): 
+    def __init__(self, sim, is_reassortant, creation_time, is_severe=False, host=None, strain=None): 
+        self.sim = sim
         self.host = host
         self.creation_time = creation_time
         self.is_reassortant = is_reassortant
@@ -377,11 +376,12 @@ class pathogen(object):
         self.is_severe = is_severe
 
     def death(self):
-        pathogens_pop.remove(self)
+        self.sim.pathogens_pop.remove(self)
 
     # compares two strains
     # if they both have the same antigenic segments we return homotypic 
     def match(self, strainIn): 
+        numAgSegments = self.sim.numAgSegments
         if strainIn[:numAgSegments] == self.strain[:numAgSegments]:
             return PathogenMatch.HOMOTYPIC
         
@@ -680,6 +680,32 @@ class Rota:
         self.ReassortmentCount = 0
         self.pop_id = 0
         self.t = 0.0
+        
+    @staticmethod
+    def get_probability_of_severe(sim, pathogen_in, vaccine, immunity_count): # TEMP: refactor and include above
+        if immunity_count >= 3:
+            severity_probability = 0.18
+        elif immunity_count == 2:
+            severity_probability = 0.24
+        elif immunity_count == 1:
+            severity_probability = 0.23
+        elif immunity_count == 0:
+            severity_probability = 0.17
+    
+        if vaccine is not None:
+            # Probability of severity also depends on the strain (homotypic/heterltypic/etc.)
+            pathogen_strain_type = pathogen_in.match(vaccine[0][0])
+            # Effectiveness of the vaccination depends on the number of doses
+            if vaccine[2] == 1:
+                ve_s = sim.vaccine_efficacy_s_d1[pathogen_strain_type]
+            elif vaccine[2] == 2:
+                ve_s = sim.vaccine_efficacy_s_d2[pathogen_strain_type]
+            else:
+                print("Unsupported vaccine dose")
+                exit(-1)
+            return severity_probability * (1-ve_s)
+        else:
+            return severity_probability
     
     def main(self, defaults=None, verbose=None):
         """
@@ -690,7 +716,6 @@ class Rota:
             verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
         """
         args = self.args
-        
         
         if defaults is None:
             defaults = ['', # Placeholder (file name)
@@ -707,6 +732,16 @@ class Rota:
         if len(args) < 8:
             args = args + defaults[len(args):]
         
+        self.immunity_hypothesis = int(args[1])
+        self.reassortment_rate = float(args[2])
+        self.fitness_hypothesis = int(args[3])
+        self.vaccine_hypothesis = int(args[4])
+        self.waning_hypothesis = int(args[5])
+        self.initial_immunity = int(args[6]) # 0 = no immunity
+        self.ve_i_to_ve_s_ratio = float(args[7])
+        self.experimentNumber = int(args[8])
+        
+        # TEMP -- replace with self version
         immunity_hypothesis = int(args[1])
         reassortment_rate = float(args[2])
         fitness_hypothesis = int(args[3])
@@ -720,7 +755,7 @@ class Rota:
         date_time = now.strftime("%m_%d_%Y_%H_%M")
         if verbose is not False: print("date and time:", date_time)
     
-        myseed = experimentNumber
+        myseed = self.experimentNumber
         rnd.seed(myseed)
         np.random.seed(myseed)
         
@@ -1072,31 +1107,6 @@ class Rota:
             ve_i = x * ve_s
             return (ve_i, ve_s)
         
-        def get_probability_of_severe(pathogen_in, vaccine, immunity_count):
-            if immunity_count >= 3:
-                severity_probability = 0.18
-            elif immunity_count == 2:
-                severity_probability = 0.24
-            elif immunity_count == 1:
-                severity_probability = 0.23
-            elif immunity_count == 0:
-                severity_probability = 0.17
-        
-            if vaccine is not None:
-                # Probability of severity also depends on the strain (homotypic/heterltypic/etc.)
-                pathogen_strain_type = pathogen_in.match(vaccine[0][0])
-                # Effectiveness of the vaccination depends on the number of doses
-                if vaccine[2] == 1:
-                    ve_s = vaccine_efficacy_s_d1[pathogen_strain_type]
-                elif vaccine[2] == 2:
-                    ve_s = vaccine_efficacy_s_d2[pathogen_strain_type]
-                else:
-                    print("Unsupported vaccine dose")
-                    exit(-1)
-                return severity_probability * (1-ve_s)
-            else:
-                return severity_probability
-            
         
         ########## Set Parameters ##########
         N = 2000  # initial population size
@@ -1116,6 +1126,7 @@ class Rota:
         reassortmentRate_GP = reassortment_rate
         
         # relative protection for infection from natural immunity 
+        HomotypicImmunityRate = 0 # TEMP, not defined in all if statements
         if immunity_hypothesis == 1 or immunity_hypothesis == 4 or immunity_hypothesis == 5:
             partialCrossImmunityRate = 0
             completeHeterotypicImmunityrate = 0
@@ -1151,6 +1162,10 @@ class Rota:
         else:
             print("No partial cross immunity rate for immunity hypothesis: ", immunity_hypothesis)
             exit(-1) 
+            
+        self.HomotypicImmunityRate = HomotypicImmunityRate
+        self.partialCrossImmunityRate = partialCrossImmunityRate
+        self.completeHeterotypicImmunityrate = completeHeterotypicImmunityrate
         
         done_vaccinated = False
         vaccination_time =  20
@@ -1200,7 +1215,7 @@ class Rota:
         
         numSegments = 4
         numNoneAgSegments = 2
-        numAgSegments = numSegments - numNoneAgSegments
+        self.numAgSegments = numSegments - numNoneAgSegments
         #segmentVariants = [[i for i in range(1, 3)], [i for i in range(1, 3)], [i for i in range(1, 2)], [i for i in range(1, 2)]]     ## creating variats for the segments
         segmentVariants = [[1,2,3,4,9,11,12], [8,4,6], [i for i in range(1, 2)], [i for i in range(1, 2)]]
         # segmentVariants for the Low baseline diversity setting
@@ -1251,7 +1266,7 @@ class Rota:
                 h = rnd.choice(host_pop)
                 if not h.isInfected():
                     infected_pop.append(h) 
-                p = pathogen(False, self.t, host = h, strain = initial_strain)
+                p = pathogen(self, False, self.t, host = h, strain = initial_strain)
                 pathogens_pop.append(p)
                 h.infecting_pathogen.append(p)
                 strainCount[p.strain] += 1                       
@@ -1265,10 +1280,10 @@ class Rota:
         data_collection_rate = 0.1
         
         for strain, count in strainCount.items():
-            if strain[:numAgSegments] in total_strain_counts_vaccine:
-                total_strain_counts_vaccine[strain[:numAgSegments]] += count
+            if strain[:self.numAgSegments] in total_strain_counts_vaccine:
+                total_strain_counts_vaccine[strain[:self.numAgSegments]] += count
             else:
-                total_strain_counts_vaccine[strain[:numAgSegments]] = count
+                total_strain_counts_vaccine[strain[:self.numAgSegments]] = count
         
         ########## run simulation ##########
         event_dict = sc.objdict(
@@ -1330,7 +1345,7 @@ class Rota:
             # Collect the total counts of strains at each time step to determine the most prevalent strain for vaccination
             if not done_vaccinated:
                 for strain, count in strainCount.items():
-                    total_strain_counts_vaccine[strain[:numAgSegments]] += count
+                    total_strain_counts_vaccine[strain[:self.numAgSegments]] += count
             
             # Administer the first dose of the vaccine
             # Vaccination strain is the most prevalent strain in the population before the vaccination starts
