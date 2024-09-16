@@ -24,6 +24,7 @@ class Rota:
     
     def __init__(self):
         self.args = sys.argv
+        self.immunityCounts = 0
     
     def main(self, defaults=None, verbose=None):
         """
@@ -35,7 +36,6 @@ class Rota:
         """
         args = self.args
     
-        global immunityCounts  
         global pop_id
         global t
         
@@ -824,7 +824,6 @@ class Rota:
             return weights
         
         def death_event(num_deaths, infected_pop, host_pop, strainCount):
-            global immunityCounts
             host_list = np.arange(len(host_pop))
             p = get_weights_by_age(host_pop)
             inds = np.random.choice(host_list, p=p, size=num_deaths, replace=False)
@@ -836,12 +835,10 @@ class Rota:
                         if not path.is_reassortant:
                             strainCount[path.strain] -= 1
                 if h.isImmune():
-                    immunityCounts -= 1
+                    self.immunityCounts -= 1
                 host_pop.remove(h)
         
         def recovery_event(num_recovered, infected_pop, strainCount):
-            global immunityCounts
-        
             weights=np.array([x.get_oldest_current_infection() for x in infected_pop])
             # If there is no one with an infection older than 0 return without recovery
             if (sum(weights) == 0):
@@ -853,7 +850,7 @@ class Rota:
             recovering_hosts = np.random.choice(infected_pop, p=weights, size=num_recovered, replace=False)
             for host in recovering_hosts:
                 if not host.isImmune():
-                    immunityCounts +=1 
+                    self.immunityCounts +=1 
                 host.recover(strainCount)
                 infected_pop.remove(host)
         
@@ -871,8 +868,6 @@ class Rota:
                     coinfectedhosts[i].infect_with_reassortant(path)
         
         def waning_event(host_pop, wanings):
-            global immunityCounts
-        
             # Get all the hosts in the population that has an immunity
             h_immune = [h for h in host_pop if h.isImmune()]
             age_tiebreak = lambda x: (x.get_oldest_infection(), rnd.random())
@@ -891,7 +886,7 @@ class Rota:
                 h.immunity =  {}
                 h.is_immune = False
                 h.priorInfections = 0
-                immunityCounts -= 1
+                self.immunityCounts -= 1
         
         def waning_vaccinations_first_dose(single_dose_pop, wanings):
             """ Get all the hosts in the population that has an vaccine immunity """
@@ -1209,7 +1204,6 @@ class Rota:
         num_initial_immune = 10000
     
         # Track the number of immune hosts(immunityCounts) in the host population
-        immunityCounts = 0
         ReassortmentCount = 0
         pop_id = 0
         
@@ -1242,7 +1236,7 @@ class Rota:
                 for j in range(num_initial_immune):
                     h = rnd.choice(host_pop)
                     h.immunity[initial_strain] = t
-                    immunityCounts += 1
+                    self.immunityCounts += 1
             
             for j in range(num_infected):                     
                 h = rnd.choice(host_pop)
@@ -1306,7 +1300,7 @@ class Rota:
                         double_dose_hosts.append(h)
         
             # Get the number of events in a single tau step
-            events = get_event_counts(len(host_pop), len(infected_pop), immunityCounts, tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
+            events = get_event_counts(len(host_pop), len(infected_pop), self.immunityCounts, tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
             births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = events
             if verbose: print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
         
