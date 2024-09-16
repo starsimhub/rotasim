@@ -765,6 +765,47 @@ class Rota:
                     if infected:
                         break
     
+    def contact_event(self, infected_pop, host_pop, strainCount):
+        if len(infected_pop) == 0:
+            print("[Warning] No infected hosts in a contact event. Skipping")
+            return
+        
+        h1 = rnd.choice(infected_pop)
+        h2 = rnd.choice(host_pop)
+    
+        while h1 == h2:
+            h2 = rnd.choice(host_pop)
+
+        # based on proir infections and current infections, the relative risk of subsequent infections
+        """ number_of_current_infections = len(h2.infecting_pathogen) """
+        number_of_current_infections = 0
+
+        if h2.priorInfections + number_of_current_infections == 0:
+            infecting_probability = 1
+        elif h2.priorInfections + number_of_current_infections == 1:
+            infecting_probability = 0.61
+        elif h2.priorInfections + number_of_current_infections == 2:  
+            infecting_probability = 0.48
+        elif h2.priorInfections + number_of_current_infections == 3:
+            infecting_probability = 0.33
+        else:
+            infecting_probability = 0         
+        rnd_num = rnd.random()
+        if rnd_num > infecting_probability:
+            return 
+    
+        h2_previously_infected = h2.isInfected()
+    
+        if len(h1.infecting_pathogen)==1:
+            if h2.can_variant_infect_host(h1.infecting_pathogen[0].strain, h2.infecting_pathogen):
+                h2.infect_with_pathogen(h1.infecting_pathogen[0], strainCount)
+        else:
+            self.coInfected_contacts(h1,h2,strainCount)
+        
+        # in this case h2 was not infected before but is infected now
+        if not h2_previously_infected and h2.isInfected():
+            infected_pop.append(h2)
+    
     def main(self, defaults=None, verbose=None):
         """
         The main script used to run the simulation.
@@ -828,47 +869,6 @@ class Rota:
         self.files.vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
         self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
 
-        def contact_event(infected_pop, host_pop, strainCount):
-            if len(infected_pop) == 0:
-                print("[Warning] No infected hosts in a contact event. Skipping")
-                return
-            
-            h1 = rnd.choice(infected_pop)
-            h2 = rnd.choice(host_pop)
-        
-            while h1 == h2:
-                h2 = rnd.choice(host_pop)
-    
-            # based on proir infections and current infections, the relative risk of subsequent infections
-            """ number_of_current_infections = len(h2.infecting_pathogen) """
-            number_of_current_infections = 0
-    
-            if h2.priorInfections + number_of_current_infections == 0:
-                infecting_probability = 1
-            elif h2.priorInfections + number_of_current_infections == 1:
-                infecting_probability = 0.61
-            elif h2.priorInfections + number_of_current_infections == 2:  
-                infecting_probability = 0.48
-            elif h2.priorInfections + number_of_current_infections == 3:
-                infecting_probability = 0.33
-            else:
-                infecting_probability = 0         
-            rnd_num = rnd.random()
-            if rnd_num > infecting_probability:
-                return 
-        
-            h2_previously_infected = h2.isInfected()
-        
-            if len(h1.infecting_pathogen)==1:
-                if h2.can_variant_infect_host(h1.infecting_pathogen[0].strain, h2.infecting_pathogen):
-                    h2.infect_with_pathogen(h1.infecting_pathogen[0], strainCount)
-            else:
-                self.coInfected_contacts(h1,h2,strainCount)
-            
-            # in this case h2 was not infected before but is infected now
-            if not h2_previously_infected and h2.isInfected():
-                infected_pop.append(h2)
-        
         def get_weights_by_age(host_pop):
             weights = np.array([self.t - x.bday for x in host_pop])
             total_w = np.sum(weights)
@@ -1337,7 +1337,7 @@ class Rota:
             birth_events(births, host_pop)
             reassortment_event(infected_pop, reassortments) # calling the function
             for _ in range(contacts):
-                contact_event(infected_pop, host_pop, strainCount)
+                self.contact_event(infected_pop, host_pop, strainCount)
             death_event(deaths, infected_pop, host_pop, strainCount)
             recovery_event(recoveries, infected_pop, strainCount)    
             waning_event(host_pop, wanings)
