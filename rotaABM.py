@@ -3,7 +3,7 @@ RotaABM class
 
 Usage:
     import rotaABM as rabm
-    rota = rabm.Rota()
+    rota = rabm.RotaABM()
     rota.run()
 """
 
@@ -102,7 +102,7 @@ class Host:
         all_antigenic_combinations = [i for i in itertools.product(*segCombinations) if i not in parantal_strains]
         all_nonantigenic_combinations = [j.strain[self.numAgSegments:] for j in self.infecting_pathogen]
         all_strains = set([(i[0] + i[1]) for i in itertools.product(all_antigenic_combinations, all_nonantigenic_combinations)])
-        all_pathogens = [pathogen(self.sim, True, self.t, host = self, strain=tuple(i)) for i in all_strains]
+        all_pathogens = [Pathogen(self.sim, True, self.t, host = self, strain=tuple(i)) for i in all_strains]
 
         return all_pathogens
 
@@ -350,7 +350,7 @@ class Host:
         else:
             severe = False
 
-        new_p = pathogen(self.sim, False, self.t, host = self, strain= pathogenIn.strain, is_severe=severe)
+        new_p = Pathogen(self.sim, False, self.t, host = self, strain= pathogenIn.strain, is_severe=severe)
         self.infecting_pathogen.append(new_p)
         self.record_infection(new_p)
 
@@ -362,14 +362,19 @@ class Host:
         self.infecting_pathogen.append(reassortant_virus)
 
 
+
+#%% Pathogen classes
+
 class PathogenMatch(Enum): 
     COMPLETE_HETERO = 1
     PARTIAL_HETERO = 2
     HOMOTYPIC = 3
 
 
-############## class Pathogen ###########################
-class pathogen(object): 
+class Pathogen(object): 
+    """
+    Pathogen dynamics
+    """
     def __init__(self, sim, is_reassortant, creation_time, is_severe=False, host=None, strain=None): 
         self.sim = sim
         self.host = host
@@ -674,8 +679,11 @@ class pathogen(object):
         return "Strain: " + self.get_strain_name() + " Severe: " + str(self.is_severe) + " Host: " + str(self.host.id) + str(self.creation_time)
 
 
-
-class Rota:
+#%% RotaABM class
+class RotaABM:
+    """
+    Run the simulation
+    """
     
     def __init__(self):
         self.args = sys.argv
@@ -1274,7 +1282,7 @@ class Rota:
                 h = rnd.choice(host_pop)
                 if not h.isInfected():
                     infected_pop.append(h) 
-                p = pathogen(self, False, self.t, host = h, strain = initial_strain)
+                p = Pathogen(self, False, self.t, host = h, strain = initial_strain)
                 pathogens_pop.append(p)
                 h.infecting_pathogen.append(p)
                 strainCount[p.strain] += 1                       
@@ -1413,5 +1421,5 @@ class Rota:
 
 if __name__ == '__main__':
     with sc.timer():
-        rota = Rota()
+        rota = RotaABM()
         events = rota.run()
