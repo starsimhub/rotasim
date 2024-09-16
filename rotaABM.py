@@ -1048,9 +1048,9 @@ class Rota:
                 writer = csv.writer(outputfile)
                 writer.writerows(collected_vaccination_data)
     
-    def main(self, defaults=None, verbose=None):
+    def run(self, defaults=None, verbose=None):
         """
-        The main script used to run the simulation.
+        Run the simulation.
         
         Args:
             defaults (list): a list of parameters matching the command-line inputs; see below
@@ -1409,5 +1409,6 @@ class Rota:
 
 
 if __name__ == '__main__':
-    rota = Rota()
-    events = rota.main()
+    with sc.timer():
+        rota = Rota()
+        events = rota.run()
