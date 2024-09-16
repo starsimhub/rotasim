@@ -735,6 +735,18 @@ class Rota:
             write = csv.writer(outputfile)
             write.writerow(["time"] + list(host.age_labels)) 
     
+    ############# tau-Function to calculate event counts ############################
+    def get_event_counts(self, N, I, R, tau, RR_GP, single_dose_count, double_dose_count): 
+        births = np.random.poisson(size=1, lam=tau*N*self.birth_rate)[0]
+        deaths = np.random.poisson(size=1, lam=tau*N*self.mu)[0]
+        recoveries = np.random.poisson(size=1, lam=tau*self.gamma*I)[0]
+        contacts = np.random.poisson(size=1, lam=tau*self.contact_rate*I)[0]
+        wanings = np.random.poisson(size=1, lam=tau*self.omega*R)[0]
+        reassortments = np.random.poisson(size=1, lam=tau*RR_GP*I)[0]
+        vaccination_wanings_one_dose = np.random.poisson(size=1, lam=tau*self.vacinnation_single_dose_waning_rate*single_dose_count)[0]
+        vaccination_wanings_two_dose = np.random.poisson(size=1, lam=tau*self.vacinnation_double_dose_waning_rate*double_dose_count)[0]
+        return (births, deaths, recoveries, contacts, wanings, reassortments, vaccination_wanings_one_dose, vaccination_wanings_two_dose)
+    
     def main(self, defaults=None, verbose=None):
         """
         The main script used to run the simulation.
@@ -798,18 +810,6 @@ class Rota:
         self.files.vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
         self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
 
-        ############# tau-Function to calculate event counts ############################
-        def get_event_counts(N, I, R, tau, RR_GP, single_dose_count, double_dose_count): 
-            births = np.random.poisson(size=1, lam=tau*N*birth_rate)[0]
-            deaths = np.random.poisson(size=1, lam=tau*N*mu)[0]
-            recoveries = np.random.poisson(size=1, lam=tau*gamma*I)[0]
-            contacts = np.random.poisson(size=1, lam=tau*contact_rate*I)[0]
-            wanings = np.random.poisson(size=1, lam=tau*omega*R)[0]
-            reassortments = np.random.poisson(size=1, lam=tau*RR_GP*I)[0]
-            vaccination_wanings_one_dose = np.random.poisson(size=1, lam=tau*vacinnation_single_dose_waning_rate*single_dose_count)[0]
-            vaccination_wanings_two_dose = np.random.poisson(size=1, lam=tau*vacinnation_double_dose_waning_rate*double_dose_count)[0]
-            return (births, deaths, recoveries, contacts, wanings, reassortments, vaccination_wanings_one_dose, vaccination_wanings_two_dose)
-        
         def coInfected_contacts(host1, host2, strainCounts):  
             h2existing_pathogens = list(host2.infecting_pathogen)
             randomnumber = rnd.random()
@@ -1111,19 +1111,19 @@ class Rota:
         
         ########## Set Parameters ##########
         N = 2000  # initial population size
-        mu = 1.0/70.0     # average life span is 70 years
-        gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
+        timelimit = 10  #### simulation years
+        self.mu = 1.0/70.0     # average life span is 70 years
+        self.gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
         if waning_hypothesis == 1:
             omega = 365/273  # duration of immunity by infection= 39 weeks
         elif waning_hypothesis == 2:
             omega = 365/50  
         elif waning_hypothesis == 3:
             omega = 365/100  
-        birth_rate = mu * 4
+        self.omega = omega
+        self.birth_rate = self.mu * 4
         
-        contact_rate = 365/1    
-        timelimit = 10  #### simulation years
-       
+        self.contact_rate = 365/1    
         reassortmentRate_GP = reassortment_rate
         
         # relative protection for infection from natural immunity 
@@ -1205,14 +1205,14 @@ class Rota:
         vaccine_first_dose_rate = math.sqrt(vaccine_second_dose_rate)
         if verbose: print("Vaccination - first dose rate: %s, second dose rate %s" % (vaccine_first_dose_rate, vaccine_second_dose_rate))
         
-        vacinnation_single_dose_waning_rate = 365/273 #365/1273
-        vacinnation_double_dose_waning_rate = 365/546 #365/2600
+        self.vacinnation_single_dose_waning_rate = 365/273 #365/1273
+        self.vacinnation_double_dose_waning_rate = 365/546 #365/2600
         # vacinnation_waning_lower_bound = 20 * 7 / 365.0
         
         total_strain_counts_vaccine = {}
         
         ### Tau leap parametes
-        tau = 1/365.0
+        self.tau = 1/365.0
         
         numSegments = 4
         numNoneAgSegments = 2
@@ -1325,7 +1325,7 @@ class Rota:
                         double_dose_hosts.append(h)
         
             # Get the number of events in a single tau step
-            events = get_event_counts(len(host_pop), len(infected_pop), self.immunityCounts, tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
+            events = self.get_event_counts(len(host_pop), len(infected_pop), self.immunityCounts, self.tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
             births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = events
             if verbose: print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(self.t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
         
@@ -1396,7 +1396,7 @@ class Rota:
                 write.writerow([self.t] + list(strainCount.values()) + [self.ReassortmentCount])
         
             tau_steps += 1
-            self.t+=tau
+            self.t += self.tau
         
         t1 = time.time()
         total_time = t1-t0
