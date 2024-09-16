@@ -706,6 +706,34 @@ class Rota:
             return severity_probability * (1-ve_s)
         else:
             return severity_probability
+        
+    # Initialize all the output files
+    def initialize_files(self, strainCount):
+        files = self.files
+        with open(files.outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["time"] + list(strainCount.keys()) + ["ReassortmentCount"])  # header for the csv file
+            write.writerow([self.t] + list(strainCount.values()) + [self.ReassortmentCount])  # first row of the csv file will be the initial state
+    
+        with open(files.sample_outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
+        with open(files.infected_all_outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
+        with open(files.vaccinations_outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["id", "VaccineStrain", "CollectionTime", "Age", "Dose"])  # header for the csv file        
+    
+        for outfile in [files.vaccine_efficacy_output_filename, files.sample_vaccine_efficacy_output_filename]:
+            with open(outfile, "w+", newline='') as outputfile:
+                write = csv.writer(outputfile)
+                write.writerow(["CollectionTime", "Vaccinated", "Unvaccinated", "VaccinatedInfected", "VaccinatedSevere", "UnVaccinatedInfected", "UnVaccinatedSevere", 
+                                "VaccinatedHomotypic", "VaccinatedHomotypicSevere", "VaccinatedpartialHetero", "VaccinatedpartialHeteroSevere", "VaccinatedFullHetero", "VaccinatedFullHeteroSevere"])
+    
+        with open(files.age_outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["time"] + list(host.age_labels)) 
     
     def main(self, defaults=None, verbose=None):
         """
@@ -761,41 +789,14 @@ class Rota:
         
         name_suffix =  '%r_%r_%r_%r_%r_%r_%r_%r' % (immunity_hypothesis, reassortment_rate, fitness_hypothesis, vaccine_hypothesis, waning_hypothesis, initial_immunity, ve_i_to_ve_s_ratio, experimentNumber)
     
-        outputfilename = './results/rota_straincount_%s.csv' % (name_suffix)
-        vaccinations_outputfilename = './results/rota_vaccinecount_%s.csv' % (name_suffix)
-        sample_outputfilename = './results/rota_strains_sampled_%s.csv' % (name_suffix)
-        infected_all_outputfilename = './results/rota_strains_infected_all_%s.csv' % (name_suffix)
-        age_outputfilename = './results/rota_agecount_%s.csv' % (name_suffix)
-        vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
-        sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
-        
-        # Initialize all the output files
-        def initialize_files(strainCount):
-            with open(outputfilename, "w+", newline='') as outputfile:
-                write = csv.writer(outputfile)
-                write.writerow(["time"] + list(strainCount.keys()) + ["ReassortmentCount"])  # header for the csv file
-                write.writerow([self.t] + list(strainCount.values()) + [self.ReassortmentCount])  # first row of the csv file will be the initial state
-        
-            with open(sample_outputfilename, "w+", newline='') as outputfile:
-                write = csv.writer(outputfile)
-                write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
-            with open(infected_all_outputfilename, "w+", newline='') as outputfile:
-                write = csv.writer(outputfile)
-                write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
-            with open(vaccinations_outputfilename, "w+", newline='') as outputfile:
-                write = csv.writer(outputfile)
-                write.writerow(["id", "VaccineStrain", "CollectionTime", "Age", "Dose"])  # header for the csv file        
-        
-            for outfile in [vaccine_efficacy_output_filename, sample_vaccine_efficacy_output_filename]:
-                with open(outfile, "w+", newline='') as outputfile:
-                    write = csv.writer(outputfile)
-                    write.writerow(["CollectionTime", "Vaccinated", "Unvaccinated", "VaccinatedInfected", "VaccinatedSevere", "UnVaccinatedInfected", "UnVaccinatedSevere", 
-                                    "VaccinatedHomotypic", "VaccinatedHomotypicSevere", "VaccinatedpartialHetero", "VaccinatedpartialHeteroSevere", "VaccinatedFullHetero", "VaccinatedFullHeteroSevere"])
-        
-            with open(age_outputfilename, "w+", newline='') as outputfile:
-                write = csv.writer(outputfile)
-                write.writerow(["time"] + list(host.age_labels))    
-        
+        self.files = sc.objdict()
+        self.files.outputfilename = './results/rota_straincount_%s.csv' % (name_suffix)
+        self.files.vaccinations_outputfilename = './results/rota_vaccinecount_%s.csv' % (name_suffix)
+        self.files.sample_outputfilename = './results/rota_strains_sampled_%s.csv' % (name_suffix)
+        self.files.infected_all_outputfilename = './results/rota_strains_infected_all_%s.csv' % (name_suffix)
+        self.files.age_outputfilename = './results/rota_agecount_%s.csv' % (name_suffix)
+        self.files.vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
+        self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
 
         ############# tau-Function to calculate event counts ############################
         def get_event_counts(N, I, R, tau, RR_GP, single_dose_count, double_dose_count): 
@@ -1272,7 +1273,7 @@ class Rota:
                 strainCount[p.strain] += 1                       
         if verbose: print(strainCount)
         
-        initialize_files(strainCount)   
+        self.initialize_files(strainCount)   
         
         tau_steps = 0
         t0 = time.time() # for us to track the time it takes to run the simulation
@@ -1309,7 +1310,7 @@ class Rota:
                 for h in host_pop:
                     age_dict[h.get_age_category()] += 1
                 if verbose: print("Ages: ", age_dict)
-                with open(age_outputfilename, "a", newline='') as outputfile:
+                with open(self.files.age_outputfilename, "a", newline='') as outputfile:
                     write = csv.writer(outputfile)
                     write.writerow(["{:.2}".format(self.t)] + list(age_dict.values()))
             
@@ -1383,12 +1384,14 @@ class Rota:
                     else:
                         break
         
+            f = self.files
             if self.t >= last_data_colllected:
-                collect_and_write_data(host_pop, sample_outputfilename, vaccinations_outputfilename, sample_vaccine_efficacy_output_filename, sample=True)
-                collect_and_write_data(host_pop, infected_all_outputfilename, vaccinations_outputfilename, vaccine_efficacy_output_filename, sample=False)
+                
+                collect_and_write_data(host_pop, f.sample_outputfilename, f.vaccinations_outputfilename, f.sample_vaccine_efficacy_output_filename, sample=True)
+                collect_and_write_data(host_pop, f.infected_all_outputfilename, f.vaccinations_outputfilename, f.vaccine_efficacy_output_filename, sample=False)
                 last_data_colllected += data_collection_rate
                 
-            with open(outputfilename, "a", newline='') as outputfile:
+            with open(f.outputfilename, "a", newline='') as outputfile:
                 write = csv.writer(outputfile)
                 write.writerow([self.t] + list(strainCount.values()) + [self.ReassortmentCount])
         
