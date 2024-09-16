@@ -5,6 +5,9 @@ Usage:
     import rotaABM as rabm
     rota = rabm.RotaABM()
     rota.run()
+    
+TODO:
+    - 
 """
 
 
@@ -1287,7 +1290,7 @@ class RotaABM:
         self.initialize_files(strainCount)   
         
         tau_steps = 0
-        t0 = time.time() # for us to track the time it takes to run the simulation
+        T = sc.timer() # for us to track the time it takes to run the simulation
         last_data_colllected = 0
         data_collection_rate = 0.1
         
@@ -1371,7 +1374,7 @@ class RotaABM:
                 vaccination_count = int(len(child_host_pop)*vaccine_first_dose_rate)            
                 sample_population = rnd.sample(child_host_pop, vaccination_count)
                 if self.verbose: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
-                if self.verbose: print("Number of people vaccinated: {} NUmber of people under 6 weeks: {}".format(len(sample_population), len(child_host_pop)))
+                if self.verbose: print("Number of people vaccinated: {} Number of people under 6 weeks: {}".format(len(sample_population), len(child_host_pop)))
                 for h in sample_population:
                     h.vaccinate(vaccinated_strain)
                     single_dose_vaccinated_pop.append(h)
@@ -1408,15 +1411,12 @@ class RotaABM:
             tau_steps += 1
             self.t += self.tau
         
-        t1 = time.time()
-        total_time = t1-t0
-        if self.verbose is not False: print("Time to run experiment: ", total_time)
-        
+        if self.verbose is not False:
+            T.toc()
+            print(event_dict)
         return event_dict
 
 
 if __name__ == '__main__':
-    with sc.timer():
-        rota = RotaABM()
-        events = rota.run()
-        print(events)
+    rota = RotaABM()
+    events = rota.run()
