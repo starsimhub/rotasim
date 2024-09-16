@@ -38,6 +38,9 @@ def test_alt(make=False):
         0.2, # reassortment_rate
         2,   # fitness_hypothesis
         2,   # vaccine_hypothesis
+        2,   # waning_hypothesis
+        0.1,   # initial_immunity
+        0.5, # ve_i_to_ve_s_ratio
         2,   # experimentNumber
     ]
     
@@ -57,6 +60,6 @@ def test_alt(make=False):
 
 
 if __name__ == '__main__':
-    make = False # Set to True to regenerate results
+    make = True # Set to True to regenerate results
     test_default(make=make)
     test_alt(make=make)

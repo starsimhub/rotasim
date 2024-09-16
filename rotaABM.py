@@ -1078,7 +1078,7 @@ def main(defaults=None, verbose=None):
         
     
     ########## Set Parameters ##########
-    N = 100000  # initial population size
+    N = 2000  # initial population size
     mu = 1.0/70.0     # average life span is 70 years
     gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
     if waning_hypothesis == 1:
@@ -1090,7 +1090,7 @@ def main(defaults=None, verbose=None):
     birth_rate = mu * 4
     
     contact_rate = 365/1    
-    timelimit = 40  #### simulation years
+    timelimit = 10  #### simulation years
    
     reassortmentRate_GP = reassortment_rate
     
