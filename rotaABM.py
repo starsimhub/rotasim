@@ -908,6 +908,29 @@ class Rota:
     def get_strain_antigenic_name(strain):
         return "G" + str(strain[0]) + "P" + str(strain[1])
     
+    @staticmethod
+    def solve_quadratic(a, b, c):
+        discriminant = b**2 - 4*a*c
+        if discriminant >= 0:
+            root1 = (-b + discriminant**0.5) / (2*a)
+            root2 = (-b - discriminant**0.5) / (2*a)
+            return tuple(sorted([root1, root2]))
+        else:
+            return "No real roots"
+        
+    def breakdown_vaccine_efficacy(self, ve, x):
+        (r1, r2) = self.solve_quadratic(x, -(1+x), ve)
+        if self.verbose: print(r1, r2)
+        if r1 >= 0 and r1 <= 1:
+            ve_s = r1
+        elif r2 >= 0 and r2 <= 1:
+            ve_s = r2
+        else:
+            print("No valid solution to the equation: x: %d, ve: %d. Solutions: %f %f" % (x, ve, r1, r2))
+            exit(-1)
+        ve_i = x * ve_s
+        return (ve_i, ve_s)
+    
     def main(self, defaults=None, verbose=None):
         """
         The main script used to run the simulation.
@@ -917,6 +940,7 @@ class Rota:
             verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
         """
         args = self.args
+        self.verbose = verbose
         
         if defaults is None:
             defaults = ['', # Placeholder (file name)
@@ -1088,28 +1112,7 @@ class Rota:
                     writer = csv.writer(outputfile)
                     writer.writerows(collected_vaccination_data)
         
-        
-        def solve_quadratic(a, b, c):
-            discriminant = b**2 - 4*a*c
-            if discriminant >= 0:
-                root1 = (-b + discriminant**0.5) / (2*a)
-                root2 = (-b - discriminant**0.5) / (2*a)
-                return tuple(sorted([root1, root2]))
-            else:
-                return "No real roots"
-            
-        def breakdown_vaccine_efficacy(ve, x):
-            (r1, r2) = solve_quadratic(x, -(1+x), ve)
-            if verbose: print(r1, r2)
-            if r1 >= 0 and r1 <= 1:
-                ve_s = r1
-            elif r2 >= 0 and r2 <= 1:
-                ve_s = r2
-            else:
-                print("No valid solution to the equation: x: %d, ve: %d. Solutions: %f %f" % (x, ve, r1, r2))
-                exit(-1)
-            ve_i = x * ve_s
-            return (ve_i, ve_s)
+
         
         
         ########## Set Parameters ##########
@@ -1192,11 +1195,11 @@ class Rota:
         vaccine_efficacy_i_d2 = {}
         vaccine_efficacy_s_d2 = {}
         for (k, v) in vaccine_efficacy_d1.items():
-            (ve_i, ve_s) = breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
+            (ve_i, ve_s) = self.breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
             vaccine_efficacy_i_d1[k] = ve_i
             vaccine_efficacy_s_d1[k] = ve_s
         for (k, v) in vaccine_efficacy_d2.items():
-            (ve_i, ve_s) = breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
+            (ve_i, ve_s) = self.breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
             vaccine_efficacy_i_d2[k] = ve_i
             vaccine_efficacy_s_d2[k] = ve_s
         
