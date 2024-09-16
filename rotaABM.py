@@ -25,6 +25,7 @@ class Rota:
     def __init__(self):
         self.args = sys.argv
         self.immunityCounts = 0
+        self.pop_id = 0
     
     def main(self, defaults=None, verbose=None):
         """
@@ -35,8 +36,6 @@ class Rota:
             verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
         """
         args = self.args
-    
-        global pop_id
         global t
         
         
@@ -904,12 +903,11 @@ class Rota:
                 h.vaccinations =  None
         
         def birth_events(birth_count, host_pop):
-            global pop_id
             global t
         
             for _ in range(birth_count):
-                pop_id += 1
-                new_host = host(pop_id)
+                self.pop_id += 1
+                new_host = host(self.pop_id)
                 new_host.bday = t
                 host_pop.append(new_host)
                 if vaccine_hypothesis !=0 and done_vaccinated:
@@ -1205,7 +1203,6 @@ class Rota:
     
         # Track the number of immune hosts(immunityCounts) in the host population
         ReassortmentCount = 0
-        pop_id = 0
         
         infected_pop = []
         pathogens_pop = []
@@ -1216,7 +1213,7 @@ class Rota:
         t = 0.0
         
         host_pop = [host(i) for i in range(N)]   # for each number in range of N, make a new Host object, i is the id.
-        pop_id = N
+        self.pop_id = N
         to_be_vaccinated_pop = [] 
         single_dose_vaccinated_pop = []
         
