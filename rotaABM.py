@@ -8,6 +8,8 @@ Usage:
     
 TODO:
     - Rename camelcase
+    - Fix input arguments
+    - Combine RotaABM.__init__() and RotaABM.prepare_run()
     - Do performance benchmarking
     - Replace host with array
     - Replace pathogen with array
@@ -727,6 +729,64 @@ class RotaABM:
         self.initial_immunity = int(args[6]) # 0 = no immunity
         self.ve_i_to_ve_s_ratio = float(args[7])
         self.experimentNumber = int(args[8])
+        
+        myseed = self.experimentNumber
+        rnd.seed(myseed)
+        np.random.seed(myseed)
+        
+        name_suffix =  '%r_%r_%r_%r_%r_%r_%r_%r' % (self.immunity_hypothesis, self.reassortment_rate, self.fitness_hypothesis, self.vaccine_hypothesis, self.waning_hypothesis, self.initial_immunity, self.ve_i_to_ve_s_ratio, self.experimentNumber)
+    
+        self.files = sc.objdict()
+        self.files.outputfilename = './results/rota_straincount_%s.csv' % (name_suffix)
+        self.files.vaccinations_outputfilename = './results/rota_vaccinecount_%s.csv' % (name_suffix)
+        self.files.sample_outputfilename = './results/rota_strains_sampled_%s.csv' % (name_suffix)
+        self.files.infected_all_outputfilename = './results/rota_strains_infected_all_%s.csv' % (name_suffix)
+        self.files.age_outputfilename = './results/rota_agecount_%s.csv' % (name_suffix)
+        self.files.vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
+        self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
+
+        ########## Set Parameters ##########
+        self.N = 2000  # initial population size
+        self.timelimit = 10  #### simulation years
+        self.mu = 1.0/70.0     # average life span is 70 years
+        self.gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
+        if self.waning_hypothesis == 1:
+            omega = 365/273  # duration of immunity by infection= 39 weeks
+        elif self.waning_hypothesis == 2:
+            omega = 365/50  
+        elif self.waning_hypothesis == 3:
+            omega = 365/100  
+        self.omega = omega
+        self.birth_rate = self.mu * 4
+        
+        self.contact_rate = 365/1    
+        self.reassortmentRate_GP = self.reassortment_rate
+        
+        self.vaccination_time =  20
+    
+        # Efficacy of the vaccine first dose
+        self.vaccine_efficacy_d1 = {
+            PathogenMatch.HOMOTYPIC: 0.6,
+            PathogenMatch.PARTIAL_HETERO: 0.45,
+            PathogenMatch.COMPLETE_HETERO:0.15,
+        }
+        # Efficacy of the vaccine second dose
+        self.vaccine_efficacy_d2 = {
+            PathogenMatch.HOMOTYPIC: 0.8,
+            PathogenMatch.PARTIAL_HETERO: 0.65,
+            PathogenMatch.COMPLETE_HETERO:0.35,
+        }
+        
+        self.vacinnation_single_dose_waning_rate = 365/273 #365/1273
+        self.vacinnation_double_dose_waning_rate = 365/546 #365/2600
+        # vacinnation_waning_lower_bound = 20 * 7 / 365.0
+        
+        ### Tau leap parametes
+        self.tau = 1/365.0
+        
+        # if initialization starts with a proportion of immune agents:
+        self.num_initial_immune = 10000
+        
         return
         
     @staticmethod
@@ -1108,38 +1168,6 @@ class RotaABM:
         """
         Set up the variables for the run
         """
-        myseed = self.experimentNumber
-        rnd.seed(myseed)
-        np.random.seed(myseed)
-        
-        name_suffix =  '%r_%r_%r_%r_%r_%r_%r_%r' % (self.immunity_hypothesis, self.reassortment_rate, self.fitness_hypothesis, self.vaccine_hypothesis, self.waning_hypothesis, self.initial_immunity, self.ve_i_to_ve_s_ratio, self.experimentNumber)
-    
-        self.files = sc.objdict()
-        self.files.outputfilename = './results/rota_straincount_%s.csv' % (name_suffix)
-        self.files.vaccinations_outputfilename = './results/rota_vaccinecount_%s.csv' % (name_suffix)
-        self.files.sample_outputfilename = './results/rota_strains_sampled_%s.csv' % (name_suffix)
-        self.files.infected_all_outputfilename = './results/rota_strains_infected_all_%s.csv' % (name_suffix)
-        self.files.age_outputfilename = './results/rota_agecount_%s.csv' % (name_suffix)
-        self.files.vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
-        self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
-
-        ########## Set Parameters ##########
-        N = 2000  # initial population size
-        self.timelimit = 10  #### simulation years
-        self.mu = 1.0/70.0     # average life span is 70 years
-        self.gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
-        if self.waning_hypothesis == 1:
-            omega = 365/273  # duration of immunity by infection= 39 weeks
-        elif self.waning_hypothesis == 2:
-            omega = 365/50  
-        elif self.waning_hypothesis == 3:
-            omega = 365/100  
-        self.omega = omega
-        self.birth_rate = self.mu * 4
-        
-        self.contact_rate = 365/1    
-        self.reassortmentRate_GP = self.reassortment_rate
-        
         # relative protection for infection from natural immunity 
         immunity_hypothesis = self.immunity_hypothesis
         HomotypicImmunityRate = 0 # TEMP, not defined in all if statements
@@ -1184,30 +1212,16 @@ class RotaABM:
         self.completeHeterotypicImmunityrate = completeHeterotypicImmunityrate
         
         self.done_vaccinated = False
-        self.vaccination_time =  20
-    
-        # Efficacy of the vaccine first dose
-        vaccine_efficacy_d1 = {
-            PathogenMatch.HOMOTYPIC: 0.6,
-            PathogenMatch.PARTIAL_HETERO: 0.45,
-            PathogenMatch.COMPLETE_HETERO:0.15,
-        }
-        # Efficacy of the vaccine second dose
-        vaccine_efficacy_d2 = {
-            PathogenMatch.HOMOTYPIC: 0.8,
-            PathogenMatch.PARTIAL_HETERO: 0.65,
-            PathogenMatch.COMPLETE_HETERO:0.35,
-        }
         
         vaccine_efficacy_i_d1 = {}
         vaccine_efficacy_s_d1 = {}
         vaccine_efficacy_i_d2 = {}
         vaccine_efficacy_s_d2 = {}
-        for (k, v) in vaccine_efficacy_d1.items():
+        for (k, v) in self.vaccine_efficacy_d1.items():
             (ve_i, ve_s) = self.breakdown_vaccine_efficacy(v, self.ve_i_to_ve_s_ratio)
             vaccine_efficacy_i_d1[k] = ve_i
             vaccine_efficacy_s_d1[k] = ve_s
-        for (k, v) in vaccine_efficacy_d2.items():
+        for (k, v) in self.vaccine_efficacy_d2.items():
             (ve_i, ve_s) = self.breakdown_vaccine_efficacy(v, self.ve_i_to_ve_s_ratio)
             vaccine_efficacy_i_d2[k] = ve_i
             vaccine_efficacy_s_d2[k] = ve_s
@@ -1220,14 +1234,7 @@ class RotaABM:
         vaccine_first_dose_rate = math.sqrt(vaccine_second_dose_rate)
         if self.verbose: print("Vaccination - first dose rate: %s, second dose rate %s" % (vaccine_first_dose_rate, vaccine_second_dose_rate))
         
-        self.vacinnation_single_dose_waning_rate = 365/273 #365/1273
-        self.vacinnation_double_dose_waning_rate = 365/546 #365/2600
-        # vacinnation_waning_lower_bound = 20 * 7 / 365.0
-        
         self.total_strain_counts_vaccine = {}
-        
-        ### Tau leap parametes
-        self.tau = 1/365.0
         
         numSegments = 4
         numNoneAgSegments = 2
@@ -1239,25 +1246,39 @@ class RotaABM:
         segmentCombinations = [tuple(i) for i in itertools.product(*segmentVariants)]  # getting all possible combinations from a list of list
         rnd.shuffle(segmentCombinations)
         number_all_strains = len(segmentCombinations)
-        initialSegmentCombinations = {(1,8,1,1): 100, (2,4,1,1): 100 ,(9,8,1,1): 100, (4,8,1,1): 100, (3,8,1,1): 100, (12,8,1,1): 100, (12,6,1,1): 100 ,(9,4,1,1): 100, (9,6,1,1): 100, (1,6,1,1): 100, (2,8,1,1): 100, (2,6,1,1): 100, (11,8,1,1): 100, (11,6,1,1): 100 ,(1,4,1,1): 100, (12,4,1,1): 100 }
+        n_init_seg = 100
+        initialSegmentCombinations = {
+            (1,8,1,1) : n_init_seg,
+            (2,4,1,1) : n_init_seg,
+            (9,8,1,1) : n_init_seg,
+            (4,8,1,1) : n_init_seg,
+            (3,8,1,1) : n_init_seg,
+            (12,8,1,1): n_init_seg,
+            (12,6,1,1): n_init_seg,
+            (9,4,1,1) : n_init_seg,
+            (9,6,1,1) : n_init_seg,
+            (1,6,1,1) : n_init_seg,
+            (2,8,1,1) : n_init_seg,
+            (2,6,1,1) : n_init_seg,
+            (11,8,1,1): n_init_seg,
+            (11,6,1,1): n_init_seg,
+            (1,4,1,1) : n_init_seg,
+            (12,4,1,1): n_init_seg,
+        }
         # initial strains for the Low baseline diversity setting
         #initialSegmentCombinations = {(1,8,1,1): 100, (2,4,1,1): 100} #, (9,8,1,1): 100} #, (4,8,1,1): 100} 
     
-        # if initialization starts with a proportion of immune agents:
-        num_initial_immune = 10000
-    
         # Track the number of immune hosts(immunityCounts) in the host population
-        
-        
         infected_pop = []
         pathogens_pop = []
         
         # for each strain track the number of hosts infected with it at current time: strainCount  
         strainCount = {}   
         
-        host_pop = [Host(i, self) for i in range(N)]   # for each number in range of N, make a new Host object, i is the id.
+        # for each number in range of N, make a new Host object, i is the id.
+        host_pop = [Host(i, self) for i in range(self.N)]   
         
-        self.pop_id = N
+        self.pop_id = self.N
         self.to_be_vaccinated_pop = [] 
         self.single_dose_vaccinated_pop = []
         
@@ -1280,7 +1301,7 @@ class RotaABM:
         ### infecting the initial infecteds
         for (initial_strain, num_infected) in initialSegmentCombinations.items():
             if self.initial_immunity:
-                for j in range(num_initial_immune):
+                for j in range(self.num_initial_immune):
                     h = rnd.choice(host_pop)
                     h.immunity[initial_strain] = self.t
                     self.immunityCounts += 1
