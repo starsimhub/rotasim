@@ -931,6 +931,123 @@ class Rota:
         ve_i = x * ve_s
         return (ve_i, ve_s)
     
+    def collect_and_write_data(self, host_population, output_filename, vaccine_output_filename, vaccine_efficacy_output_filename, sample=False, sample_size=1000):
+        """
+        Collects data from the host population and writes it to a CSV file.
+        If sample is True, it collects data from a random sample of the population.
+        
+        Args:
+        - host_population: List of host objects.
+        - output_filename: Name of the file to write the data.
+        - sample: Boolean indicating whether to collect data from a sample or the entire population.
+        - sample_size: Size of the sample to collect data from if sample is True.
+        """
+        # Select the population to collect data from
+        if sample:
+            population_to_collect = np.random.choice(host_population, sample_size, replace=False)
+        else:
+            population_to_collect = host_population
+    
+        # Shuffle the population to avoid the need for random sampling
+        rnd.shuffle(population_to_collect)
+        
+        collected_data = []
+        collected_vaccination_data = []
+    
+        # To measure vaccine efficacy we will gather data on the number of vaccinated hosts who get infected
+        # along with the number of unvaccinated hosts that get infected
+        vaccinated_hosts = []
+        unvaccinated_hosts = []
+    
+        for h in population_to_collect:
+            if not sample:
+                # For vaccination data file, we will count the number of agents with current vaccine immunity
+                # This will exclude those who previously got the vaccine but the immunity waned.
+                if h.vaccine is not None:
+                    for vs in [self.get_strain_antigenic_name(s) for s in h.vaccine[0]]:
+                        collected_vaccination_data.append((h.id, vs, self.t, h.get_age_category(), h.vaccine[2]))
+            if len(h.prior_vaccinations) != 0:
+                if len(vaccinated_hosts) < 1000:
+                    vaccinated_hosts.append(h)
+            else:
+                if len(unvaccinated_hosts) < 1000:
+                    unvaccinated_hosts.append(h)
+            if h.isInfected():
+                strain_str = [(path.get_strain_name(), path.is_severe, path.creation_time) for path in h.infecting_pathogen if not sample or not path.is_reassortant]
+                for strain in strain_str:
+                    collected_data.append((h.id, strain[0], self.t, h.get_age_category(), strain[1], strain[2], len(self.host_pop)))
+                    
+        # Only collect the vaccine efficacy data if we have vaccinated the hosts
+        if self.done_vaccinated:
+            num_vaccinated = len(vaccinated_hosts)
+            num_unvaccinated = len(unvaccinated_hosts)
+            num_vaccinated_infected = 0
+            num_unvaccinated_infected = 0           
+            num_vaccinated_infected_severe = 0
+            num_unvaccinated_infected_severe = 0
+            num_full_heterotypic = [0, 0]
+            num_partial_heterotypic = [0, 0]
+            num_homotypic = [0, 0]
+    
+            for vaccinated_host in vaccinated_hosts:
+                if len(vaccinated_host.infections_with_vaccination) > 0:
+                    num_vaccinated_infected += 1
+                was_there_a_severe_infection = False
+                was_there_a_full_heterotypic_infection = [False, False]
+                was_there_a_partial_heterotypic_infection = [False, False]
+                was_there_a_homotypic_infection = [False, False]
+                for infecting_pathogen in vaccinated_host.infections_with_vaccination:     
+                    index = 0           
+                    if infecting_pathogen[0].is_severe:    
+                        index = 1
+                        was_there_a_severe_infection = True
+                    if infecting_pathogen[1] == PathogenMatch.HOMOTYPIC:
+                        was_there_a_full_heterotypic_infection[index] = True
+                    elif infecting_pathogen[1] == PathogenMatch.PARTIAL_HETERO:
+                        was_there_a_partial_heterotypic_infection[index] = True
+                    elif infecting_pathogen[1] == PathogenMatch.COMPLETE_HETERO:
+                        was_there_a_homotypic_infection[index] = True
+                    
+                if was_there_a_severe_infection:
+                    num_vaccinated_infected_severe += 1
+                if was_there_a_full_heterotypic_infection[0]:        
+                    num_full_heterotypic[0] += 1
+                if was_there_a_full_heterotypic_infection[1]:                
+                    num_full_heterotypic[1] += 1
+                if was_there_a_partial_heterotypic_infection[0]:
+                    num_partial_heterotypic[0] += 1
+                if was_there_a_partial_heterotypic_infection[1]:
+                    num_partial_heterotypic[1] += 1
+                if was_there_a_homotypic_infection[0]:
+                    num_homotypic[0] += 1
+                if was_there_a_homotypic_infection[1]:
+                    num_homotypic[1] += 1
+    
+            for unvaccinated_host in unvaccinated_hosts:
+                if len(unvaccinated_host.infections_without_vaccination) > 0:
+                    num_unvaccinated_infected += 1
+                was_there_a_severe_infection = False
+                for infecting_pathogen in unvaccinated_host.infections_without_vaccination:                
+                    if infecting_pathogen.is_severe:
+                        was_there_a_severe_infection = True
+                        break
+                if was_there_a_severe_infection:
+                    num_unvaccinated_infected_severe += 1
+    
+            with open(vaccine_efficacy_output_filename, "a", newline='') as outputfile:
+                write = csv.writer(outputfile)
+                write.writerow([self.t, num_vaccinated, num_unvaccinated, num_vaccinated_infected, num_vaccinated_infected_severe, num_unvaccinated_infected, num_unvaccinated_infected_severe,
+                                num_homotypic[0], num_homotypic[1], num_partial_heterotypic[0], num_partial_heterotypic[1], num_full_heterotypic[0], num_full_heterotypic[1]]) 
+    
+        # Write collected data to the output file
+        with open(output_filename, "a", newline='') as outputfile:
+            writer = csv.writer(outputfile)
+            writer.writerows(collected_data)
+        if not sample:
+            with open(vaccine_output_filename, "a", newline='') as outputfile:
+                writer = csv.writer(outputfile)
+                writer.writerows(collected_vaccination_data)
+    
     def main(self, defaults=None, verbose=None):
         """
         The main script used to run the simulation.
@@ -995,126 +1112,6 @@ class Rota:
         self.files.vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
         self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
 
-        def collect_and_write_data(host_population, output_filename, vaccine_output_filename, vaccine_efficacy_output_filename, sample=False, sample_size=1000):
-            """
-            Collects data from the host population and writes it to a CSV file.
-            If sample is True, it collects data from a random sample of the population.
-            
-            Args:
-            - host_population: List of host objects.
-            - output_filename: Name of the file to write the data.
-            - sample: Boolean indicating whether to collect data from a sample or the entire population.
-            - sample_size: Size of the sample to collect data from if sample is True.
-            """
-            # Select the population to collect data from
-            if sample:
-                population_to_collect = np.random.choice(host_population, sample_size, replace=False)
-            else:
-                population_to_collect = host_population
-        
-            # Shuffle the population to avoid the need for random sampling
-            rnd.shuffle(population_to_collect)
-            
-            collected_data = []
-            collected_vaccination_data = []
-        
-            # To measure vaccine efficacy we will gather data on the number of vaccinated hosts who get infected
-            # along with the number of unvaccinated hosts that get infected
-            vaccinated_hosts = []
-            unvaccinated_hosts = []
-        
-            for h in population_to_collect:
-                if not sample:
-                    # For vaccination data file, we will count the number of agents with current vaccine immunity
-                    # This will exclude those who previously got the vaccine but the immunity waned.
-                    if h.vaccine is not None:
-                        for vs in [self.get_strain_antigenic_name(s) for s in h.vaccine[0]]:
-                            collected_vaccination_data.append((h.id, vs, self.t, h.get_age_category(), h.vaccine[2]))
-                if len(h.prior_vaccinations) != 0:
-                    if len(vaccinated_hosts) < 1000:
-                        vaccinated_hosts.append(h)
-                else:
-                    if len(unvaccinated_hosts) < 1000:
-                        unvaccinated_hosts.append(h)
-                if h.isInfected():
-                    strain_str = [(path.get_strain_name(), path.is_severe, path.creation_time) for path in h.infecting_pathogen if not sample or not path.is_reassortant]
-                    for strain in strain_str:
-                        collected_data.append((h.id, strain[0], self.t, h.get_age_category(), strain[1], strain[2], len(host_pop)))
-                        
-            # Only collect the vaccine efficacy data if we have vaccinated the hosts
-            if self.done_vaccinated:
-                num_vaccinated = len(vaccinated_hosts)
-                num_unvaccinated = len(unvaccinated_hosts)
-                num_vaccinated_infected = 0
-                num_unvaccinated_infected = 0           
-                num_vaccinated_infected_severe = 0
-                num_unvaccinated_infected_severe = 0
-                num_full_heterotypic = [0, 0]
-                num_partial_heterotypic = [0, 0]
-                num_homotypic = [0, 0]
-        
-                for vaccinated_host in vaccinated_hosts:
-                    if len(vaccinated_host.infections_with_vaccination) > 0:
-                        num_vaccinated_infected += 1
-                    was_there_a_severe_infection = False
-                    was_there_a_full_heterotypic_infection = [False, False]
-                    was_there_a_partial_heterotypic_infection = [False, False]
-                    was_there_a_homotypic_infection = [False, False]
-                    for infecting_pathogen in vaccinated_host.infections_with_vaccination:     
-                        index = 0           
-                        if infecting_pathogen[0].is_severe:    
-                            index = 1
-                            was_there_a_severe_infection = True
-                        if infecting_pathogen[1] == PathogenMatch.HOMOTYPIC:
-                            was_there_a_full_heterotypic_infection[index] = True
-                        elif infecting_pathogen[1] == PathogenMatch.PARTIAL_HETERO:
-                            was_there_a_partial_heterotypic_infection[index] = True
-                        elif infecting_pathogen[1] == PathogenMatch.COMPLETE_HETERO:
-                            was_there_a_homotypic_infection[index] = True
-                        
-                    if was_there_a_severe_infection:
-                        num_vaccinated_infected_severe += 1
-                    if was_there_a_full_heterotypic_infection[0]:        
-                        num_full_heterotypic[0] += 1
-                    if was_there_a_full_heterotypic_infection[1]:                
-                        num_full_heterotypic[1] += 1
-                    if was_there_a_partial_heterotypic_infection[0]:
-                        num_partial_heterotypic[0] += 1
-                    if was_there_a_partial_heterotypic_infection[1]:
-                        num_partial_heterotypic[1] += 1
-                    if was_there_a_homotypic_infection[0]:
-                        num_homotypic[0] += 1
-                    if was_there_a_homotypic_infection[1]:
-                        num_homotypic[1] += 1
-        
-                for unvaccinated_host in unvaccinated_hosts:
-                    if len(unvaccinated_host.infections_without_vaccination) > 0:
-                        num_unvaccinated_infected += 1
-                    was_there_a_severe_infection = False
-                    for infecting_pathogen in unvaccinated_host.infections_without_vaccination:                
-                        if infecting_pathogen.is_severe:
-                            was_there_a_severe_infection = True
-                            break
-                    if was_there_a_severe_infection:
-                        num_unvaccinated_infected_severe += 1
-        
-                with open(vaccine_efficacy_output_filename, "a", newline='') as outputfile:
-                    write = csv.writer(outputfile)
-                    write.writerow([self.t, num_vaccinated, num_unvaccinated, num_vaccinated_infected, num_vaccinated_infected_severe, num_unvaccinated_infected, num_unvaccinated_infected_severe,
-                                    num_homotypic[0], num_homotypic[1], num_partial_heterotypic[0], num_partial_heterotypic[1], num_full_heterotypic[0], num_full_heterotypic[1]]) 
-        
-            # Write collected data to the output file
-            with open(output_filename, "a", newline='') as outputfile:
-                writer = csv.writer(outputfile)
-                writer.writerows(collected_data)
-            if not sample:
-                with open(vaccine_output_filename, "a", newline='') as outputfile:
-                    writer = csv.writer(outputfile)
-                    writer.writerows(collected_vaccination_data)
-        
-
-        
-        
         ########## Set Parameters ##########
         N = 2000  # initial population size
         timelimit = 10  #### simulation years
@@ -1247,6 +1244,7 @@ class Rota:
         strainCount = {}   
         
         host_pop = [host(i, self) for i in range(N)]   # for each number in range of N, make a new Host object, i is the id.
+        self.host_pop = host_pop
         self.pop_id = N
         to_be_vaccinated_pop = [] 
         single_dose_vaccinated_pop = []
@@ -1392,9 +1390,8 @@ class Rota:
         
             f = self.files
             if self.t >= last_data_colllected:
-                
-                collect_and_write_data(host_pop, f.sample_outputfilename, f.vaccinations_outputfilename, f.sample_vaccine_efficacy_output_filename, sample=True)
-                collect_and_write_data(host_pop, f.infected_all_outputfilename, f.vaccinations_outputfilename, f.vaccine_efficacy_output_filename, sample=False)
+                self.collect_and_write_data(host_pop, f.sample_outputfilename, f.vaccinations_outputfilename, f.sample_vaccine_efficacy_output_filename, sample=True)
+                self.collect_and_write_data(host_pop, f.infected_all_outputfilename, f.vaccinations_outputfilename, f.vaccine_efficacy_output_filename, sample=False)
                 last_data_colllected += data_collection_rate
                 
             with open(f.outputfilename, "a", newline='') as outputfile:
