@@ -805,6 +805,27 @@ class Rota:
         # in this case h2 was not infected before but is infected now
         if not h2_previously_infected and h2.isInfected():
             infected_pop.append(h2)
+            
+    def get_weights_by_age(self, host_pop):
+        weights = np.array([self.t - x.bday for x in host_pop])
+        total_w = np.sum(weights)
+        weights = weights / total_w
+        return weights
+    
+    def death_event(self, num_deaths, infected_pop, host_pop, strainCount):
+        host_list = np.arange(len(host_pop))
+        p = self.get_weights_by_age(host_pop)
+        inds = np.random.choice(host_list, p=p, size=num_deaths, replace=False)
+        dying_hosts = [host_pop[ind] for ind in inds]
+        for h in dying_hosts:
+            if h.isInfected():
+                infected_pop.remove(h)
+                for path in h.infecting_pathogen:
+                    if not path.is_reassortant:
+                        strainCount[path.strain] -= 1
+            if h.isImmune():
+                self.immunityCounts -= 1
+            host_pop.remove(h)
     
     def main(self, defaults=None, verbose=None):
         """
@@ -869,27 +890,6 @@ class Rota:
         self.files.vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
         self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
 
-        def get_weights_by_age(host_pop):
-            weights = np.array([self.t - x.bday for x in host_pop])
-            total_w = np.sum(weights)
-            weights = weights / total_w
-            return weights
-        
-        def death_event(num_deaths, infected_pop, host_pop, strainCount):
-            host_list = np.arange(len(host_pop))
-            p = get_weights_by_age(host_pop)
-            inds = np.random.choice(host_list, p=p, size=num_deaths, replace=False)
-            dying_hosts = [host_pop[ind] for ind in inds]
-            for h in dying_hosts:
-                if h.isInfected():
-                    infected_pop.remove(h)
-                    for path in h.infecting_pathogen:
-                        if not path.is_reassortant:
-                            strainCount[path.strain] -= 1
-                if h.isImmune():
-                    self.immunityCounts -= 1
-                host_pop.remove(h)
-        
         def recovery_event(num_recovered, infected_pop, strainCount):
             weights=np.array([x.get_oldest_current_infection() for x in infected_pop])
             # If there is no one with an infection older than 0 return without recovery
@@ -1338,7 +1338,7 @@ class Rota:
             reassortment_event(infected_pop, reassortments) # calling the function
             for _ in range(contacts):
                 self.contact_event(infected_pop, host_pop, strainCount)
-            death_event(deaths, infected_pop, host_pop, strainCount)
+            self.death_event(deaths, infected_pop, host_pop, strainCount)
             recovery_event(recoveries, infected_pop, strainCount)    
             waning_event(host_pop, wanings)
             waning_vaccinations_first_dose(single_dose_hosts, vaccine_dose_1_wanings)
