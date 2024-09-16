@@ -25,6 +25,7 @@ class Rota:
     def __init__(self):
         self.args = sys.argv
         self.immunityCounts = 0
+        self.ReassortmentCount = 0
         self.pop_id = 0
         self.t = 0.0
     
@@ -86,7 +87,7 @@ class Rota:
             with open(outputfilename, "w+", newline='') as outputfile:
                 write = csv.writer(outputfile)
                 write.writerow(["time"] + list(strainCount.keys()) + ["ReassortmentCount"])  # header for the csv file
-                write.writerow([self.t] + list(strainCount.values()) + [ReassortmentCount])  # first row of the csv file will be the initial state
+                write.writerow([self.t] + list(strainCount.values()) + [self.ReassortmentCount])  # first row of the csv file will be the initial state
         
             with open(sample_outputfilename, "w+", newline='') as outputfile:
                 write = csv.writer(outputfile)
@@ -762,8 +763,6 @@ class Rota:
             return (births, deaths, recoveries, contacts, wanings, reassortments, vaccination_wanings_one_dose, vaccination_wanings_two_dose)
         
         def coInfected_contacts(host1, host2, strainCounts):  
-            global ReassortmentCount
-        
             h2existing_pathogens = list(host2.infecting_pathogen)
             randomnumber = rnd.random()
             if randomnumber < 0.02:       # giving all the possible strains
@@ -1205,7 +1204,7 @@ class Rota:
         num_initial_immune = 10000
     
         # Track the number of immune hosts(immunityCounts) in the host population
-        ReassortmentCount = 0
+        
         
         infected_pop = []
         pathogens_pop = []
@@ -1364,7 +1363,7 @@ class Rota:
                 
             with open(outputfilename, "a", newline='') as outputfile:
                 write = csv.writer(outputfile)
-                write.writerow([self.t] + list(strainCount.values()) + [ReassortmentCount])
+                write.writerow([self.t] + list(strainCount.values()) + [self.ReassortmentCount])
         
             tau_steps += 1
             self.t+=tau
