@@ -747,6 +747,24 @@ class Rota:
         vaccination_wanings_two_dose = np.random.poisson(size=1, lam=tau*self.vacinnation_double_dose_waning_rate*double_dose_count)[0]
         return (births, deaths, recoveries, contacts, wanings, reassortments, vaccination_wanings_one_dose, vaccination_wanings_two_dose)
     
+    @staticmethod
+    def coInfected_contacts(host1, host2, strainCounts):  
+        h2existing_pathogens = list(host2.infecting_pathogen)
+        randomnumber = rnd.random()
+        if randomnumber < 0.02:       # giving all the possible strains
+            for path in host1.infecting_pathogen:
+                if host2.can_variant_infect_host(path.strain, h2existing_pathogens):
+                    host2.infect_with_pathogen(path, strainCounts)
+        else:  # give only one strain depending on fitness
+            host1paths = list(host1.infecting_pathogen)     
+            # Sort by fitness first and randomize the ones with the same fitness
+            host1paths.sort(key=lambda path: (path.getFitness(), rnd.random()), reverse=True)
+            for path in host1paths:
+                if host2.can_variant_infect_host(path.strain, h2existing_pathogens):
+                    infected = host2.infect_with_pathogen(path, strainCounts)
+                    if infected:
+                        break
+    
     def main(self, defaults=None, verbose=None):
         """
         The main script used to run the simulation.
@@ -810,23 +828,6 @@ class Rota:
         self.files.vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
         self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
 
-        def coInfected_contacts(host1, host2, strainCounts):  
-            h2existing_pathogens = list(host2.infecting_pathogen)
-            randomnumber = rnd.random()
-            if randomnumber < 0.02:       # giving all the possible strains
-                for path in host1.infecting_pathogen:
-                    if host2.can_variant_infect_host(path.strain, h2existing_pathogens):
-                        host2.infect_with_pathogen(path, strainCounts)
-            else:  # give only one strain depending on fitness
-                host1paths = list(host1.infecting_pathogen)     
-                # Sort by fitness first and randomize the ones with the same fitness
-                host1paths.sort(key=lambda path: (path.getFitness(), rnd.random()), reverse=True)
-                for path in host1paths:
-                    if host2.can_variant_infect_host(path.strain, h2existing_pathogens):
-                        infected = host2.infect_with_pathogen(path, strainCounts)
-                        if infected:
-                            break
-                    
         def contact_event(infected_pop, host_pop, strainCount):
             if len(infected_pop) == 0:
                 print("[Warning] No infected hosts in a contact event. Skipping")
@@ -862,7 +863,7 @@ class Rota:
                 if h2.can_variant_infect_host(h1.infecting_pathogen[0].strain, h2.infecting_pathogen):
                     h2.infect_with_pathogen(h1.infecting_pathogen[0], strainCount)
             else:
-                coInfected_contacts(h1,h2,strainCount)
+                self.coInfected_contacts(h1,h2,strainCount)
             
             # in this case h2 was not infected before but is infected now
             if not h2_previously_infected and h2.isInfected():
