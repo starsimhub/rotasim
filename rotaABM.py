@@ -30,8 +30,6 @@ class Host:
     """
     A rotavirus host
     """
-
-
     def __init__(self, host_id, sim):
         self.sim = sim
         self.id = host_id
@@ -685,12 +683,47 @@ class RotaABM:
     Run the simulation
     """
     
-    def __init__(self):
+    def __init__(self, defaults=None, verbose=None):
+        """
+        Create the simulation.
+        
+        Args:
+            defaults (list): a list of parameters matching the command-line inputs; see below
+            verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
+        """
         self.args = sys.argv
         self.immunityCounts = 0
         self.ReassortmentCount = 0
         self.pop_id = 0
         self.t = 0.0
+        
+        args = self.args
+        self.verbose = verbose
+        
+        if defaults is None:
+            defaults = ['', # Placeholder (file name)
+                1,   # immunity_hypothesis. Defines the immunity rates for Homotypic, Partial Heterotypic, Complete Heterotypic infections.
+                0.1, # reassortment_rate
+                1,   # fitness_hypothesis. Defines how the fitness is computed for a strain.
+                1,   # vaccine_hypothesis
+                1,   # waning_hypothesis
+                0,   # initial_immunity
+                0.5, # ve_i_to_ve_s_ratio
+                1,   # experimentNumber
+            ]
+        if verbose is not False: print(args)
+        if len(args) < 8:
+            args = args + defaults[len(args):]
+        
+        self.immunity_hypothesis = int(args[1])
+        self.reassortment_rate = float(args[2])
+        self.fitness_hypothesis = int(args[3])
+        self.vaccine_hypothesis = int(args[4])
+        self.waning_hypothesis = int(args[5])
+        self.initial_immunity = int(args[6]) # 0 = no immunity
+        self.ve_i_to_ve_s_ratio = float(args[7])
+        self.experimentNumber = int(args[8])
+        return
         
     @staticmethod
     def get_probability_of_severe(sim, pathogen_in, vaccine, immunity_count): # TEMP: refactor and include above
@@ -1059,60 +1092,19 @@ class RotaABM:
                 writer = csv.writer(outputfile)
                 writer.writerows(collected_vaccination_data)
     
-    def run(self, defaults=None, verbose=None):
+    def run(self):
         """
-        Run the simulation.
-        
-        Args:
-            defaults (list): a list of parameters matching the command-line inputs; see below
-            verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
+        Run the simulation
         """
-        args = self.args
-        self.verbose = verbose
-        
-        if defaults is None:
-            defaults = ['', # Placeholder (file name)
-                1,   # immunity_hypothesis. Defines the immunity rates for Homotypic, Partial Heterotypic, Complete Heterotypic infections.
-                0.1, # reassortment_rate
-                1,   # fitness_hypothesis. Defines how the fitness is computed for a strain.
-                1,   # vaccine_hypothesis
-                1,   # waning_hypothesis
-                0,   # initial_immunity
-                0.5, # ve_i_to_ve_s_ratio
-                1,   # experimentNumber
-            ]
-        if verbose is not False: print(args)
-        if len(args) < 8:
-            args = args + defaults[len(args):]
-        
-        self.immunity_hypothesis = int(args[1])
-        self.reassortment_rate = float(args[2])
-        self.fitness_hypothesis = int(args[3])
-        self.vaccine_hypothesis = int(args[4])
-        self.waning_hypothesis = int(args[5])
-        self.initial_immunity = int(args[6]) # 0 = no immunity
-        self.ve_i_to_ve_s_ratio = float(args[7])
-        self.experimentNumber = int(args[8])
-        
-        # TEMP -- replace with self version
-        immunity_hypothesis = int(args[1])
-        reassortment_rate = float(args[2])
-        fitness_hypothesis = int(args[3])
-        vaccine_hypothesis = int(args[4])
-        waning_hypothesis = int(args[5])
-        initial_immunity = int(args[6]) # 0 = no immunity
-        ve_i_to_ve_s_ratio = float(args[7])
-        experimentNumber = int(args[8])
-        
         now = datetime.now() # current date and time
         date_time = now.strftime("%m_%d_%Y_%H_%M")
-        if verbose is not False: print("date and time:", date_time)
+        if self.verbose is not False: print("date and time:", date_time)
     
         myseed = self.experimentNumber
         rnd.seed(myseed)
         np.random.seed(myseed)
         
-        name_suffix =  '%r_%r_%r_%r_%r_%r_%r_%r' % (immunity_hypothesis, reassortment_rate, fitness_hypothesis, vaccine_hypothesis, waning_hypothesis, initial_immunity, ve_i_to_ve_s_ratio, experimentNumber)
+        name_suffix =  '%r_%r_%r_%r_%r_%r_%r_%r' % (self.immunity_hypothesis, self.reassortment_rate, self.fitness_hypothesis, self.vaccine_hypothesis, self.waning_hypothesis, self.initial_immunity, self.ve_i_to_ve_s_ratio, self.experimentNumber)
     
         self.files = sc.objdict()
         self.files.outputfilename = './results/rota_straincount_%s.csv' % (name_suffix)
@@ -1128,19 +1120,20 @@ class RotaABM:
         timelimit = 10  #### simulation years
         self.mu = 1.0/70.0     # average life span is 70 years
         self.gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
-        if waning_hypothesis == 1:
+        if self.waning_hypothesis == 1:
             omega = 365/273  # duration of immunity by infection= 39 weeks
-        elif waning_hypothesis == 2:
+        elif self.waning_hypothesis == 2:
             omega = 365/50  
-        elif waning_hypothesis == 3:
+        elif self.waning_hypothesis == 3:
             omega = 365/100  
         self.omega = omega
         self.birth_rate = self.mu * 4
         
         self.contact_rate = 365/1    
-        reassortmentRate_GP = reassortment_rate
+        reassortmentRate_GP = self.reassortment_rate
         
         # relative protection for infection from natural immunity 
+        immunity_hypothesis = self.immunity_hypothesis
         HomotypicImmunityRate = 0 # TEMP, not defined in all if statements
         if immunity_hypothesis == 1 or immunity_hypothesis == 4 or immunity_hypothesis == 5:
             partialCrossImmunityRate = 0
@@ -1203,21 +1196,21 @@ class RotaABM:
         vaccine_efficacy_i_d2 = {}
         vaccine_efficacy_s_d2 = {}
         for (k, v) in vaccine_efficacy_d1.items():
-            (ve_i, ve_s) = self.breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
+            (ve_i, ve_s) = self.breakdown_vaccine_efficacy(v, self.ve_i_to_ve_s_ratio)
             vaccine_efficacy_i_d1[k] = ve_i
             vaccine_efficacy_s_d1[k] = ve_s
         for (k, v) in vaccine_efficacy_d2.items():
-            (ve_i, ve_s) = self.breakdown_vaccine_efficacy(v, ve_i_to_ve_s_ratio)
+            (ve_i, ve_s) = self.breakdown_vaccine_efficacy(v, self.ve_i_to_ve_s_ratio)
             vaccine_efficacy_i_d2[k] = ve_i
             vaccine_efficacy_s_d2[k] = ve_s
         
-        if verbose: print("VE_i: ", vaccine_efficacy_i_d1)
-        if verbose: print("VE_s: ", vaccine_efficacy_s_d1)
+        if self.verbose: print("VE_i: ", vaccine_efficacy_i_d1)
+        if self.verbose: print("VE_s: ", vaccine_efficacy_s_d1)
         
         # Vaccination rates are derived based on the following formula
         vaccine_second_dose_rate = 0.8
         vaccine_first_dose_rate = math.sqrt(vaccine_second_dose_rate)
-        if verbose: print("Vaccination - first dose rate: %s, second dose rate %s" % (vaccine_first_dose_rate, vaccine_second_dose_rate))
+        if self.verbose: print("Vaccination - first dose rate: %s, second dose rate %s" % (vaccine_first_dose_rate, vaccine_second_dose_rate))
         
         self.vacinnation_single_dose_waning_rate = 365/273 #365/1273
         self.vacinnation_double_dose_waning_rate = 365/546 #365/2600
@@ -1264,15 +1257,15 @@ class RotaABM:
             strainCount[segmentCombinations[i]] = 0
     
         # if initial immunity is true 
-        if verbose:
-            if initial_immunity:
+        if self.verbose:
+            if self.initial_immunity:
                 print("Initial immunity is set to True")
             else:
                 print("Initial immunity is set to False")
     
         ### infecting the initial infecteds
         for (initial_strain, num_infected) in initialSegmentCombinations.items():
-            if initial_immunity:
+            if self.initial_immunity:
                 for j in range(num_initial_immune):
                     h = rnd.choice(host_pop)
                     h.immunity[initial_strain] = self.t
@@ -1286,7 +1279,7 @@ class RotaABM:
                 pathogens_pop.append(p)
                 h.infecting_pathogen.append(p)
                 strainCount[p.strain] += 1                       
-        if verbose: print(strainCount)
+        if self.verbose: print(strainCount)
         
         self.initialize_files(strainCount)   
         
@@ -1314,8 +1307,8 @@ class RotaABM:
         )
         while self.t<timelimit:
             if tau_steps % 10 == 0:
-                if verbose is not False: print("Current time: %f (Number of steps = %d)" % (self.t, tau_steps))
-                if verbose: print(strainCount)
+                if self.verbose is not False: print("Current time: %f (Number of steps = %d)" % (self.t, tau_steps))
+                if self.verbose: print(strainCount)
         
             ### Every 100 steps, write the age distribution of the population to a file
             if tau_steps % 100 == 0:
@@ -1324,7 +1317,7 @@ class RotaABM:
                     age_dict[age_range] = 0
                 for h in host_pop:
                     age_dict[h.get_age_category()] += 1
-                if verbose: print("Ages: ", age_dict)
+                if self.verbose: print("Ages: ", age_dict)
                 with open(self.files.age_outputfilename, "a", newline='') as outputfile:
                     write = csv.writer(outputfile)
                     write.writerow(["{:.2}".format(self.t)] + list(age_dict.values()))
@@ -1342,7 +1335,7 @@ class RotaABM:
             # Get the number of events in a single tau step
             events = self.get_event_counts(len(host_pop), len(infected_pop), self.immunityCounts, self.tau, reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
             births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = events
-            if verbose: print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(self.t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
+            if self.verbose: print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(self.t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
         
             # Parse into dict
             event_dict[:] += events
@@ -1365,7 +1358,7 @@ class RotaABM:
             
             # Administer the first dose of the vaccine
             # Vaccination strain is the most prevalent strain in the population before the vaccination starts
-            if vaccine_hypothesis!=0 and (not self.done_vaccinated) and self.t >= self.vaccination_time:
+            if self.vaccine_hypothesis!=0 and (not self.done_vaccinated) and self.t >= self.vaccination_time:
                 # Sort the strains by the number of hosts infected with it in the past
                 # Pick the last one from the sorted list as the most prevalent strain
                 vaccinated_strain = sorted(list(total_strain_counts_vaccine.keys()), key=lambda x: total_strain_counts_vaccine[x])[-1]
@@ -1374,8 +1367,8 @@ class RotaABM:
                 # Use the vaccination rate to determine the number of hosts to vaccinate
                 vaccination_count = int(len(child_host_pop)*vaccine_first_dose_rate)            
                 sample_population = rnd.sample(child_host_pop, vaccination_count)
-                if verbose: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
-                if verbose: print("Number of people vaccinated: {} NUmber of people under 6 weeks: {}".format(len(sample_population), len(child_host_pop)))
+                if self.verbose: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
+                if self.verbose: print("Number of people vaccinated: {} NUmber of people under 6 weeks: {}".format(len(sample_population), len(child_host_pop)))
                 for h in sample_population:
                     h.vaccinate(vaccinated_strain)
                     single_dose_vaccinated_pop.append(h)
@@ -1414,7 +1407,7 @@ class RotaABM:
         
         t1 = time.time()
         total_time = t1-t0
-        if verbose is not False: print("Time to run experiment: ", total_time)
+        if self.verbose is not False: print("Time to run experiment: ", total_time)
         
         return event_dict
 
@@ -1423,3 +1416,4 @@ if __name__ == '__main__':
     with sc.timer():
         rota = RotaABM()
         events = rota.run()
+        print(events)
