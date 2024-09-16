@@ -826,6 +826,87 @@ class Rota:
             if h.isImmune():
                 self.immunityCounts -= 1
             host_pop.remove(h)
+            
+    def recovery_event(self, num_recovered, infected_pop, strainCount):
+        weights=np.array([x.get_oldest_current_infection() for x in infected_pop])
+        # If there is no one with an infection older than 0 return without recovery
+        if (sum(weights) == 0):
+            return
+        # weights_e = np.exp(weights)
+        total_w = np.sum(weights)
+        weights = weights / total_w
+    
+        recovering_hosts = np.random.choice(infected_pop, p=weights, size=num_recovered, replace=False)
+        for host in recovering_hosts:
+            if not host.isImmune():
+                self.immunityCounts +=1 
+            host.recover(strainCount)
+            infected_pop.remove(host)
+    
+    @staticmethod
+    def reassortment_event(infected_pop, reassortment_count):
+        coinfectedhosts = []
+        for i in infected_pop:
+            if len(i.infecting_pathogen) >= 2:
+                coinfectedhosts.append(i)
+        rnd.shuffle(coinfectedhosts)
+    
+        for i in range(min(len(coinfectedhosts),reassortment_count)):
+            parentalstrains = [path.strain for path in coinfectedhosts[i].infecting_pathogen]
+            possible_reassortants = [path for path in coinfectedhosts[i].getPossibleCombinations() if path not in parentalstrains]
+            for path in possible_reassortants:
+                coinfectedhosts[i].infect_with_reassortant(path)
+    
+    def waning_event(self, host_pop, wanings):
+        # Get all the hosts in the population that has an immunity
+        h_immune = [h for h in host_pop if h.isImmune()]
+        age_tiebreak = lambda x: (x.get_oldest_infection(), rnd.random())
+        hosts_with_immunity = sorted(h_immune, key=age_tiebreak, reverse=True)
+        
+        # Alternate implementation -- not faster, but left in as a placeholder 
+        # immune_inds = sc.findinds([h.is_immune for h in host_pop])
+        # ages = np.array([host_pop[i].get_oldest_infection() for i in immune_inds])
+        # ages += np.random.rand(len(ages))*1e-12 # Add noise to break ties
+        # immunity_sort_inds = np.argsort(ages)[::-1]
+        # immunity_sort_inds = immunity_sort_inds[:wanings]
+    
+        # For the selcted hosts set the immunity to be None
+        for i in range(min(len(hosts_with_immunity), wanings)):
+            h = hosts_with_immunity[i]
+            h.immunity =  {}
+            h.is_immune = False
+            h.priorInfections = 0
+            self.immunityCounts -= 1
+    
+    @staticmethod
+    def waning_vaccinations_first_dose(single_dose_pop, wanings):
+        """ Get all the hosts in the population that has an vaccine immunity """
+        rnd.shuffle(single_dose_pop)
+        # For the selcted hosts set the immunity to be None
+        for i in range(min(len(single_dose_pop), wanings)):
+            h = single_dose_pop[i]
+            h.vaccinations =  None
+    
+    @staticmethod
+    def waning_vaccinations_second_dose(second_dose_pop, wanings):
+        rnd.shuffle(second_dose_pop)
+        # For the selcted hosts set the immunity to be None
+        for i in range(min(len(second_dose_pop), wanings)):
+            h = second_dose_pop[i]
+            h.vaccinations =  None
+    
+    def birth_events(self, birth_count, host_pop):
+        for _ in range(birth_count):
+            self.pop_id += 1
+            new_host = host(self.pop_id, sim=self)
+            new_host.bday = self.t
+            host_pop.append(new_host)
+            if self.vaccine_hypothesis !=0 and self.done_vaccinated:
+                if rnd.random() < self.vaccine_first_dose_rate:
+                    self.to_be_vaccinated_pop.append(new_host)
+    
+    def get_strain_antigenic_name(strain):
+        return "G" + str(strain[0]) + "P" + str(strain[1])
     
     def main(self, defaults=None, verbose=None):
         """
@@ -890,85 +971,6 @@ class Rota:
         self.files.vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
         self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
 
-        def recovery_event(num_recovered, infected_pop, strainCount):
-            weights=np.array([x.get_oldest_current_infection() for x in infected_pop])
-            # If there is no one with an infection older than 0 return without recovery
-            if (sum(weights) == 0):
-                return
-            # weights_e = np.exp(weights)
-            total_w = np.sum(weights)
-            weights = weights / total_w
-        
-            recovering_hosts = np.random.choice(infected_pop, p=weights, size=num_recovered, replace=False)
-            for host in recovering_hosts:
-                if not host.isImmune():
-                    self.immunityCounts +=1 
-                host.recover(strainCount)
-                infected_pop.remove(host)
-        
-        def reassortment_event(infected_pop, reassortment_count):
-            coinfectedhosts = []
-            for i in infected_pop:
-                if len(i.infecting_pathogen) >= 2:
-                    coinfectedhosts.append(i)
-            rnd.shuffle(coinfectedhosts)
-        
-            for i in range(min(len(coinfectedhosts),reassortment_count)):
-                parentalstrains = [path.strain for path in coinfectedhosts[i].infecting_pathogen]
-                possible_reassortants = [path for path in coinfectedhosts[i].getPossibleCombinations() if path not in parentalstrains]
-                for path in possible_reassortants:
-                    coinfectedhosts[i].infect_with_reassortant(path)
-        
-        def waning_event(host_pop, wanings):
-            # Get all the hosts in the population that has an immunity
-            h_immune = [h for h in host_pop if h.isImmune()]
-            age_tiebreak = lambda x: (x.get_oldest_infection(), rnd.random())
-            hosts_with_immunity = sorted(h_immune, key=age_tiebreak, reverse=True)
-            
-            # Alternate implementation -- not faster, but left in as a placeholder 
-            # immune_inds = sc.findinds([h.is_immune for h in host_pop])
-            # ages = np.array([host_pop[i].get_oldest_infection() for i in immune_inds])
-            # ages += np.random.rand(len(ages))*1e-12 # Add noise to break ties
-            # immunity_sort_inds = np.argsort(ages)[::-1]
-            # immunity_sort_inds = immunity_sort_inds[:wanings]
-        
-            # For the selcted hosts set the immunity to be None
-            for i in range(min(len(hosts_with_immunity), wanings)):
-                h = hosts_with_immunity[i]
-                h.immunity =  {}
-                h.is_immune = False
-                h.priorInfections = 0
-                self.immunityCounts -= 1
-        
-        def waning_vaccinations_first_dose(single_dose_pop, wanings):
-            """ Get all the hosts in the population that has an vaccine immunity """
-            rnd.shuffle(single_dose_pop)
-            # For the selcted hosts set the immunity to be None
-            for i in range(min(len(single_dose_pop), wanings)):
-                h = single_dose_pop[i]
-                h.vaccinations =  None
-        
-        def waning_vaccinations_second_dose(second_dose_pop, wanings):
-            rnd.shuffle(second_dose_pop)
-            # For the selcted hosts set the immunity to be None
-            for i in range(min(len(second_dose_pop), wanings)):
-                h = second_dose_pop[i]
-                h.vaccinations =  None
-        
-        def birth_events(birth_count, host_pop):
-            for _ in range(birth_count):
-                self.pop_id += 1
-                new_host = host(self.pop_id, sim=self)
-                new_host.bday = self.t
-                host_pop.append(new_host)
-                if vaccine_hypothesis !=0 and done_vaccinated:
-                    if rnd.random() < vaccine_first_dose_rate:
-                        to_be_vaccinated_pop.append(new_host)
-        
-        
-        def get_strain_antigenic_name(strain):
-            return "G" + str(strain[0]) + "P" + str(strain[1])
-        
         def collect_and_write_data(host_population, output_filename, vaccine_output_filename, vaccine_efficacy_output_filename, sample=False, sample_size=1000):
             """
             Collects data from the host population and writes it to a CSV file.
@@ -1002,7 +1004,7 @@ class Rota:
                     # For vaccination data file, we will count the number of agents with current vaccine immunity
                     # This will exclude those who previously got the vaccine but the immunity waned.
                     if h.vaccine is not None:
-                        for vs in [get_strain_antigenic_name(s) for s in h.vaccine[0]]:
+                        for vs in [self.get_strain_antigenic_name(s) for s in h.vaccine[0]]:
                             collected_vaccination_data.append((h.id, vs, self.t, h.get_age_category(), h.vaccine[2]))
                 if len(h.prior_vaccinations) != 0:
                     if len(vaccinated_hosts) < 1000:
@@ -1016,7 +1018,7 @@ class Rota:
                         collected_data.append((h.id, strain[0], self.t, h.get_age_category(), strain[1], strain[2], len(host_pop)))
                         
             # Only collect the vaccine efficacy data if we have vaccinated the hosts
-            if done_vaccinated:
+            if self.done_vaccinated:
                 num_vaccinated = len(vaccinated_hosts)
                 num_unvaccinated = len(unvaccinated_hosts)
                 num_vaccinated_infected = 0
@@ -1169,8 +1171,8 @@ class Rota:
         self.partialCrossImmunityRate = partialCrossImmunityRate
         self.completeHeterotypicImmunityrate = completeHeterotypicImmunityrate
         
-        done_vaccinated = False
-        vaccination_time =  20
+        self.done_vaccinated = False
+        self.vaccination_time =  20
     
         # Efficacy of the vaccine first dose
         vaccine_efficacy_d1 = {
@@ -1334,24 +1336,24 @@ class Rota:
             event_dict[:] += events
             
             # perform the events for the obtained counts
-            birth_events(births, host_pop)
-            reassortment_event(infected_pop, reassortments) # calling the function
+            self.birth_events(births, host_pop)
+            self.reassortment_event(infected_pop, reassortments) # calling the function
             for _ in range(contacts):
                 self.contact_event(infected_pop, host_pop, strainCount)
             self.death_event(deaths, infected_pop, host_pop, strainCount)
-            recovery_event(recoveries, infected_pop, strainCount)    
-            waning_event(host_pop, wanings)
-            waning_vaccinations_first_dose(single_dose_hosts, vaccine_dose_1_wanings)
-            waning_vaccinations_second_dose(double_dose_hosts, vaccine_dose_2_wanings)
+            self.recovery_event(recoveries, infected_pop, strainCount)    
+            self.waning_event(host_pop, wanings)
+            self.waning_vaccinations_first_dose(single_dose_hosts, vaccine_dose_1_wanings)
+            self.waning_vaccinations_second_dose(double_dose_hosts, vaccine_dose_2_wanings)
             
             # Collect the total counts of strains at each time step to determine the most prevalent strain for vaccination
-            if not done_vaccinated:
+            if not self.done_vaccinated:
                 for strain, count in strainCount.items():
                     total_strain_counts_vaccine[strain[:self.numAgSegments]] += count
             
             # Administer the first dose of the vaccine
             # Vaccination strain is the most prevalent strain in the population before the vaccination starts
-            if vaccine_hypothesis!=0 and (not done_vaccinated) and self.t >= vaccination_time:
+            if vaccine_hypothesis!=0 and (not self.done_vaccinated) and self.t >= self.vaccination_time:
                 # Sort the strains by the number of hosts infected with it in the past
                 # Pick the last one from the sorted list as the most prevalent strain
                 vaccinated_strain = sorted(list(total_strain_counts_vaccine.keys()), key=lambda x: total_strain_counts_vaccine[x])[-1]
@@ -1365,8 +1367,8 @@ class Rota:
                 for h in sample_population:
                     h.vaccinate(vaccinated_strain)
                     single_dose_vaccinated_pop.append(h)
-                done_vaccinated = True
-            elif done_vaccinated:
+                self.done_vaccinated = True
+            elif self.done_vaccinated:
                 for child in to_be_vaccinated_pop:
                     if self.t - child.bday >= 0.11:
                         child.vaccinate(vaccinated_strain)
@@ -1375,7 +1377,7 @@ class Rota:
         
             # Administer the second dose of the vaccine if first dose has already been administered.
             # The second dose is administered 6 weeks after the first dose with probability vaccine_second_dose_rate
-            if done_vaccinated:
+            if self.done_vaccinated:
                 while len(single_dose_vaccinated_pop) > 0:
                     # If the first dose of the vaccine is older than 6 weeks then administer the second dose
                     if self.t - single_dose_vaccinated_pop[0].vaccine[1] >= 0.11:
