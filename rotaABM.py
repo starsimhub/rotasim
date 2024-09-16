@@ -7,7 +7,7 @@ Usage:
     rota.run()
 """
 
-#########################################
+
 import csv
 import itertools
 import numpy as np
@@ -19,18 +19,23 @@ import sys
 import math
 import sciris as sc
 
+# Define age bins and labels
+age_bins = [2/12, 4/12, 6/12, 12/12, 24/12, 36/12, 48/12, 60/12, 100]
+age_distribution = [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.84]                  # needs to be changed to fit the site-specific population
+age_labels = ['0-2', '2-4', '4-6', '6-12', '12-24', '24-36', '36-48', '48-60', '60+']
 
-############## Class Host ###########################
-class host(object): ## host class
-    # Define age bins and labels
-    age_bins = [2/12, 4/12, 6/12, 12/12, 24/12, 36/12, 48/12, 60/12, 100]
-    age_distribution = [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.84]                  # needs to be changed to fit the site-specific population
-    age_labels = ['0-2', '2-4', '4-6', '6-12', '12-24', '24-36', '36-48', '48-60', '60+']
+
+#%% Host class
+class Host:
+    """
+    A rotavirus host
+    """
+
 
     def __init__(self, host_id, sim):
         self.sim = sim
         self.id = host_id
-        self.bday = self.t - host.get_random_age()
+        self.bday = self.t - Host.get_random_age()
         # set of strains the host is immune to
         self.immunity = {}
         self.vaccine = None
@@ -50,21 +55,21 @@ class host(object): ## host class
 
     def get_random_age():
         # pick a age bin
-        random_age_bin = np.random.choice(list(range(len(host.age_bins))), p=host.age_distribution)
+        random_age_bin = np.random.choice(list(range(len(age_bins))), p=age_distribution)
         # generate a random age in the bin
         if random_age_bin > 0:
-            min_age = host.age_bins[random_age_bin-1]
+            min_age = age_bins[random_age_bin-1]
         else:
             min_age = 0
-        max_age = host.age_bins[random_age_bin]
+        max_age = age_bins[random_age_bin]
         return rnd.uniform(min_age, max_age)
 
     def get_age_category(self):
         # Bin the age into categories
-        for i in range(len(host.age_bins)):
-            if self.t - self.bday < host.age_bins[i]:
-                return self.age_labels[i]
-        return self.age_labels[-1]
+        for i in range(len(age_bins)):
+            if self.t - self.bday < age_bins[i]:
+                return age_labels[i]
+        return age_labels[-1]
     
     def get_oldest_current_infection(self):
         max_infection_times = max([self.t - p.creation_time for p in self.infecting_pathogen])
@@ -192,7 +197,6 @@ class host(object): ## host class
             print("Unsupported vaccine hypothesis")
             exit(-1)
     
-
     def can_variant_infect_host(self, infecting_strain, currentInfections):
         numAgSegments = self.numAgSegments
         immunity_hypothesis = self.sim.immunity_hypothesis
@@ -286,7 +290,6 @@ class host(object): ## host class
                 return False
             # Partial heterotypic immunity
             shared_genotype = False      
-            immune_gtypes = [strain[0] for strain in self.immunity.keys()]
             if infecting_strain[0] in immune_ptypes:
                 return False
             else:
@@ -733,7 +736,7 @@ class Rota:
     
         with open(files.age_outputfilename, "w+", newline='') as outputfile:
             write = csv.writer(outputfile)
-            write.writerow(["time"] + list(host.age_labels)) 
+            write.writerow(["time"] + list(age_labels)) 
     
     ############# tau-Function to calculate event counts ############################
     def get_event_counts(self, N, I, R, tau, RR_GP, single_dose_count, double_dose_count): 
@@ -898,7 +901,7 @@ class Rota:
     def birth_events(self, birth_count, host_pop):
         for _ in range(birth_count):
             self.pop_id += 1
-            new_host = host(self.pop_id, sim=self)
+            new_host = Host(self.pop_id, sim=self)
             new_host.bday = self.t
             host_pop.append(new_host)
             if self.vaccine_hypothesis !=0 and self.done_vaccinated:
@@ -1243,7 +1246,7 @@ class Rota:
         # for each strain track the number of hosts infected with it at current time: strainCount  
         strainCount = {}   
         
-        host_pop = [host(i, self) for i in range(N)]   # for each number in range of N, make a new Host object, i is the id.
+        host_pop = [Host(i, self) for i in range(N)]   # for each number in range of N, make a new Host object, i is the id.
         self.host_pop = host_pop
         self.pop_id = N
         to_be_vaccinated_pop = [] 
@@ -1309,7 +1312,7 @@ class Rota:
             ### Every 100 steps, write the age distribution of the population to a file
             if tau_steps % 100 == 0:
                 age_dict = {}
-                for age_range in host.age_labels:
+                for age_range in age_labels:
                     age_dict[age_range] = 0
                 for h in host_pop:
                     age_dict[h.get_age_category()] += 1
