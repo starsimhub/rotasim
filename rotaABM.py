@@ -381,9 +381,6 @@ class Pathogen(object):
         self.strain = strain
         self.is_severe = is_severe
 
-    def death(self):
-        self.sim.pathogens_pop.remove(self)
-
     # compares two strains
     # if they both have the same antigenic segments we return homotypic 
     def match(self, strainIn): 
@@ -1248,13 +1245,19 @@ class RotaABM:
         strainCount = {}   
         
         host_pop = [Host(i, self) for i in range(N)]   # for each number in range of N, make a new Host object, i is the id.
-        self.host_pop = host_pop
+        
         self.pop_id = N
         to_be_vaccinated_pop = [] 
         single_dose_vaccinated_pop = []
         
+        # Store these for later
+        self.infected_pop = infected_pop
+        self.pathogens_pop = pathogens_pop
+        self.host_pop = host_pop
+        self.strainCount = strainCount
+        
         for i in range(number_all_strains):
-            strainCount[segmentCombinations[i]] = 0
+            self.strainCount[segmentCombinations[i]] = 0
     
         # if initial immunity is true 
         if self.verbose:
