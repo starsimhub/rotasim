@@ -8,7 +8,7 @@ import sciris as sc
 import rotaABM as rota
 
 
-def test_default(make=False):
+def test_default(make=False, benchmark=False):
     sc.heading('Testing default parameters')
     filename = 'test_events_default.json'
     
@@ -22,7 +22,8 @@ def test_default(make=False):
         T = sc.timer()
         events = rota.main()
         T.toc()
-        sc.savejson('test_performance.json', dict(time=f'{T.elapsed:0.1f}'))
+        if benchmark:
+            sc.savejson('test_performance.json', dict(time=f'{T.elapsed:0.1f}'))
         saved = sc.objdict(sc.loadjson(filename))
         assert events == saved, 'Events do not match for default simulation'
         print(f'Defaults matched:\n{events}')
@@ -60,6 +61,7 @@ def test_alt(make=False):
 
 
 if __name__ == '__main__':
-    make = True # Set to True to regenerate results
-    test_default(make=make)
+    make = False # Set to True to regenerate results
+    benchmark = False # Set to True to redo the performance results
+    test_default(make=make, benchmark=benchmark)
     test_alt(make=make)

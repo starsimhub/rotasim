@@ -1,7 +1,15 @@
+"""
+RotaABM class
+
+Usage:
+    import rotaABM as ra
+    rota = ra.Rota()
+    rota.run()
+"""
+
 #########################################
 import csv
 import itertools
-from re import T
 import numpy as np
 import random as rnd
 from datetime import datetime
