@@ -588,46 +588,48 @@ class RotaABM:
                     if infected:
                         break
     
-    def contact_event(self, infected_pop, host_pop, strain_count):
+    def contact_event(self, contacts, infected_pop, host_pop, strain_count):
         if len(infected_pop) == 0:
             print("[Warning] No infected hosts in a contact event. Skipping")
             return
         
-        h1 = rnd.choice(infected_pop)
-        h2 = rnd.choice(host_pop)
-    
-        while h1 == h2:
-            h2 = rnd.choice(host_pop)
-
-        # based on proir infections and current infections, the relative risk of subsequent infections
-        """ number_of_current_infections = len(h2.infecting_pathogen) """
-        number_of_current_infections = 0
-
-        if h2.priorInfections + number_of_current_infections == 0:
-            infecting_probability = 1
-        elif h2.priorInfections + number_of_current_infections == 1:
-            infecting_probability = 0.61
-        elif h2.priorInfections + number_of_current_infections == 2:  
-            infecting_probability = 0.48
-        elif h2.priorInfections + number_of_current_infections == 3:
-            infecting_probability = 0.33
-        else:
-            infecting_probability = 0         
-        rnd_num = rnd.random()
-        if rnd_num > infecting_probability:
-            return 
-    
-        h2_previously_infected = h2.isInfected()
-    
-        if len(h1.infecting_pathogen)==1:
-            if h2.can_variant_infect_host(h1.infecting_pathogen[0].strain, h2.infecting_pathogen):
-                h2.infect_with_pathogen(h1.infecting_pathogen[0], strain_count)
-        else:
-            self.coInfected_contacts(h1,h2,strain_count)
+        h1_inds = np.random.randint(len(infected_pop), size=contacts)
+        h2_inds = np.random.randint(len(host_pop), size=contacts)
+        rnd_nums = np.random.random(size=contacts)
         
-        # in this case h2 was not infected before but is infected now
-        if not h2_previously_infected and h2.isInfected():
-            infected_pop.append(h2)
+        for h1_ind, h2_ind, rnd_num in zip(h1_inds, h2_inds, rnd_nums):
+            h1 = infected_pop[h1_ind]
+            h2 = host_pop[h2_ind]
+        
+            while h1 == h2:
+                h2 = rnd.choice(host_pop)
+    
+            # based on prior infections and current infections, the relative risk of subsequent infections
+            number_of_current_infections = 0 # Note: not used
+            infecting_probability_map = {
+                0: 1,
+                1: 0.61,
+                2: 0.48,
+                3: 0.33,
+            }
+            infecting_probability = infecting_probability_map.get(h2.priorInfections, 0)
+            
+            # No infection occurs
+            if rnd_num > infecting_probability:
+                return 
+        
+            h2_previously_infected = h2.isInfected()
+        
+            if len(h1.infecting_pathogen)==1:
+                if h2.can_variant_infect_host(h1.infecting_pathogen[0].strain, h2.infecting_pathogen):
+                    h2.infect_with_pathogen(h1.infecting_pathogen[0], strain_count)
+            else:
+                self.coInfected_contacts(h1,h2,strain_count)
+            
+            # in this case h2 was not infected before but is infected now
+            if not h2_previously_infected and h2.isInfected():
+                infected_pop.append(h2)
+        return
             
     def get_weights_by_age(self, host_pop):
         weights = np.array([self.t - x.bday for x in host_pop])
@@ -1107,8 +1109,7 @@ class RotaABM:
             # perform the events for the obtained counts
             self.birth_events(births, host_pop)
             self.reassortment_event(infected_pop, reassortments) # calling the function
-            for _ in range(contacts):
-                self.contact_event(infected_pop, host_pop, strain_count)
+            self.contact_event(contacts, infected_pop, host_pop, strain_count)
             self.death_event(deaths, infected_pop, host_pop, strain_count)
             self.recovery_event(recoveries, infected_pop, strain_count)    
             self.waning_event(host_pop, wanings)

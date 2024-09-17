@@ -30,7 +30,7 @@ def update_performance(save=False):
 def profile():
     sc.heading('Running sc.profile')
     rota = rabm.RotaABM(**kwargs)
-    prf = sc.profile(rota.run, follow=rota.integrate)
+    prf = sc.profile(rota.run, follow=rota.contact_event)
     return prf
 
 
