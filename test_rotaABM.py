@@ -16,21 +16,22 @@ def test_default(make=False, benchmark=False):
     
     # Generate new baseline
     if make:
-        rota = rabm.RotaABM(N=N, timelimit=timelimit)
-        events = rota.run()
+        with sc.timer() as T:
+            rota = rabm.RotaABM(N=N, timelimit=timelimit)
+            events = rota.run()
         sc.savejson(filename, events)
         
     # Check old baseline
     else:
-        T = sc.timer()
-        rota = rabm.RotaABM(N=N, timelimit=timelimit)
-        events = rota.run()
-        T.toc()
-        if benchmark:
-            sc.savejson('test_performance.json', dict(time=f'{T.elapsed:0.1f}'))
+        with sc.timer() as T:
+            rota = rabm.RotaABM(N=N, timelimit=timelimit)
+            events = rota.run()
         saved = sc.objdict(sc.loadjson(filename))
         assert events == saved, 'Events do not match for default simulation'
         print(f'Defaults matched:\n{events}')
+    
+    if benchmark:
+        sc.savejson('test_performance.json', dict(time=f'{T.elapsed:0.1f}'))
         
     return
 
@@ -69,7 +70,7 @@ def test_alt(make=False):
 
 
 if __name__ == '__main__':
-    make = False # Set to True to regenerate results
-    benchmark = False # Set to True to redo the performance results
+    make = True # Set to True to regenerate results
+    benchmark = True # Set to True to redo the performance results
     test_default(make=make, benchmark=benchmark)
     test_alt(make=make)
