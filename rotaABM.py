@@ -205,31 +205,29 @@ class Host:
         if (self.vaccine is not None) and self.is_vaccine_immune(infecting_strain):
             return False
         
+        # Check infecting strain
+        current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
+        if infecting_strain[:numAgSegments] in current_infecting_strains:
+            return False
+        
+        # Only immune if antigenic segments match exactly
         if immunity_hypothesis == 1:
-            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
-            if infecting_strain[:numAgSegments] in current_infecting_strains:
-                return False
-            # Only immune if antigenic segments match exactly
             immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
             if infecting_strain[:numAgSegments] in immune_strains:
                 return False
             return True
+        
+        # Completely immune for partial heterotypic strains
         elif immunity_hypothesis == 2:
-            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
-            if infecting_strain[:numAgSegments] in current_infecting_strains:
-                return False
-            # Completely immune for partial heterotypic strains
+            
             for i in range(numAgSegments):         
                 immune_genotypes = [strain[i] for strain in self.immunity.keys()]
                 if infecting_strain[i] in immune_genotypes:
                     return False
             return True
+        
+        # completely immune if antigenic segments match exactly
         elif immunity_hypothesis == 3:
-            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
-            if infecting_strain[:numAgSegments] in current_infecting_strains:
-                return False
-            
-            # completely immune if antigenic segments match exactly
             immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
             if infecting_strain[:numAgSegments] in immune_strains:
                 return False
@@ -245,12 +243,9 @@ class Host:
                 if temp<partial_cross_immunity_rate:
                     return False
             return True
+        
+        # completely immune if antigenic segments match exactly
         elif immunity_hypothesis == 4:
-            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
-            if infecting_strain[:numAgSegments] in current_infecting_strains:
-                return False
-            
-            # completely immune if antigenic segments match exactly
             immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
             if infecting_strain[:numAgSegments] in immune_strains:
                 return False
@@ -270,36 +265,28 @@ class Host:
                 if temp<complete_heterotypic_immunity_rate:
                     return False
             return True
+    
+        # Partial heterotypic immunity
         elif immunity_hypothesis == 5:
-            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
-            if infecting_strain[:numAgSegments] in current_infecting_strains:
-                return False
-            
-            # Partial heterotypic immunity
             shared_genotype = False      
             immune_ptypes = [strain[1] for strain in self.immunity.keys()]
             if infecting_strain[1] in immune_ptypes:
                 return False
             else:
                 return True
+        
+        # Partial heterotypic immunity
         elif immunity_hypothesis == 6:
-            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
-            if infecting_strain[:numAgSegments] in current_infecting_strains:
-                return False
-            # Partial heterotypic immunity
             shared_genotype = False      
             if infecting_strain[0] in immune_ptypes:
                 return False
             else:
                 return True
+        
         # below are the hypotheses used in the analysis
         # in this hypotheses homotypic, partial heterotypic and complete heterotypic immunigty is considered
         # the difference in 7, 8 and 9 is the relative protection for infection from natural immunity for the 3 categories which is set in a section below
-        elif immunity_hypothesis == 7 or immunity_hypothesis == 8 or immunity_hypothesis == 9 or immunity_hypothesis == 10:  
-            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
-            if infecting_strain[:numAgSegments] in current_infecting_strains:
-                return False
-            
+        elif immunity_hypothesis in [7, 8, 9, 10]:  
             # completely immune if antigenic segments match exactly
             immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
             if infecting_strain[:numAgSegments] in immune_strains:
