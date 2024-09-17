@@ -27,7 +27,32 @@ age_distribution = [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.84]       
 age_labels = ['0-2', '2-4', '4-6', '6-12', '12-24', '24-36', '36-48', '48-60', '60+']
 
 
-### Host class
+### Host classes
+class HostPop:
+    """
+    A class to hold all the hosts
+    """
+    def __init__(self, N, sim):
+        self.hosts = [Host(i, sim) for i in range(N)]
+        self.bdays = [h.bday for h in self.hosts]
+        return
+    
+    def __iter__(self):
+        return self.hosts.__iter__()
+    
+    def __len__(self):
+        return len(self.hosts)
+    
+    def __getitem__(self, key):
+        return self.hosts[key]
+
+    def append(self, value):
+        return self.hosts.append(value)
+    
+    def remove(self, value):
+        return self.hosts.remove(value)
+
+
 class Host:
     """
     A rotavirus host
@@ -777,7 +802,7 @@ class RotaABM:
             population_to_collect = host_population
     
         # Shuffle the population to avoid the need for random sampling
-        rnd.shuffle(population_to_collect)
+        # rnd.shuffle(population_to_collect)
         
         collected_data = []
         collected_vaccination_data = []
@@ -996,7 +1021,7 @@ class RotaABM:
         strain_count = {}   
         
         # for each number in range of N, make a new Host object, i is the id.
-        host_pop = [Host(i, self) for i in range(self.N)]   
+        host_pop = HostPop(self.N, self)  
         
         self.pop_id = self.N
         self.to_be_vaccinated_pop = [] 
