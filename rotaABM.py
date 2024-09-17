@@ -76,7 +76,7 @@ class Host:
         return max_infection_times
 
     def get_oldest_infection(self):
-        max_infection_times = max([self.t - p[1] for p in self.immunity.items()])
+        max_infection_times = max([self.t - p for p in self.immunity.values()])
         return max_infection_times
     
     def compute_combinations(self):
@@ -686,7 +686,6 @@ class RotaABM:
         for i in range(min(len(hosts_with_immunity), wanings)):
             h = hosts_with_immunity[i]
             h.immunity =  {}
-            # h.is_immune = False
             h.priorInfections = 0
             self.immunityCounts -= 1
     
