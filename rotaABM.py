@@ -214,17 +214,17 @@ class Host:
         if self.vaccine is not None and self.is_vaccine_immune(infecting_strain):
             return False
     
-        current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
+        current_infecting_strains = (i.strain[:numAgSegments] for i in current_infections)
         if infecting_strain[:numAgSegments] in current_infecting_strains:
             return False
     
         def is_completely_immune():
-            immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
+            immune_strains = (s[:numAgSegments] for s in self.immunity.keys())
             return infecting_strain[:numAgSegments] in immune_strains
     
         def has_shared_genotype():
             for i in range(numAgSegments):
-                immune_genotypes = [strain[i] for strain in self.immunity.keys()]
+                immune_genotypes = (strain[i] for strain in self.immunity.keys())
                 if infecting_strain[i] in immune_genotypes:
                     return True
             return False
@@ -256,16 +256,15 @@ class Host:
             return True
     
         elif immunity_hypothesis == 5:
-            immune_ptypes = [strain[1] for strain in self.immunity.keys()]
+            immune_ptypes = (strain[1] for strain in self.immunity.keys())
             return infecting_strain[1] not in immune_ptypes
     
         elif immunity_hypothesis == 6:
-            immune_ptypes = [strain[0] for strain in self.immunity.keys()]
+            immune_ptypes = (strain[0] for strain in self.immunity.keys())
             return infecting_strain[0] not in immune_ptypes
     
         else:
-            print("[Error] Immunity hypothesis not implemented")
-            exit(-1)
+            raise NotImplementedError(f"Immunity hypothesis {immunity_hypothesis} is not implemented")
 
     def record_infection(self, new_p):        
         if len(self.prior_vaccinations) != 0:
