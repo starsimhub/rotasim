@@ -43,6 +43,8 @@ class Host:
         self.prior_vaccinations = []
         self.infections_with_vaccination = []
         self.infections_without_vaccination = []
+        self.is_immune_flag = False
+        return
     
     @property
     def t(self):
@@ -117,16 +119,18 @@ class Host:
         # We will use the pathogen creation time to count the number of infections
         creation_times = set()
         for path in self.infecting_pathogen:
+            strain = path.strain
             if not path.is_reassortant:
-                strain_counts[path.strain] -= 1
+                strain_counts[strain] -= 1
                 creation_times.add(path.creation_time)
-                self.immunity[path.strain] = self.t
+                self.immunity[strain] = self.t
+                self.is_immune_flag = True
         self.priorInfections += len(creation_times)
         self.infecting_pathogen = []                  
         self.possibleCombinations = []
     
-    def is_immune(self):
-        return len(self.immunity) != 0
+    # def is_immune(self):
+    #     return len(self.immunity) != 0
     
     def vaccinate(self, vaccinated_strain):
         if len(self.prior_vaccinations) == 0:
@@ -639,7 +643,7 @@ class RotaABM:
                 for path in h.infecting_pathogen:
                     if not path.is_reassortant:
                         strain_count[path.strain] -= 1
-            if h.is_immune():
+            if h.is_immune_flag:
                 self.immunityCounts -= 1
             host_pop.remove(h)
             
@@ -654,7 +658,7 @@ class RotaABM:
     
         recovering_hosts = np.random.choice(infected_pop, p=weights, size=num_recovered, replace=False)
         for host in recovering_hosts:
-            if not host.is_immune():
+            if not host.is_immune_flag:
                 self.immunityCounts +=1 
             host.recover(strain_count)
             infected_pop.remove(host)
@@ -675,7 +679,7 @@ class RotaABM:
     
     def waning_event(self, host_pop, wanings):
         # Get all the hosts in the population that has an immunity
-        h_immune = [h for h in host_pop if h.is_immune()]
+        h_immune = [h for h in host_pop if h.is_immune_flag]
         order = np.argsort([h.get_oldest_infection() for h in h_immune])
         # age_tiebreak = lambda x: (x.get_oldest_infection(), rnd.random())
         # hosts_with_immunity = sorted(h_immune, key=age_tiebreak, reverse=True)
@@ -691,6 +695,7 @@ class RotaABM:
         for i in order[:wanings]:#range(min(len(hosts_with_immunity), wanings)):
             h = h_immune[i]
             h.immunity =  {}
+            h.is_immune_flag = False
             h.priorInfections = 0
             self.immunityCounts -= 1
     
@@ -1013,6 +1018,7 @@ class RotaABM:
                     h = rnd.choice(host_pop)
                     h.immunity[initial_strain] = self.t
                     self.immunityCounts += 1
+                    h.is_immune_flag = True
             
             for j in range(num_infected):                     
                 h = rnd.choice(host_pop)
