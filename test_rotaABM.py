@@ -48,7 +48,7 @@ def test_alt(make=False):
         waning_hypothesis = 2,
         initial_immunity = 0.1,
         ve_i_to_ve_s_ratio = 0.5,
-        experimentNumber = 2,
+        experiment_number = 2,
     )
     
     # Generate new baseline
