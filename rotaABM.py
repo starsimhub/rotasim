@@ -82,7 +82,7 @@ class Host:
         return max_infection_times
     
     def compute_combinations(self):
-        segCombinations = []
+        seg_combinations = []
 
         # We want to only reassort the GP types
         # Assumes that antigenic segments are at the start
@@ -90,7 +90,7 @@ class Host:
             availableVariants = set([])                 
             for j in self.infecting_pathogen:
                 availableVariants.add((j.strain[i]))
-            segCombinations.append(availableVariants)
+            seg_combinations.append(availableVariants)
 
         # compute the parental strains 
         parantal_strains = [j.strain[:self.numAgSegments] for j in self.infecting_pathogen]
@@ -101,7 +101,7 @@ class Host:
         # Ex: (1, 1, 2, 2) and (2, 2, 1, 1) should not create (1, 1, 1, 1) as a possible reassortant if only the antigenic parts reassort
         
         # below block is for reassorting antigenic segments only
-        all_antigenic_combinations = [i for i in itertools.product(*segCombinations) if i not in parantal_strains]
+        all_antigenic_combinations = [i for i in itertools.product(*seg_combinations) if i not in parantal_strains]
         all_nonantigenic_combinations = [j.strain[self.numAgSegments:] for j in self.infecting_pathogen]
         all_strains = set([(i[0] + i[1]) for i in itertools.product(all_antigenic_combinations, all_nonantigenic_combinations)])
         all_pathogens = [Pathogen(self.sim, True, self.t, host = self, strain=tuple(i)) for i in all_strains]
@@ -111,19 +111,19 @@ class Host:
     def isInfected(self):
         return len(self.infecting_pathogen) != 0
 
-    def recover(self,strainCounts):
+    def recover(self,strain_counts):
         # We will use the pathogen creation time to count the number of infections
         creation_times = set()
         for path in self.infecting_pathogen:
             if not path.is_reassortant:
-                strainCounts[path.strain] -= 1
+                strain_counts[path.strain] -= 1
                 creation_times.add(path.creation_time)
                 self.immunity[path.strain] = self.t
         self.priorInfections += len(creation_times)
         self.infecting_pathogen = []                  
         self.possibleCombinations = []
     
-    def isImmune(self):
+    def is_immune(self):
         return len(self.immunity) != 0
     
     def vaccinate(self, vaccinated_strain):
@@ -195,18 +195,18 @@ class Host:
         else:
             raise NotImplementedError("Unsupported vaccine hypothesis")
     
-    def can_variant_infect_host(self, infecting_strain, currentInfections):
+    def can_variant_infect_host(self, infecting_strain, current_infections):
         numAgSegments = self.numAgSegments
         immunity_hypothesis = self.sim.immunity_hypothesis
-        partialCrossImmunityRate = self.sim.partialCrossImmunityRate
-        completeHeterotypicImmunityrate = self.sim.completeHeterotypicImmunityrate
-        HomotypicImmunityRate = self.sim.HomotypicImmunityRate
+        partial_cross_immunity_rate = self.sim.partial_cross_immunity_rate
+        complete_heterotypic_immunity_rate = self.sim.complete_heterotypic_immunity_rate
+        homotypic_immunity_rate = self.sim.homotypic_immunity_rate
         
         if (self.vaccine is not None) and self.is_vaccine_immune(infecting_strain):
             return False
         
         if immunity_hypothesis == 1:
-            current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
             if infecting_strain[:numAgSegments] in current_infecting_strains:
                 return False
             # Only immune if antigenic segments match exactly
@@ -215,7 +215,7 @@ class Host:
                 return False
             return True
         elif immunity_hypothesis == 2:
-            current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
             if infecting_strain[:numAgSegments] in current_infecting_strains:
                 return False
             # Completely immune for partial heterotypic strains
@@ -225,7 +225,7 @@ class Host:
                     return False
             return True
         elif immunity_hypothesis == 3:
-            current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
             if infecting_strain[:numAgSegments] in current_infecting_strains:
                 return False
             
@@ -242,11 +242,11 @@ class Host:
                     shared_genotype = True
             if shared_genotype:
                 temp = rnd.random()
-                if temp<partialCrossImmunityRate:
+                if temp<partial_cross_immunity_rate:
                     return False
             return True
         elif immunity_hypothesis == 4:
-            current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
             if infecting_strain[:numAgSegments] in current_infecting_strains:
                 return False
             
@@ -263,15 +263,15 @@ class Host:
                     shared_genotype = True
             if shared_genotype:
                 temp = rnd.random()
-                if temp<partialCrossImmunityRate:
+                if temp<partial_cross_immunity_rate:
                     return False
             else:
                 temp = rnd.random()
-                if temp<completeHeterotypicImmunityrate:
+                if temp<complete_heterotypic_immunity_rate:
                     return False
             return True
         elif immunity_hypothesis == 5:
-            current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
             if infecting_strain[:numAgSegments] in current_infecting_strains:
                 return False
             
@@ -283,7 +283,7 @@ class Host:
             else:
                 return True
         elif immunity_hypothesis == 6:
-            current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
             if infecting_strain[:numAgSegments] in current_infecting_strains:
                 return False
             # Partial heterotypic immunity
@@ -296,7 +296,7 @@ class Host:
         # in this hypotheses homotypic, partial heterotypic and complete heterotypic immunigty is considered
         # the difference in 7, 8 and 9 is the relative protection for infection from natural immunity for the 3 categories which is set in a section below
         elif immunity_hypothesis == 7 or immunity_hypothesis == 8 or immunity_hypothesis == 9 or immunity_hypothesis == 10:  
-            current_infecting_strains = [i.strain[:numAgSegments] for i in currentInfections]
+            current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
             if infecting_strain[:numAgSegments] in current_infecting_strains:
                 return False
             
@@ -304,7 +304,7 @@ class Host:
             immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
             if infecting_strain[:numAgSegments] in immune_strains:
                 temp = rnd.random()
-                if temp<HomotypicImmunityRate:
+                if temp<homotypic_immunity_rate:
                     return False
 
             # Partial heterotypic immunity if not
@@ -315,11 +315,11 @@ class Host:
                     shared_genotype = True
             if shared_genotype:
                 temp = rnd.random()
-                if temp<partialCrossImmunityRate:
+                if temp<partial_cross_immunity_rate:
                     return False
             else:
                 temp = rnd.random()
-                if temp<completeHeterotypicImmunityrate:
+                if temp<complete_heterotypic_immunity_rate:
                     return False
             return True
         else:
@@ -333,26 +333,26 @@ class Host:
         else:
             self.infections_without_vaccination.append(new_p)
             
-    def infect_with_pathogen(self, pathogenIn, strainCounts):
+    def infect_with_pathogen(self, pathogen_in, strain_counts):
         """ This function returns a fitness value to a strain based on the hypothesis """ 
-        fitness = pathogenIn.get_fitness()
+        fitness = pathogen_in.get_fitness()
         
         # e.g. fitness = 0.8 (there's a 80% chance the virus infecting a host)
         if rnd.random() > fitness:                
             return False
         
         # Probability of getting a severe decease depends on the number of previous infections and vaccination status of the host   
-        severity_probability = self.sim.get_probability_of_severe(self.sim, pathogenIn, self.vaccine, self.priorInfections)
+        severity_probability = self.sim.get_probability_of_severe(self.sim, pathogen_in, self.vaccine, self.priorInfections)
         if rnd.random() < severity_probability:
             severe = True
         else:
             severe = False
 
-        new_p = Pathogen(self.sim, False, self.t, host = self, strain= pathogenIn.strain, is_severe=severe)
+        new_p = Pathogen(self.sim, False, self.t, host = self, strain=pathogen_in.strain, is_severe=severe)
         self.infecting_pathogen.append(new_p)
         self.record_infection(new_p)
 
-        strainCounts[new_p.strain] += 1
+        strain_counts[new_p.strain] += 1
 
         return True
 
@@ -704,7 +704,7 @@ class RotaABM:
             waning_hypothesis = 1,
             initial_immunity = 0,
             ve_i_to_ve_s_ratio = 0.5,
-            experimentNumber = 1,
+            experiment_number = 1,
         )
         args.update(kwargs) # Update with any keyword arguments
         
@@ -724,17 +724,17 @@ class RotaABM:
         self.waning_hypothesis = int(args[4])
         self.initial_immunity = int(args[5]) # 0 = no immunity
         self.ve_i_to_ve_s_ratio = float(args[6])
-        self.experimentNumber = int(args[7])
+        self.experiment_number = int(args[7])
         self.verbose = verbose
         
         # Reset the seed
-        rnd.seed(self.experimentNumber)
-        np.random.seed(self.experimentNumber)
+        rnd.seed(self.experiment_number)
+        np.random.seed(self.experiment_number)
         
         # Set filenames
-        name_suffix =  '%r_%r_%r_%r_%r_%r_%r_%r' % (self.immunity_hypothesis, self.reassortment_rate, self.fitness_hypothesis, self.vaccine_hypothesis, self.waning_hypothesis, self.initial_immunity, self.ve_i_to_ve_s_ratio, self.experimentNumber)
+        name_suffix =  '%r_%r_%r_%r_%r_%r_%r_%r' % (self.immunity_hypothesis, self.reassortment_rate, self.fitness_hypothesis, self.vaccine_hypothesis, self.waning_hypothesis, self.initial_immunity, self.ve_i_to_ve_s_ratio, self.experiment_number)
         self.files = sc.objdict()
-        self.files.outputfilename = './results/rota_straincount_%s.csv' % (name_suffix)
+        self.files.outputfilename = './results/rota_strain_count_%s.csv' % (name_suffix)
         self.files.vaccinations_outputfilename = './results/rota_vaccinecount_%s.csv' % (name_suffix)
         self.files.sample_outputfilename = './results/rota_strains_sampled_%s.csv' % (name_suffix)
         self.files.infected_all_outputfilename = './results/rota_strains_infected_all_%s.csv' % (name_suffix)
@@ -819,12 +819,12 @@ class RotaABM:
             return severity_probability
         
     # Initialize all the output files
-    def initialize_files(self, strainCount):
+    def initialize_files(self, strain_count):
         files = self.files
         with open(files.outputfilename, "w+", newline='') as outputfile:
             write = csv.writer(outputfile)
-            write.writerow(["time"] + list(strainCount.keys()) + ["ReassortmentCount"])  # header for the csv file
-            write.writerow([self.t] + list(strainCount.values()) + [self.ReassortmentCount])  # first row of the csv file will be the initial state
+            write.writerow(["time"] + list(strain_count.keys()) + ["ReassortmentCount"])  # header for the csv file
+            write.writerow([self.t] + list(strain_count.values()) + [self.ReassortmentCount])  # first row of the csv file will be the initial state
     
         with open(files.sample_outputfilename, "w+", newline='') as outputfile:
             write = csv.writer(outputfile)
@@ -859,24 +859,24 @@ class RotaABM:
         return (births, deaths, recoveries, contacts, wanings, reassortments, vaccination_wanings_one_dose, vaccination_wanings_two_dose)
     
     @staticmethod
-    def coInfected_contacts(host1, host2, strainCounts):  
+    def coInfected_contacts(host1, host2, strain_counts):  
         h2existing_pathogens = list(host2.infecting_pathogen)
         randomnumber = rnd.random()
         if randomnumber < 0.02:       # giving all the possible strains
             for path in host1.infecting_pathogen:
                 if host2.can_variant_infect_host(path.strain, h2existing_pathogens):
-                    host2.infect_with_pathogen(path, strainCounts)
+                    host2.infect_with_pathogen(path, strain_counts)
         else:  # give only one strain depending on fitness
             host1paths = list(host1.infecting_pathogen)     
             # Sort by fitness first and randomize the ones with the same fitness
             host1paths.sort(key=lambda path: (path.get_fitness(), rnd.random()), reverse=True)
             for path in host1paths:
                 if host2.can_variant_infect_host(path.strain, h2existing_pathogens):
-                    infected = host2.infect_with_pathogen(path, strainCounts)
+                    infected = host2.infect_with_pathogen(path, strain_counts)
                     if infected:
                         break
     
-    def contact_event(self, infected_pop, host_pop, strainCount):
+    def contact_event(self, infected_pop, host_pop, strain_count):
         if len(infected_pop) == 0:
             print("[Warning] No infected hosts in a contact event. Skipping")
             return
@@ -909,9 +909,9 @@ class RotaABM:
     
         if len(h1.infecting_pathogen)==1:
             if h2.can_variant_infect_host(h1.infecting_pathogen[0].strain, h2.infecting_pathogen):
-                h2.infect_with_pathogen(h1.infecting_pathogen[0], strainCount)
+                h2.infect_with_pathogen(h1.infecting_pathogen[0], strain_count)
         else:
-            self.coInfected_contacts(h1,h2,strainCount)
+            self.coInfected_contacts(h1,h2,strain_count)
         
         # in this case h2 was not infected before but is infected now
         if not h2_previously_infected and h2.isInfected():
@@ -923,7 +923,7 @@ class RotaABM:
         weights = weights / total_w
         return weights
     
-    def death_event(self, num_deaths, infected_pop, host_pop, strainCount):
+    def death_event(self, num_deaths, infected_pop, host_pop, strain_count):
         host_list = np.arange(len(host_pop))
         p = self.get_weights_by_age(host_pop)
         inds = np.random.choice(host_list, p=p, size=num_deaths, replace=False)
@@ -933,12 +933,12 @@ class RotaABM:
                 infected_pop.remove(h)
                 for path in h.infecting_pathogen:
                     if not path.is_reassortant:
-                        strainCount[path.strain] -= 1
-            if h.isImmune():
+                        strain_count[path.strain] -= 1
+            if h.is_immune():
                 self.immunityCounts -= 1
             host_pop.remove(h)
             
-    def recovery_event(self, num_recovered, infected_pop, strainCount):
+    def recovery_event(self, num_recovered, infected_pop, strain_count):
         weights=np.array([x.get_oldest_current_infection() for x in infected_pop])
         # If there is no one with an infection older than 0 return without recovery
         if (sum(weights) == 0):
@@ -949,9 +949,9 @@ class RotaABM:
     
         recovering_hosts = np.random.choice(infected_pop, p=weights, size=num_recovered, replace=False)
         for host in recovering_hosts:
-            if not host.isImmune():
+            if not host.is_immune():
                 self.immunityCounts +=1 
-            host.recover(strainCount)
+            host.recover(strain_count)
             infected_pop.remove(host)
     
     @staticmethod
@@ -970,7 +970,7 @@ class RotaABM:
     
     def waning_event(self, host_pop, wanings):
         # Get all the hosts in the population that has an immunity
-        h_immune = [h for h in host_pop if h.isImmune()]
+        h_immune = [h for h in host_pop if h.is_immune()]
         age_tiebreak = lambda x: (x.get_oldest_infection(), rnd.random())
         hosts_with_immunity = sorted(h_immune, key=age_tiebreak, reverse=True)
         
@@ -985,7 +985,7 @@ class RotaABM:
         for i in range(min(len(hosts_with_immunity), wanings)):
             h = hosts_with_immunity[i]
             h.immunity =  {}
-            h.is_immune = False
+            # h.is_immune = False
             h.priorInfections = 0
             self.immunityCounts -= 1
     
@@ -1173,46 +1173,46 @@ class RotaABM:
         """
         # relative protection for infection from natural immunity 
         immunity_hypothesis = self.immunity_hypothesis
-        HomotypicImmunityRate = 0 # TEMP, not defined in all if statements
+        homotypic_immunity_rate = 0 # TEMP, not defined in all if statements
         if immunity_hypothesis == 1 or immunity_hypothesis == 4 or immunity_hypothesis == 5:
-            partialCrossImmunityRate = 0
-            completeHeterotypicImmunityrate = 0
+            partial_cross_immunity_rate = 0
+            complete_heterotypic_immunity_rate = 0
         elif immunity_hypothesis == 2 :
-            partialCrossImmunityRate = 1
-            completeHeterotypicImmunityrate = 0
+            partial_cross_immunity_rate = 1
+            complete_heterotypic_immunity_rate = 0
         elif immunity_hypothesis == 3:
-            partialCrossImmunityRate = 0.5
-            completeHeterotypicImmunityrate = 0
+            partial_cross_immunity_rate = 0.5
+            complete_heterotypic_immunity_rate = 0
         elif immunity_hypothesis == 4:
-            partialCrossImmunityRate = 0.95
-            completeHeterotypicImmunityrate = 0.9
+            partial_cross_immunity_rate = 0.95
+            complete_heterotypic_immunity_rate = 0.9
         elif immunity_hypothesis == 5:
-            partialCrossImmunityRate = 0.95
-            completeHeterotypicImmunityrate = 0.90
+            partial_cross_immunity_rate = 0.95
+            complete_heterotypic_immunity_rate = 0.90
         elif immunity_hypothesis == 7:
-            HomotypicImmunityRate = 0.95
-            partialCrossImmunityRate = 0.90
-            completeHeterotypicImmunityrate = 0.2
+            homotypic_immunity_rate = 0.95
+            partial_cross_immunity_rate = 0.90
+            complete_heterotypic_immunity_rate = 0.2
         elif immunity_hypothesis == 8:
-            HomotypicImmunityRate = 0.9
-            partialCrossImmunityRate = 0.5
-            completeHeterotypicImmunityrate = 0
+            homotypic_immunity_rate = 0.9
+            partial_cross_immunity_rate = 0.5
+            complete_heterotypic_immunity_rate = 0
         elif immunity_hypothesis == 9:
-            HomotypicImmunityRate = 0.9
-            partialCrossImmunityRate = 0.45
-            completeHeterotypicImmunityrate = 0.35
+            homotypic_immunity_rate = 0.9
+            partial_cross_immunity_rate = 0.45
+            complete_heterotypic_immunity_rate = 0.35
         # below combination is what I used for the analysis in the report
         elif immunity_hypothesis == 10:
-            HomotypicImmunityRate = 0.8
-            partialCrossImmunityRate = 0.45
-            completeHeterotypicImmunityrate = 0.35
+            homotypic_immunity_rate = 0.8
+            partial_cross_immunity_rate = 0.45
+            complete_heterotypic_immunity_rate = 0.35
         else:
             print("No partial cross immunity rate for immunity hypothesis: ", immunity_hypothesis)
             exit(-1) 
             
-        self.HomotypicImmunityRate = HomotypicImmunityRate
-        self.partialCrossImmunityRate = partialCrossImmunityRate
-        self.completeHeterotypicImmunityrate = completeHeterotypicImmunityrate
+        self.homotypic_immunity_rate = homotypic_immunity_rate
+        self.partial_cross_immunity_rate = partial_cross_immunity_rate
+        self.complete_heterotypic_immunity_rate = complete_heterotypic_immunity_rate
         
         self.done_vaccinated = False
         
@@ -1246,11 +1246,11 @@ class RotaABM:
         segmentVariants = [[1,2,3,4,9,11,12], [8,4,6], [i for i in range(1, 2)], [i for i in range(1, 2)]]
         # segmentVariants for the Low baseline diversity setting
         #segmentVariants = [[1,2,3,4,9], [8,4], [i for i in range(1, 2)], [i for i in range(1, 2)]]
-        segmentCombinations = [tuple(i) for i in itertools.product(*segmentVariants)]  # getting all possible combinations from a list of list
-        rnd.shuffle(segmentCombinations)
-        number_all_strains = len(segmentCombinations)
+        segment_combinations = [tuple(i) for i in itertools.product(*segmentVariants)]  # getting all possible combinations from a list of list
+        rnd.shuffle(segment_combinations)
+        number_all_strains = len(segment_combinations)
         n_init_seg = 100
-        initialSegmentCombinations = {
+        initial_segment_combinations = {
             (1,8,1,1) : n_init_seg,
             (2,4,1,1) : n_init_seg,
             (9,8,1,1) : n_init_seg,
@@ -1269,14 +1269,14 @@ class RotaABM:
             (12,4,1,1): n_init_seg,
         }
         # initial strains for the Low baseline diversity setting
-        #initialSegmentCombinations = {(1,8,1,1): 100, (2,4,1,1): 100} #, (9,8,1,1): 100} #, (4,8,1,1): 100} 
+        #initial_segment_combinations = {(1,8,1,1): 100, (2,4,1,1): 100} #, (9,8,1,1): 100} #, (4,8,1,1): 100} 
     
         # Track the number of immune hosts(immunityCounts) in the host population
         infected_pop = []
         pathogens_pop = []
         
-        # for each strain track the number of hosts infected with it at current time: strainCount  
-        strainCount = {}   
+        # for each strain track the number of hosts infected with it at current time: strain_count  
+        strain_count = {}   
         
         # for each number in range of N, make a new Host object, i is the id.
         host_pop = [Host(i, self) for i in range(self.N)]   
@@ -1289,10 +1289,10 @@ class RotaABM:
         self.infected_pop = infected_pop
         self.pathogens_pop = pathogens_pop
         self.host_pop = host_pop
-        self.strainCount = strainCount
+        self.strain_count = strain_count
         
         for i in range(number_all_strains):
-            self.strainCount[segmentCombinations[i]] = 0
+            self.strain_count[segment_combinations[i]] = 0
     
         # if initial immunity is true 
         if self.verbose:
@@ -1302,7 +1302,7 @@ class RotaABM:
                 print("Initial immunity is set to False")
     
         ### infecting the initial infecteds
-        for (initial_strain, num_infected) in initialSegmentCombinations.items():
+        for (initial_strain, num_infected) in initial_segment_combinations.items():
             if self.initial_immunity:
                 for j in range(self.num_initial_immune):
                     h = rnd.choice(host_pop)
@@ -1316,17 +1316,17 @@ class RotaABM:
                 p = Pathogen(self, False, self.t, host = h, strain = initial_strain)
                 pathogens_pop.append(p)
                 h.infecting_pathogen.append(p)
-                strainCount[p.strain] += 1                       
-        if self.verbose: print(strainCount)
+                strain_count[p.strain] += 1                       
+        if self.verbose: print(strain_count)
         
-        self.initialize_files(strainCount)   
+        self.initialize_files(strain_count)   
         
         self.tau_steps = 0
         self.T = sc.timer() # for us to track the time it takes to run the simulation
         self.last_data_colllected = 0
         self.data_collection_rate = 0.1
         
-        for strain, count in strainCount.items():
+        for strain, count in strain_count.items():
             if strain[:self.numAgSegments] in self.total_strain_counts_vaccine:
                 self.total_strain_counts_vaccine[strain[:self.numAgSegments]] += count
             else:
@@ -1338,7 +1338,7 @@ class RotaABM:
         Perform the actual integration loop
         """
         host_pop = self.host_pop
-        strainCount = self.strainCount
+        strain_count = self.strain_count
         infected_pop = self.infected_pop
         single_dose_vaccinated_pop = self.single_dose_vaccinated_pop
         to_be_vaccinated_pop = self.to_be_vaccinated_pop
@@ -1357,7 +1357,7 @@ class RotaABM:
         while self.t<self.timelimit:
             if self.tau_steps % 10 == 0:
                 if self.verbose is not False: print("Current time: %f (Number of steps = %d)" % (self.t, self.tau_steps))
-                if self.verbose: print(self.strainCount)
+                if self.verbose: print(self.strain_count)
         
             ### Every 100 steps, write the age distribution of the population to a file
             if self.tau_steps % 100 == 0:
@@ -1393,16 +1393,16 @@ class RotaABM:
             self.birth_events(births, host_pop)
             self.reassortment_event(infected_pop, reassortments) # calling the function
             for _ in range(contacts):
-                self.contact_event(infected_pop, host_pop, strainCount)
-            self.death_event(deaths, infected_pop, host_pop, strainCount)
-            self.recovery_event(recoveries, infected_pop, strainCount)    
+                self.contact_event(infected_pop, host_pop, strain_count)
+            self.death_event(deaths, infected_pop, host_pop, strain_count)
+            self.recovery_event(recoveries, infected_pop, strain_count)    
             self.waning_event(host_pop, wanings)
             self.waning_vaccinations_first_dose(single_dose_hosts, vaccine_dose_1_wanings)
             self.waning_vaccinations_second_dose(double_dose_hosts, vaccine_dose_2_wanings)
             
             # Collect the total counts of strains at each time step to determine the most prevalent strain for vaccination
             if not self.done_vaccinated:
-                for strain, count in strainCount.items():
+                for strain, count in strain_count.items():
                     total_strain_counts_vaccine[strain[:self.numAgSegments]] += count
             
             # Administer the first dose of the vaccine
@@ -1449,7 +1449,7 @@ class RotaABM:
                 
             with open(f.outputfilename, "a", newline='') as outputfile:
                 write = csv.writer(outputfile)
-                write.writerow([self.t] + list(strainCount.values()) + [self.ReassortmentCount])
+                write.writerow([self.t] + list(strain_count.values()) + [self.ReassortmentCount])
         
             self.tau_steps += 1
             self.t += self.tau
