@@ -7,7 +7,6 @@ Usage:
     rota.run()
     
 TODO:
-    - Figure out bug with reassortment being too low
     - Figure out how to make host vaccination more efficient
     - Replace host with array
     - Replace pathogen with array
@@ -168,9 +167,6 @@ class Host(sc.prettyobj):
         self.prior_infections += len(creation_times)
         self.infecting_pathogen = []                  
         self.possibleCombinations = []
-    
-    # def is_immune(self):
-    #     return len(self.immunity) != 0
     
     def vaccinate(self, vaccinated_strain):
         if len(self.prior_vaccinations) == 0:
@@ -622,21 +618,21 @@ class RotaABM:
                     if infected:
                         break
     
-    def contact_event(self, contacts, infected_pop, host_pop, strain_count):
+    def contact_event(self, contacts, infected_pop, strain_count):
         if len(infected_pop) == 0:
             print("[Warning] No infected hosts in a contact event. Skipping")
             return
         
         h1_inds = np.random.randint(len(infected_pop), size=contacts)
-        h2_inds = np.random.randint(len(host_pop), size=contacts)
+        h2_inds = np.random.randint(len(self.host_pop), size=contacts)
         rnd_nums = np.random.random(size=contacts)
         
         for h1_ind, h2_ind, rnd_num in zip(h1_inds, h2_inds, rnd_nums):
             h1 = infected_pop[h1_ind]
-            h2 = host_pop[h2_ind]
+            h2 = self.host_pop[h2_ind]
         
             while h1 == h2:
-                h2 = rnd.choice(host_pop)
+                h2 = rnd.choice(self.host_pop)
     
             # based on prior infections and current infections, the relative risk of subsequent infections
             # number_of_current_infections = 0 # Note: not used
@@ -665,18 +661,18 @@ class RotaABM:
                 infected_pop.append(h2)
         return
             
-    def get_weights_by_age(self, host_pop):
-        bdays = np.array(host_pop.bdays)
+    def get_weights_by_age(self):
+        bdays = np.array(self.host_pop.bdays)
         weights = self.t - bdays
         total_w = np.sum(weights)
         weights = weights / total_w
         return weights
     
-    def death_event(self, num_deaths, infected_pop, host_pop, strain_count):
-        host_list = np.arange(len(host_pop))
-        p = self.get_weights_by_age(host_pop)
+    def death_event(self, num_deaths, infected_pop, strain_count):
+        host_list = np.arange(len(self.host_pop))
+        p = self.get_weights_by_age()
         inds = np.random.choice(host_list, p=p, size=num_deaths, replace=False)
-        dying_hosts = [host_pop[ind] for ind in inds]
+        dying_hosts = [self.host_pop[ind] for ind in inds]
         for h in dying_hosts:
             if h.isInfected():
                 infected_pop.remove(h)
@@ -685,7 +681,7 @@ class RotaABM:
                         strain_count[path.strain] -= 1
             if h.is_immune_flag:
                 self.immunity_counts -= 1
-            host_pop.remove(h)
+            self.host_pop.remove(h)
         return
             
     def recovery_event(self, num_recovered, infected_pop, strain_count):
@@ -718,9 +714,9 @@ class RotaABM:
             for path in possible_reassortants:
                 coinfectedhosts[i].infect_with_reassortant(path)
     
-    def waning_event(self, host_pop, wanings):
+    def waning_event(self, wanings):
         # Get all the hosts in the population that has an immunity
-        h_immune = [h for h in host_pop if h.is_immune_flag]
+        h_immune = [h for h in self.host_pop if h.is_immune_flag]
         oldest = np.array([h.oldest_infection for h in h_immune])
         # oldest += 1e-6*np.random.random(len(oldest)) # For tiebreaking -- not needed
         order = np.argsort(oldest)
@@ -751,12 +747,12 @@ class RotaABM:
             h = second_dose_pop[i]
             h.vaccinations =  None
     
-    def birth_events(self, birth_count, host_pop):
+    def birth_events(self, birth_count):
         for _ in range(birth_count):
             self.pop_id += 1
             new_host = Host(self.pop_id, sim=self)
             new_host.bday = self.t
-            host_pop.append(new_host)
+            self.host_pop.append(new_host)
             if self.vaccine_hypothesis !=0 and self.done_vaccinated:
                 if rnd.random() < self.vaccine_first_dose_rate:
                     self.to_be_vaccinated_pop.append(new_host)
@@ -787,22 +783,21 @@ class RotaABM:
         ve_i = x * ve_s
         return (ve_i, ve_s)
     
-    def collect_and_write_data(self, host_population, output_filename, vaccine_output_filename, vaccine_efficacy_output_filename, sample=False, sample_size=1000):
+    def collect_and_write_data(self, output_filename, vaccine_output_filename, vaccine_efficacy_output_filename, sample=False, sample_size=1000):
         """
         Collects data from the host population and writes it to a CSV file.
         If sample is True, it collects data from a random sample of the population.
         
         Args:
-        - host_population: List of host objects.
         - output_filename: Name of the file to write the data.
         - sample: Boolean indicating whether to collect data from a sample or the entire population.
         - sample_size: Size of the sample to collect data from if sample is True.
         """
         # Select the population to collect data from
         if sample:
-            population_to_collect = np.random.choice(host_population, sample_size, replace=False)
+            population_to_collect = np.random.choice(self.host_pop, sample_size, replace=False)
         else:
-            population_to_collect = host_population
+            population_to_collect = self.host_pop
     
         # Shuffle the population to avoid the need for random sampling
         # rnd.shuffle(population_to_collect) # CK: not needed?
@@ -1089,7 +1084,7 @@ class RotaABM:
         self.T = sc.timer() # To track the time it takes to run the simulation
         while self.t<self.timelimit:
             if self.tau_steps % 10 == 0:
-                if self.verbose is not False: print(f"Year: {self.t:n}; step: {self.tau_steps}; hosts: {len(self.host_pop)}; elapsed: {self.T.total:n} s")
+                if self.verbose is not False: print(f"Year: {self.t:n}; step: {self.tau_steps}; hosts: {len(host_pop)}; elapsed: {self.T.total:n} s")
                 if self.verbose: print(self.strain_count)
         
             ### Every 100 steps, write the age distribution of the population to a file
@@ -1097,7 +1092,7 @@ class RotaABM:
                 age_dict = {}
                 for age_range in age_labels:
                     age_dict[age_range] = 0
-                for h in self.host_pop:
+                for h in host_pop:
                     age_dict[h.get_age_category()] += 1
                 if self.verbose: print("Ages: ", age_dict)
                 with open(self.files.age_outputfilename, "a", newline='') as outputfile:
@@ -1123,12 +1118,12 @@ class RotaABM:
             self.event_dict[:] += events
             
             # perform the events for the obtained counts
-            self.birth_events(births, host_pop)
+            self.birth_events(births)
             self.reassortment_event(infected_pop, reassortments) # calling the function
-            self.contact_event(contacts, infected_pop, host_pop, strain_count)
-            self.death_event(deaths, infected_pop, host_pop, strain_count)
+            self.contact_event(contacts, infected_pop, strain_count)
+            self.death_event(deaths, infected_pop, strain_count)
             self.recovery_event(recoveries, infected_pop, strain_count)    
-            self.waning_event(host_pop, wanings)
+            self.waning_event(wanings)
             self.waning_vaccinations_first_dose(single_dose_hosts, vaccine_dose_1_wanings)
             self.waning_vaccinations_second_dose(double_dose_hosts, vaccine_dose_2_wanings)
             
@@ -1175,8 +1170,8 @@ class RotaABM:
         
             f = self.files
             if self.t >= self.last_data_colllected:
-                self.collect_and_write_data(host_pop, f.sample_outputfilename, f.vaccinations_outputfilename, f.sample_vaccine_efficacy_output_filename, sample=True)
-                self.collect_and_write_data(host_pop, f.infected_all_outputfilename, f.vaccinations_outputfilename, f.vaccine_efficacy_output_filename, sample=False)
+                self.collect_and_write_data(f.sample_outputfilename, f.vaccinations_outputfilename, f.sample_vaccine_efficacy_output_filename, sample=True)
+                self.collect_and_write_data(f.infected_all_outputfilename, f.vaccinations_outputfilename, f.vaccine_efficacy_output_filename, sample=False)
                 self.last_data_colllected += self.data_collection_rate
                 
             with open(f.outputfilename, "a", newline='') as outputfile:
