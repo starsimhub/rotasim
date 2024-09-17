@@ -1171,8 +1171,8 @@ class RotaABM:
         Run the simulation
         """
         self.prepare_run()
-        self.integrate()
-        return
+        events = self.integrate()
+        return events
         
     def prepare_run(self):
         """
