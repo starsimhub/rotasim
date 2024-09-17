@@ -7,7 +7,7 @@ NB: the two tests could be combined into one, but are left separate for clarity.
 import sciris as sc
 import rotaABM as rabm
 
-N = 2000
+N = 100_000
 timelimit = 40
 
 def test_default(make=False, benchmark=False):

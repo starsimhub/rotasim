@@ -7,6 +7,8 @@ Usage:
     rota.run()
     
 TODO:
+    - Figure out bug with reassortment being too low
+    - Figure out how to make host vaccination more efficient
     - Replace host with array
     - Replace pathogen with array
     - Replace random with numpy
@@ -36,6 +38,7 @@ class HostPop:
         self.hosts = [Host(i, sim) for i in range(N)]
         self.bdays = [h.bday for h in self.hosts]
         self.ids = [h.id for h in self.hosts]
+        # self.vaccinated_hosts = [h for h in self.hosts if h.vaccine is not None]
         return
     
     def __repr__(self):
@@ -498,7 +501,7 @@ class RotaABM:
         elif self.waning_hypothesis == 3:
             omega = 365/100  
         self.omega = omega
-        self.birth_rate = self.mu * 4
+        self.birth_rate = self.mu * 2 # Adjust birth rate to be more in line with Bangladesh
         
         self.contact_rate = 365/1    
         self.reassortmentRate_GP = self.reassortment_rate
@@ -707,7 +710,7 @@ class RotaABM:
         for i in infected_pop:
             if len(i.infecting_pathogen) >= 2:
                 coinfectedhosts.append(i)
-        rnd.shuffle(coinfectedhosts)
+        rnd.shuffle(coinfectedhosts) # TODO: maybe replace this
     
         for i in range(min(len(coinfectedhosts),reassortment_count)):
             parentalstrains = [path.strain for path in coinfectedhosts[i].infecting_pathogen]
@@ -1058,7 +1061,6 @@ class RotaABM:
         self.initialize_files(strain_count)   
         
         self.tau_steps = 0
-        self.T = sc.timer() # for us to track the time it takes to run the simulation
         self.last_data_colllected = 0
         self.data_collection_rate = 0.1
         
@@ -1090,9 +1092,11 @@ class RotaABM:
             vaccine_dose_1_wanings=0,
             vaccine_dose_2_wanings=0,
         )
+        
+        self.T = sc.timer() # To track the time it takes to run the simulation
         while self.t<self.timelimit:
             if self.tau_steps % 10 == 0:
-                if self.verbose is not False: print("Current time: %f (Number of steps = %d)" % (self.t, self.tau_steps))
+                if self.verbose is not False: print(f"Year: {self.t:n}; step: {self.tau_steps}; hosts: {len(self.host_pop)}; elapsed: {self.T.total:n} s")
                 if self.verbose: print(self.strain_count)
         
             ### Every 100 steps, write the age distribution of the population to a file
