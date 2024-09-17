@@ -44,6 +44,7 @@ class Host:
         self.infections_with_vaccination = []
         self.infections_without_vaccination = []
         self.is_immune_flag = False
+        self.oldest_infection = np.nan
         return
     
     @property
@@ -77,13 +78,13 @@ class Host:
         max_infection_times = max([self.t - p.creation_time for p in self.infecting_pathogen])
         return max_infection_times
 
-    def get_oldest_infection(self):
-        # max_infection_times = max([self.t - p for p in self.immunity.values()])
-        try:
-            oldest_infection = next(iter(self.immunity.values()))
-        except:
-            oldest_infection = np.nan
-        return oldest_infection
+    # def get_oldest_infection(self):
+    #     # max_infection_times = max([self.t - p for p in self.immunity.values()])
+    #     try:
+    #         oldest_infection = next(iter(self.immunity.values()))
+    #     except:
+    #         oldest_infection = np.nan
+    #     return oldest_infection
     
     def compute_combinations(self):
         seg_combinations = []
@@ -125,6 +126,8 @@ class Host:
                 creation_times.add(path.creation_time)
                 self.immunity[strain] = self.t
                 self.is_immune_flag = True
+                if np.isnan(self.oldest_infection):
+                    self.oldest_infection = self.t
         self.priorInfections += len(creation_times)
         self.infecting_pathogen = []                  
         self.possibleCombinations = []
@@ -680,7 +683,7 @@ class RotaABM:
     def waning_event(self, host_pop, wanings):
         # Get all the hosts in the population that has an immunity
         h_immune = [h for h in host_pop if h.is_immune_flag]
-        order = np.argsort([h.get_oldest_infection() for h in h_immune])
+        order = np.argsort([h.oldest_infection for h in h_immune])
         # age_tiebreak = lambda x: (x.get_oldest_infection(), rnd.random())
         # hosts_with_immunity = sorted(h_immune, key=age_tiebreak, reverse=True)
         
@@ -696,6 +699,7 @@ class RotaABM:
             h = h_immune[i]
             h.immunity =  {}
             h.is_immune_flag = False
+            h.oldest_infection = np.nan
             h.priorInfections = 0
             self.immunityCounts -= 1
     

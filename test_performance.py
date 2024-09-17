@@ -45,7 +45,7 @@ def cprofile():
 if __name__ == '__main__':
     save = 0
     do_profile = 1
-    if not do_profile:
+    if save or not do_profile:
         update_performance(save=save)
     else:
         prf = profile()
