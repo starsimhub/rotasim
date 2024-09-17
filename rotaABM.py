@@ -631,7 +631,8 @@ class RotaABM:
         return
             
     def get_weights_by_age(self, host_pop):
-        weights = np.array([self.t - x.bday for x in host_pop])
+        bdays = np.array([x.bday for x in host_pop])
+        weights = self.t - bdays
         total_w = np.sum(weights)
         weights = weights / total_w
         return weights
