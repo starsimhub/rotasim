@@ -765,6 +765,7 @@ class RotaABM:
                 if rnd.random() < self.vaccine_first_dose_rate:
                     self.to_be_vaccinated_pop.append(new_host)
     
+    @staticmethod
     def get_strain_antigenic_name(strain):
         return "G" + str(strain[0]) + "P" + str(strain[1])
     
@@ -950,26 +951,26 @@ class RotaABM:
         
         self.done_vaccinated = False
         
-        vaccine_efficacy_i_d1 = {}
-        vaccine_efficacy_s_d1 = {}
-        vaccine_efficacy_i_d2 = {}
-        vaccine_efficacy_s_d2 = {}
+        self.vaccine_efficacy_i_d1 = {}
+        self.vaccine_efficacy_s_d1 = {}
+        self.vaccine_efficacy_i_d2 = {}
+        self.vaccine_efficacy_s_d2 = {}
         for (k, v) in self.vaccine_efficacy_d1.items():
             (ve_i, ve_s) = self.breakdown_vaccine_efficacy(v, self.ve_i_to_ve_s_ratio)
-            vaccine_efficacy_i_d1[k] = ve_i
-            vaccine_efficacy_s_d1[k] = ve_s
+            self.vaccine_efficacy_i_d1[k] = ve_i
+            self.vaccine_efficacy_s_d1[k] = ve_s
         for (k, v) in self.vaccine_efficacy_d2.items():
             (ve_i, ve_s) = self.breakdown_vaccine_efficacy(v, self.ve_i_to_ve_s_ratio)
-            vaccine_efficacy_i_d2[k] = ve_i
-            vaccine_efficacy_s_d2[k] = ve_s
+            self.vaccine_efficacy_i_d2[k] = ve_i
+            self.vaccine_efficacy_s_d2[k] = ve_s
         
-        if self.verbose: print("VE_i: ", vaccine_efficacy_i_d1)
-        if self.verbose: print("VE_s: ", vaccine_efficacy_s_d1)
+        if self.verbose: print("VE_i: ", self.vaccine_efficacy_i_d1)
+        if self.verbose: print("VE_s: ", self.vaccine_efficacy_s_d1)
         
         # Vaccination rates are derived based on the following formula
-        vaccine_second_dose_rate = 0.8
-        vaccine_first_dose_rate = math.sqrt(vaccine_second_dose_rate)
-        if self.verbose: print("Vaccination - first dose rate: %s, second dose rate %s" % (vaccine_first_dose_rate, vaccine_second_dose_rate))
+        self.vaccine_second_dose_rate = 0.8
+        self.vaccine_first_dose_rate = math.sqrt(self.vaccine_second_dose_rate)
+        if self.verbose: print("Vaccination - first dose rate: %s, second dose rate %s" % (self.vaccine_first_dose_rate, self.vaccine_second_dose_rate))
         
         self.total_strain_counts_vaccine = {}
         

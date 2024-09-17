@@ -8,7 +8,7 @@ import sciris as sc
 import rotaABM as rabm
 
 N = 2000
-timelimit = 10
+timelimit = 40
 
 def test_default(make=False, benchmark=False):
     sc.heading('Testing default parameters')
@@ -70,7 +70,7 @@ def test_alt(make=False):
 
 
 if __name__ == '__main__':
-    make = True # Set to True to regenerate results
-    benchmark = True # Set to True to redo the performance results
+    make = False # Set to True to regenerate results
+    benchmark = False # Set to True to redo the performance results
     test_default(make=make, benchmark=benchmark)
     test_alt(make=make)

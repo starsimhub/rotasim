@@ -5,8 +5,8 @@ Check performance
 import sciris as sc
 import rotaABM as rabm
 
-N = 2000
-timelimit = 10
+N = 10_000
+timelimit = 40
 kwargs = dict(N=N, timelimit=timelimit)
 
 
