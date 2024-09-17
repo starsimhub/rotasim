@@ -11,7 +11,6 @@ TODO:
     - Replace pathogen with array
     - Replace random with numpy
     - Replace math with numpy
-    - Try to simplify Host.can_variant_infect_host()
     - Refactor Pathogen.get_fitness()
 """
 
@@ -201,114 +200,59 @@ class Host:
         partial_cross_immunity_rate = self.sim.partial_cross_immunity_rate
         complete_heterotypic_immunity_rate = self.sim.complete_heterotypic_immunity_rate
         homotypic_immunity_rate = self.sim.homotypic_immunity_rate
-        
-        if (self.vaccine is not None) and self.is_vaccine_immune(infecting_strain):
+    
+        if self.vaccine is not None and self.is_vaccine_immune(infecting_strain):
             return False
-        
-        # Check infecting strain
+    
         current_infecting_strains = [i.strain[:numAgSegments] for i in current_infections]
         if infecting_strain[:numAgSegments] in current_infecting_strains:
             return False
-        
-        # Only immune if antigenic segments match exactly
+    
+        def is_completely_immune():
+            immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
+            return infecting_strain[:numAgSegments] in immune_strains
+    
+        def has_shared_genotype():
+            for i in range(numAgSegments):
+                immune_genotypes = [strain[i] for strain in self.immunity.keys()]
+                if infecting_strain[i] in immune_genotypes:
+                    return True
+            return False
+    
         if immunity_hypothesis == 1:
-            immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
-            if infecting_strain[:numAgSegments] in immune_strains:
+            if is_completely_immune():
                 return False
             return True
-        
-        # Completely immune for partial heterotypic strains
+    
         elif immunity_hypothesis == 2:
-            
-            for i in range(numAgSegments):         
-                immune_genotypes = [strain[i] for strain in self.immunity.keys()]
-                if infecting_strain[i] in immune_genotypes:
-                    return False
-            return True
-        
-        # completely immune if antigenic segments match exactly
-        elif immunity_hypothesis == 3:
-            immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
-            if infecting_strain[:numAgSegments] in immune_strains:
+            if has_shared_genotype():
                 return False
-
-            # Partial heterotypic immunity if not
-            shared_genotype = False
-            for i in range(numAgSegments):         
-                immune_genotypes = [strain[i] for strain in self.immunity.keys()]
-                if infecting_strain[i] in immune_genotypes:
-                    shared_genotype = True
-            if shared_genotype:
-                temp = rnd.random()
-                if temp<partial_cross_immunity_rate:
-                    return False
             return True
-        
-        # completely immune if antigenic segments match exactly
-        elif immunity_hypothesis == 4:
-            immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
-            if infecting_strain[:numAgSegments] in immune_strains:
-                return False
-
-            # Partial heterotypic immunity if not
-            shared_genotype = False
-            for i in range(numAgSegments):         
-                immune_genotypes = [strain[i] for strain in self.immunity.keys()]
-                if infecting_strain[i] in immune_genotypes:
-                    shared_genotype = True
-            if shared_genotype:
-                temp = rnd.random()
-                if temp<partial_cross_immunity_rate:
+    
+        elif immunity_hypothesis in [3, 4, 7, 8, 9, 10]:
+            if is_completely_immune():
+                if immunity_hypothesis in [7, 8, 9, 10]:
+                    if rnd.random() < homotypic_immunity_rate:
+                        return False
+                else:
                     return False
-            else:
-                temp = rnd.random()
-                if temp<complete_heterotypic_immunity_rate:
+    
+            if has_shared_genotype():
+                if rnd.random() < partial_cross_immunity_rate:
+                    return False
+            elif immunity_hypothesis in [4, 7, 8, 9, 10]:
+                if rnd.random() < complete_heterotypic_immunity_rate:
                     return False
             return True
     
-        # Partial heterotypic immunity
         elif immunity_hypothesis == 5:
-            shared_genotype = False      
             immune_ptypes = [strain[1] for strain in self.immunity.keys()]
-            if infecting_strain[1] in immune_ptypes:
-                return False
-            else:
-                return True
-        
-        # Partial heterotypic immunity
+            return infecting_strain[1] not in immune_ptypes
+    
         elif immunity_hypothesis == 6:
-            shared_genotype = False      
-            if infecting_strain[0] in immune_ptypes:
-                return False
-            else:
-                return True
-        
-        # below are the hypotheses used in the analysis
-        # in this hypotheses homotypic, partial heterotypic and complete heterotypic immunigty is considered
-        # the difference in 7, 8 and 9 is the relative protection for infection from natural immunity for the 3 categories which is set in a section below
-        elif immunity_hypothesis in [7, 8, 9, 10]:  
-            # completely immune if antigenic segments match exactly
-            immune_strains = [s[:numAgSegments] for s in self.immunity.keys()]
-            if infecting_strain[:numAgSegments] in immune_strains:
-                temp = rnd.random()
-                if temp<homotypic_immunity_rate:
-                    return False
-
-            # Partial heterotypic immunity if not
-            shared_genotype = False
-            for i in range(numAgSegments):         
-                immune_genotypes = [strain[i] for strain in self.immunity.keys()]
-                if infecting_strain[i] in immune_genotypes:
-                    shared_genotype = True
-            if shared_genotype:
-                temp = rnd.random()
-                if temp<partial_cross_immunity_rate:
-                    return False
-            else:
-                temp = rnd.random()
-                if temp<complete_heterotypic_immunity_rate:
-                    return False
-            return True
+            immune_ptypes = [strain[0] for strain in self.immunity.keys()]
+            return infecting_strain[0] not in immune_ptypes
+    
         else:
             print("[Error] Immunity hypothesis not implemented")
             exit(-1)
@@ -693,7 +637,13 @@ class RotaABM:
             ve_i_to_ve_s_ratio = 0.5,
             experiment_number = 1,
         )
-        args.update(kwargs) # Update with any keyword arguments
+        
+        # Update with any keyword arguments
+        for k,v in kwargs.items():
+            if k in args:
+                args[k] = v
+            else:
+                KeyError(k)
         
         # Loop over command line input arguments, if provided
         for i,arg in enumerate(sys.argv[1:]):
