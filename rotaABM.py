@@ -76,8 +76,12 @@ class Host:
         return max_infection_times
 
     def get_oldest_infection(self):
-        max_infection_times = max([self.t - p for p in self.immunity.values()])
-        return max_infection_times
+        # max_infection_times = max([self.t - p for p in self.immunity.values()])
+        try:
+            oldest_infection = next(iter(self.immunity.values()))
+        except:
+            oldest_infection = np.nan
+        return oldest_infection
     
     def compute_combinations(self):
         seg_combinations = []
@@ -672,8 +676,9 @@ class RotaABM:
     def waning_event(self, host_pop, wanings):
         # Get all the hosts in the population that has an immunity
         h_immune = [h for h in host_pop if h.is_immune()]
-        age_tiebreak = lambda x: (x.get_oldest_infection(), rnd.random())
-        hosts_with_immunity = sorted(h_immune, key=age_tiebreak, reverse=True)
+        order = np.argsort([h.get_oldest_infection() for h in h_immune])
+        # age_tiebreak = lambda x: (x.get_oldest_infection(), rnd.random())
+        # hosts_with_immunity = sorted(h_immune, key=age_tiebreak, reverse=True)
         
         # Alternate implementation -- not faster, but left in as a placeholder 
         # immune_inds = sc.findinds([h.is_immune for h in host_pop])
@@ -683,8 +688,8 @@ class RotaABM:
         # immunity_sort_inds = immunity_sort_inds[:wanings]
     
         # For the selcted hosts set the immunity to be None
-        for i in range(min(len(hosts_with_immunity), wanings)):
-            h = hosts_with_immunity[i]
+        for i in order[:wanings]:#range(min(len(hosts_with_immunity), wanings)):
+            h = h_immune[i]
             h.immunity =  {}
             h.priorInfections = 0
             self.immunityCounts -= 1
