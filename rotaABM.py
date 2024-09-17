@@ -689,7 +689,12 @@ class RotaABM:
     Run the simulation
     """
     
-    def __init__(self, defaults=None, verbose=None):
+    def __init__(self, 
+            N = 100_000,
+            timelimit = 40,
+            verbose = None,
+            **kwargs,
+        ):
         """
         Create the simulation.
         
@@ -697,45 +702,44 @@ class RotaABM:
             defaults (list): a list of parameters matching the command-line inputs; see below
             verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
         """
-        self.args = sys.argv
-        self.immunityCounts = 0
-        self.ReassortmentCount = 0
-        self.pop_id = 0
-        self.t = 0.0
+        # Define the default parameters
+        args = sc.objdict(
+            immunity_hypothesis = 1,
+            reassortment_rate = 0.1,
+            fitness_hypothesis = 1,
+            vaccine_hypothesis = 1,
+            waning_hypothesis = 1,
+            initial_immunity = 0,
+            ve_i_to_ve_s_ratio = 0.5,
+            experimentNumber = 1,
+        )
+        args.update(kwargs) # Update with any keyword arguments
         
-        args = self.args
+        # Loop over command line input arguments, if provided
+        for i,arg in enumerate(sys.argv[1:]):
+            args[i] = arg
+        
+        if verbose is not False:
+            print(f'Creating simulation with N={N}, timelimit={timelimit} and parameters:')
+            print(args)
+        
+        # Store parameters directly in the sim
+        self.immunity_hypothesis = int(args[0])
+        self.reassortment_rate = float(args[1])
+        self.fitness_hypothesis = int(args[2])
+        self.vaccine_hypothesis = int(args[3])
+        self.waning_hypothesis = int(args[4])
+        self.initial_immunity = int(args[5]) # 0 = no immunity
+        self.ve_i_to_ve_s_ratio = float(args[6])
+        self.experimentNumber = int(args[7])
         self.verbose = verbose
         
-        if defaults is None:
-            defaults = ['', # Placeholder (file name)
-                1,   # immunity_hypothesis. Defines the immunity rates for Homotypic, Partial Heterotypic, Complete Heterotypic infections.
-                0.1, # reassortment_rate
-                1,   # fitness_hypothesis. Defines how the fitness is computed for a strain.
-                1,   # vaccine_hypothesis
-                1,   # waning_hypothesis
-                0,   # initial_immunity
-                0.5, # ve_i_to_ve_s_ratio
-                1,   # experimentNumber
-            ]
-        if verbose is not False: print(args)
-        if len(args) < 8:
-            args = args + defaults[len(args):]
+        # Reset the seed
+        rnd.seed(self.experimentNumber)
+        np.random.seed(self.experimentNumber)
         
-        self.immunity_hypothesis = int(args[1])
-        self.reassortment_rate = float(args[2])
-        self.fitness_hypothesis = int(args[3])
-        self.vaccine_hypothesis = int(args[4])
-        self.waning_hypothesis = int(args[5])
-        self.initial_immunity = int(args[6]) # 0 = no immunity
-        self.ve_i_to_ve_s_ratio = float(args[7])
-        self.experimentNumber = int(args[8])
-        
-        myseed = self.experimentNumber
-        rnd.seed(myseed)
-        np.random.seed(myseed)
-        
+        # Set filenames
         name_suffix =  '%r_%r_%r_%r_%r_%r_%r_%r' % (self.immunity_hypothesis, self.reassortment_rate, self.fitness_hypothesis, self.vaccine_hypothesis, self.waning_hypothesis, self.initial_immunity, self.ve_i_to_ve_s_ratio, self.experimentNumber)
-    
         self.files = sc.objdict()
         self.files.outputfilename = './results/rota_straincount_%s.csv' % (name_suffix)
         self.files.vaccinations_outputfilename = './results/rota_vaccinecount_%s.csv' % (name_suffix)
@@ -745,9 +749,9 @@ class RotaABM:
         self.files.vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
         self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
 
-        ########## Set Parameters ##########
-        self.N = 2000  # initial population size
-        self.timelimit = 10  #### simulation years
+        # Set other parameters
+        self.N = N  # initial population size
+        self.timelimit = timelimit  # simulation years
         self.mu = 1.0/70.0     # average life span is 70 years
         self.gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
         if self.waning_hypothesis == 1:
@@ -777,15 +781,21 @@ class RotaABM:
             PathogenMatch.COMPLETE_HETERO:0.35,
         }
         
-        self.vacinnation_single_dose_waning_rate = 365/273 #365/1273
-        self.vacinnation_double_dose_waning_rate = 365/546 #365/2600
-        # vacinnation_waning_lower_bound = 20 * 7 / 365.0
+        self.vaccination_single_dose_waning_rate = 365/273 #365/1273
+        self.vaccination_double_dose_waning_rate = 365/546 #365/2600
+        # vaccination_waning_lower_bound = 20 * 7 / 365.0
         
-        ### Tau leap parametes
+        # Tau leap parametes
         self.tau = 1/365.0
         
         # if initialization starts with a proportion of immune agents:
         self.num_initial_immune = 10000
+        
+        # Final initialization
+        self.immunityCounts = 0
+        self.ReassortmentCount = 0
+        self.pop_id = 0
+        self.t = 0.0
         
         return
         
@@ -851,8 +861,8 @@ class RotaABM:
         contacts = np.random.poisson(size=1, lam=tau*self.contact_rate*I)[0]
         wanings = np.random.poisson(size=1, lam=tau*self.omega*R)[0]
         reassortments = np.random.poisson(size=1, lam=tau*RR_GP*I)[0]
-        vaccination_wanings_one_dose = np.random.poisson(size=1, lam=tau*self.vacinnation_single_dose_waning_rate*single_dose_count)[0]
-        vaccination_wanings_two_dose = np.random.poisson(size=1, lam=tau*self.vacinnation_double_dose_waning_rate*double_dose_count)[0]
+        vaccination_wanings_one_dose = np.random.poisson(size=1, lam=tau*self.vaccination_single_dose_waning_rate*single_dose_count)[0]
+        vaccination_wanings_two_dose = np.random.poisson(size=1, lam=tau*self.vaccination_double_dose_waning_rate*double_dose_count)[0]
         return (births, deaths, recoveries, contacts, wanings, reassortments, vaccination_wanings_one_dose, vaccination_wanings_two_dose)
     
     @staticmethod
@@ -1458,5 +1468,5 @@ class RotaABM:
 
 
 if __name__ == '__main__':
-    rota = RotaABM()
+    rota = RotaABM(N=2000, timelimit=10)
     events = rota.run()
