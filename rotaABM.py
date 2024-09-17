@@ -631,7 +631,7 @@ class RotaABM:
         return
             
     def get_weights_by_age(self, host_pop):
-        bdays = np.array([x.bday for x in host_pop])
+        bdays = np.fromiter((x.bday for x in host_pop), dtype=float)
         weights = self.t - bdays
         total_w = np.sum(weights)
         weights = weights / total_w
@@ -651,6 +651,7 @@ class RotaABM:
             if h.is_immune_flag:
                 self.immunityCounts -= 1
             host_pop.remove(h)
+        return
             
     def recovery_event(self, num_recovered, infected_pop, strain_count):
         weights=np.array([x.get_oldest_current_infection() for x in infected_pop])
