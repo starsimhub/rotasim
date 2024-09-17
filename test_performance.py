@@ -30,7 +30,7 @@ def update_performance(save=False):
 def profile():
     sc.heading('Running sc.profile')
     rota = rabm.RotaABM(**kwargs)
-    prf = sc.profile(rota.run, follow=rota.get_weights_by_age)
+    prf = sc.profile(rota.run, follow=rota.integrate)
     return prf
 
 
