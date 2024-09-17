@@ -7,8 +7,8 @@ NB: the two tests could be combined into one, but are left separate for clarity.
 import sciris as sc
 import rotaABM as rabm
 
-N = 100_000
-timelimit = 40
+N = 2_000
+timelimit = 10
 
 def test_default(make=False, benchmark=False):
     sc.heading('Testing default parameters')

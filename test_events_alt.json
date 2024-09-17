@@ -1,10 +1,10 @@
 {
-  "births": 1480,
-  "deaths": 352,
-  "recoveries": 36336,
-  "contacts": 253493,
-  "wanings": 35457,
-  "reassortments": 131,
+  "births": 600,
+  "deaths": 336,
+  "recoveries": 33165,
+  "contacts": 232829,
+  "wanings": 32454,
+  "reassortments": 104,
   "vaccine_dose_1_wanings": 0,
   "vaccine_dose_2_wanings": 0
 }

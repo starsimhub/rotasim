@@ -721,16 +721,9 @@ class RotaABM:
     def waning_event(self, host_pop, wanings):
         # Get all the hosts in the population that has an immunity
         h_immune = [h for h in host_pop if h.is_immune_flag]
-        order = np.argsort([h.oldest_infection for h in h_immune])
-        # age_tiebreak = lambda x: (x.get_oldest_infection(), rnd.random())
-        # hosts_with_immunity = sorted(h_immune, key=age_tiebreak, reverse=True)
-        
-        # Alternate implementation -- not faster, but left in as a placeholder 
-        # immune_inds = sc.findinds([h.is_immune for h in host_pop])
-        # ages = np.array([host_pop[i].get_oldest_infection() for i in immune_inds])
-        # ages += np.random.rand(len(ages))*1e-12 # Add noise to break ties
-        # immunity_sort_inds = np.argsort(ages)[::-1]
-        # immunity_sort_inds = immunity_sort_inds[:wanings]
+        oldest = np.array([h.oldest_infection for h in h_immune])
+        # oldest += 1e-6*np.random.random(len(oldest)) # For tiebreaking -- not needed
+        order = np.argsort(oldest)
     
         # For the selcted hosts set the immunity to be None
         for i in order[:wanings]:#range(min(len(hosts_with_immunity), wanings)):
@@ -812,7 +805,7 @@ class RotaABM:
             population_to_collect = host_population
     
         # Shuffle the population to avoid the need for random sampling
-        # rnd.shuffle(population_to_collect)
+        # rnd.shuffle(population_to_collect) # CK: not needed?
         
         collected_data = []
         collected_vaccination_data = []
