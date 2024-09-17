@@ -7,13 +7,12 @@ Usage:
     rota.run()
     
 TODO:
-    - Rename camelcase
     - Replace host with array
     - Replace pathogen with array
     - Replace random with numpy
     - Replace math with numpy
     - Try to simplify Host.can_variant_infect_host()
-    - Refactor Pathogen.getFitness()
+    - Refactor Pathogen.get_fitness()
 """
 
 import sys
@@ -82,7 +81,7 @@ class Host:
         max_infection_times = max([self.t - p[1] for p in self.immunity.items()])
         return max_infection_times
     
-    def computePossibleCombinations(self):
+    def compute_combinations(self):
         segCombinations = []
 
         # We want to only reassort the GP types
@@ -108,9 +107,6 @@ class Host:
         all_pathogens = [Pathogen(self.sim, True, self.t, host = self, strain=tuple(i)) for i in all_strains]
 
         return all_pathogens
-
-    def getPossibleCombinations(self):
-        return self.computePossibleCombinations()
 
     def isInfected(self):
         return len(self.infecting_pathogen) != 0
@@ -138,7 +134,7 @@ class Host:
             self.prior_vaccinations.append(vaccinated_strain)
             self.vaccine = ([vaccinated_strain], self.t, 2)
     
-    def isVaccineimmune(self, infecting_strain):
+    def is_vaccine_immune(self, infecting_strain):
         # Effectiveness of the vaccination depends on the number of doses
         if self.vaccine[2] == 1:
             ve_i_rates = self.sim.vaccine_efficacy_i_d1
@@ -206,7 +202,7 @@ class Host:
         completeHeterotypicImmunityrate = self.sim.completeHeterotypicImmunityrate
         HomotypicImmunityRate = self.sim.HomotypicImmunityRate
         
-        if (self.vaccine is not None) and self.isVaccineimmune(infecting_strain):
+        if (self.vaccine is not None) and self.is_vaccine_immune(infecting_strain):
             return False
         
         if immunity_hypothesis == 1:
@@ -339,7 +335,7 @@ class Host:
             
     def infect_with_pathogen(self, pathogenIn, strainCounts):
         """ This function returns a fitness value to a strain based on the hypothesis """ 
-        fitness = pathogenIn.getFitness()
+        fitness = pathogenIn.get_fitness()
         
         # e.g. fitness = 0.8 (there's a 80% chance the virus infecting a host)
         if rnd.random() > fitness:                
@@ -403,7 +399,7 @@ class Pathogen(object):
         else:
             return PathogenMatch.COMPLETE_HETERO
             
-    def getFitness(self):
+    def get_fitness(self):
         fitness_hypothesis = self.sim.fitness_hypothesis
         if fitness_hypothesis == 1:
             return 1
@@ -873,7 +869,7 @@ class RotaABM:
         else:  # give only one strain depending on fitness
             host1paths = list(host1.infecting_pathogen)     
             # Sort by fitness first and randomize the ones with the same fitness
-            host1paths.sort(key=lambda path: (path.getFitness(), rnd.random()), reverse=True)
+            host1paths.sort(key=lambda path: (path.get_fitness(), rnd.random()), reverse=True)
             for path in host1paths:
                 if host2.can_variant_infect_host(path.strain, h2existing_pathogens):
                     infected = host2.infect_with_pathogen(path, strainCounts)
@@ -968,7 +964,7 @@ class RotaABM:
     
         for i in range(min(len(coinfectedhosts),reassortment_count)):
             parentalstrains = [path.strain for path in coinfectedhosts[i].infecting_pathogen]
-            possible_reassortants = [path for path in coinfectedhosts[i].getPossibleCombinations() if path not in parentalstrains]
+            possible_reassortants = [path for path in coinfectedhosts[i].compute_combinations() if path not in parentalstrains]
             for path in possible_reassortants:
                 coinfectedhosts[i].infect_with_reassortant(path)
     
