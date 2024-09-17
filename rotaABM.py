@@ -8,9 +8,6 @@ Usage:
     
 TODO:
     - Rename camelcase
-    - Fix input arguments
-    - Combine RotaABM.__init__() and RotaABM.prepare_run()
-    - Do performance benchmarking
     - Replace host with array
     - Replace pathogen with array
     - Replace random with numpy
