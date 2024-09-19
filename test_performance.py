@@ -3,7 +3,11 @@ Check performance
 """
 
 import sciris as sc
-import rotaABM as rota
+import rotaABM as rabm
+
+N = 5_000
+timelimit = 30
+kwargs = dict(N=N, timelimit=timelimit)
 
 
 def update_performance(save=False):
@@ -11,7 +15,8 @@ def update_performance(save=False):
     filename = 'test_performance.json'
 
     T = sc.timer()
-    rota.main()
+    rota = rabm.RotaABM(**kwargs)
+    rota.run()
     T.toc()
     string = f'{T.elapsed:0.2f}'
     data = dict(time=string)
@@ -24,21 +29,23 @@ def update_performance(save=False):
 
 def profile():
     sc.heading('Running sc.profile')
-    prf = sc.profile(rota.main)
+    rota = rabm.RotaABM(**kwargs)
+    prf = sc.profile(rota.run, follow=rota.integrate)
     return prf
 
 
 def cprofile():
     sc.heading('Running sc.cprofile')
     with sc.cprofile() as cpr:
-        rota.main(verbose=False)
+        rota = rabm.RotaABM(**kwargs, verbose=False)
+        rota.run()
     return cpr
 
 
 if __name__ == '__main__':
     save = 0
     do_profile = 1
-    if not do_profile:
+    if save or not do_profile:
         update_performance(save=save)
     else:
         prf = profile()
