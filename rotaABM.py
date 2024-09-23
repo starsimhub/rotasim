@@ -588,6 +588,278 @@ class RotaABM:
             write = csv.writer(outputfile)
             write.writerow(["time"] + list(age_labels)) 
     
+    def get_fitness(self):
+        """ Get the fitness based on the fitness hypothesis and the two strains """
+        fitness_hypothesis = self.sim.fitness_hypothesis
+        
+    def getFitness(self):
+            if fitness_hypothesis == 1:
+                return 1
+            elif fitness_hypothesis == 2:
+                if self.strain[0] == 1 and self.strain[1] == 1:
+                    return 0.93
+                elif self.strain[0] == 2 and self.strain[1] == 2:
+                    return 0.93
+                elif self.strain[0] == 3 and self.strain[1] == 3:
+                    return 0.93
+                elif self.strain[0] == 4 and self.strain[1] == 4:
+                    return 0.93
+                else:
+                    return 0.90
+            
+            elif fitness_hypothesis == 3:
+                if self.strain[0] == 1 and self.strain[1] == 1:
+                    return 0.93
+                elif self.strain[0] == 2 and self.strain[1] == 2:
+                    return 0.93
+                elif self.strain[0] == 3 and self.strain[1] == 3:
+                    return 0.90
+                elif self.strain[0] == 4 and self.strain[1] == 4:
+                    return 0.90
+                else:
+                    return 0.87
+                
+            elif fitness_hypothesis == 4:
+                if self.strain[0] == 1 and self.strain[1] == 1:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 2:
+                    return 0.2
+                else:
+                    return 1
+            
+            elif fitness_hypothesis == 5:
+                if self.strain[0] == 1 and self.strain[1] == 1:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 1 or self.strain[0] == 1 and self.strain[1] == 3:
+                    return 0.5
+                else:
+                    return 0.2 
+            elif fitness_hypothesis == 6:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.2
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.4
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.5
+                else:
+                    return 0.05
+            elif fitness_hypothesis == 7:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.3
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.7
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.6
+                else:
+                    return 0.05
+            elif fitness_hypothesis == 8:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.4
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.9
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.8
+                else:
+                    return 0.05
+            elif fitness_hypothesis == 9:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.5
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.9
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.8
+                else:
+                    return 0.2
+            elif fitness_hypothesis == 10:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.6
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.9
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.9
+                else:
+                    return 0.4
+            elif fitness_hypothesis == 11:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 0.98
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.7
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.8
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.8
+                else:
+                    return 0.5
+            elif fitness_hypothesis == 12:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 0.98
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.8
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.9
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.9
+                else:
+                    return 0.5
+            elif fitness_hypothesis == 13:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 0.98
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.8
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.9
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.9
+                else:
+                    return 0.7
+            elif fitness_hypothesis == 14:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 0.98
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.4
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.7
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.6
+                elif self.strain[0] == 9 and self.strain[1] == 8:
+                    return 0.7
+                elif self.strain[0] == 12 and self.strain[1] == 8:
+                    return 0.75
+                elif self.strain[0] == 9 and self.strain[1] == 6:
+                    return 0.58
+                elif self.strain[0] == 11 and self.strain[1] == 8:
+                    return 0.2
+                else:
+                    return 0.05
+            elif fitness_hypothesis == 15:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.7
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.93
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.93
+                elif self.strain[0] == 9 and self.strain[1] == 8:
+                    return 0.95
+                elif self.strain[0] == 12 and self.strain[1] == 8:
+                    return 0.94
+                elif self.strain[0] == 9 and self.strain[1] == 6:
+                    return 0.3
+                elif self.strain[0] == 11 and self.strain[1] == 8:
+                    return 0.35
+                else:
+                    return 0.4
+            elif fitness_hypothesis == 16:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.7
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.85
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.88
+                elif self.strain[0] == 9 and self.strain[1] == 8:
+                    return 0.95
+                elif self.strain[0] == 12 and self.strain[1] == 8:
+                    return 0.93
+                elif self.strain[0] == 9 and self.strain[1] == 6:
+                    return 0.85
+                elif self.strain[0] == 12 and self.strain[1] == 6:
+                    return 0.90
+                elif self.strain[0] == 9 and self.strain[1] == 4:
+                    return 0.90
+                elif self.strain[0] == 1 and self.strain[1] == 6:
+                    return 0.6
+                elif self.strain[0] == 2 and self.strain[1] == 8:
+                    return 0.6
+                elif self.strain[0] == 2 and self.strain[1] == 6:
+                    return 0.6
+                else:
+                    return 0.4
+            elif fitness_hypothesis == 17:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.85
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.85
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.88
+                elif self.strain[0] == 9 and self.strain[1] == 8:
+                    return 0.95
+                elif self.strain[0] == 12 and self.strain[1] == 8:
+                    return 0.93
+                elif self.strain[0] == 9 and self.strain[1] == 6:
+                    return 0.83
+                elif self.strain[0] == 12 and self.strain[1] == 6:
+                    return 0.90
+                elif self.strain[0] == 9 and self.strain[1] == 4:
+                    return 0.90
+                elif self.strain[0] == 1 and self.strain[1] == 6:
+                    return 0.8
+                elif self.strain[0] == 2 and self.strain[1] == 8:
+                    return 0.8
+                elif self.strain[0] == 2 and self.strain[1] == 6:
+                    return 0.8
+                else:
+                    return 0.7
+            # below fitness hypo. 18 was used in the analysis for the high baseline diversity setting in the report
+            elif fitness_hypothesis == 18:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.92
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.79
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.81
+                elif self.strain[0] == 9 and self.strain[1] == 8:
+                    return 0.95
+                elif self.strain[0] == 12 and self.strain[1] == 8:
+                    return 0.89
+                elif self.strain[0] == 9 and self.strain[1] == 6:
+                    return 0.80
+                elif self.strain[0] == 12 and self.strain[1] == 6:
+                    return 0.86
+                elif self.strain[0] == 9 and self.strain[1] == 4:
+                    return 0.83
+                elif self.strain[0] == 1 and self.strain[1] == 6:
+                    return 0.75
+                elif self.strain[0] == 2 and self.strain[1] == 8:
+                    return 0.75
+                elif self.strain[0] == 2 and self.strain[1] == 6:
+                    return 0.75
+                else:
+                    return 0.65
+            # below fitness hypo 19 was used for the low baseline diversity setting analysis in the report
+            elif fitness_hypothesis == 19:
+                if self.strain[0] == 1 and self.strain[1] == 8:
+                    return 1
+                elif self.strain[0] == 2 and self.strain[1] == 4:
+                    return 0.5
+                elif self.strain[0] == 3 and self.strain[1] == 8:
+                    return 0.55
+                elif self.strain[0] == 4 and self.strain[1] == 8:
+                    return 0.55
+                elif self.strain[0] == 9 and self.strain[1] == 8:
+                    return 0.6
+                else:
+                    return 0.4
+            else:
+                print("Invalid fitness_hypothesis: ", fitness_hypothesis)
+                exit(-1)
+    
     ############# tau-Function to calculate event counts ############################
     def get_event_counts(self, N, I, R, tau, RR_GP, single_dose_count, double_dose_count): 
         births = np.random.poisson(size=1, lam=tau*N*self.birth_rate)[0]
