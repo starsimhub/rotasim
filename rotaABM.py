@@ -611,90 +611,89 @@ class RotaABM:
         elif fitness_hypothesis == 3:
                 default = 0.87
                 mapping = {
-                (1, 1): 0.93,
-                (2, 2): 0.93,
-                (3, 3): 0.90,
-                (4, 4): 0.90,
+                	(1, 1): 0.93,
+                	(2, 2): 0.93,
+                	(3, 3): 0.90,
+                	(4, 4): 0.90,
                 }
                 return mapping.get(key, default)
                 
         elif fitness_hypothesis == 4:
                 default = 1
                 mapping = {
-                (1, 1): 1,
-                (2, 2): 0.2,
+                	(1, 1): 1,
+                	(2, 2): 0.2,
                 }
                 return mapping.get(key, default)
-            
+        
         elif fitness_hypothesis == 5:
                 default = 0.2
                 mapping = {
-                (1, 1): 1,
-                (2, 1): 0.5,
-                (1, 3): 0.5,
+                	(1, 1): 1,
+                	(2, 1): 0.5,
+                	(1, 3): 0.5,
                 }
-              	return mapping.get(key, default)
+                return mapping.get(key, default)    
                     
         elif fitness_hypothesis == 6:
                 default = 0.05
                 mapping = {
-                (1, 8): 1,
-                (2, 4): 0.2,
-                (3, 8): 0.4,
-                (4, 8): 0.5,
+                	(1, 8): 1,
+                	(2, 4): 0.2,
+                	(3, 8): 0.4,
+                	(4, 8): 0.5,
                 }
                 return mapping.get(key, default)
                     
         elif fitness_hypothesis == 7:
                 default = 0.05
                 mapping = {
-                (1, 8): 1,
-                (2, 4): 0.3,
-                (3, 8): 0.7,
-                (4, 8): 0.6,
+                	(1, 8): 1,
+                	(2, 4): 0.3,
+                	(3, 8): 0.7,
+                	(4, 8): 0.6,
                 }
                 return mapping.get(key, default)
             
         elif fitness_hypothesis == 8:
                 default = 0.05
                 mapping = {
-                (1, 8): 1,
-                (2, 4): 0.4,
-                (3, 8): 0.9,
-                (4, 8): 0.8,
+                	(1, 8): 1,
+                	(2, 4): 0.4,
+                	(3, 8): 0.9,
+                	(4, 8): 0.8,
                 }
                 return mapping.get(key, default)
                     
         elif fitness_hypothesis == 9:
                 default = 0.2
                 mapping = {
-                (1, 8): 1,
-                (2, 4): 0.6,
-                (3, 8): 0.9,
-                (4, 8): 0.9,
+                	(1, 8): 1,
+                	(2, 4): 0.6,
+                	(3, 8): 0.9,
+                	(4, 8): 0.9,
                 }
                 return mapping.get(key, default)
                     
         elif fitness_hypothesis == 10:
                 default = 0.4
                 mapping = {
-                (1, 8): 1,
-                (2, 4): 0.6,
-                (3, 8): 0.9,
-                (4, 8): 0.9,
+                	(1, 8): 1,
+                	(2, 4): 0.6,
+                	(3, 8): 0.9,
+                	(4, 8): 0.9,
                 }
                 return mapping.get(key, default)
-            
-            # ...do this
-		elif fitness_hypothesis == 11:
-    			default = 0.5
-    			mapping = {
-        			(1,8): 0.98,
-        			(2,4): 0.7,
-        			(3,8): 0.8,
-        			(4,8): 0.8,
-    			}
-    			return mapping.get(key, default)
+        
+        elif fitness_hypothesis == 11:
+                default = 0.5
+                mapping = {
+                	(1, 8): 0.98,
+                	(2, 4): 0.7,
+                	(3, 8): 0.8,
+                	(4, 8): 0.8,
+                }
+                return mapping.get(key, default)    
     			
         elif fitness_hypothesis == 12:
                 default=0.5
@@ -709,91 +708,92 @@ class RotaABM:
         elif fitness_hypothesis == 13:
             	default = 0.7
             	mapping = {
-            	(1, 8): 0.98,
-            	(2, 4): 0.8,
-            	(3, 8): 0.9,
-            	(4, 8): 0.9,
+            		(1, 8): 0.98,
+            		(2, 4): 0.8,
+            		(3, 8): 0.9,
+            		(4, 8): 0.9,
             	}
             	return mapping.get(key, default)
 
         elif fitness_hypothesis == 14:
                 default = 0.05
                 mapping = {
-                (1, 8): 0.98,
-                (2, 4): 0.4,
-                (3, 8): 0.7,
-                (12, 8): 0.75,
-                (9, 6): 0.58,
-                (11, 8): 0.2,
+                	(1, 8): 0.98,
+                	(2, 4): 0.4,
+                	(3, 8): 0.7,
+                	(12, 8): 0.75,
+                	(9, 6): 0.58,
+                	(11, 8): 0.2,
                 }
                 return mapping.get(key, default)
 
         elif fitness_hypothesis == 15:
-            	default = 0.4
-            	mapping = {
-            	(1, 8): 1,
-            	(2, 4): 0.7,
-            	(3, 8): 0.93,
-            	(4, 8): 0.93,
-            	(9, 8): 0.95,
-            	(12, 8): 0.94,
-            	(9, 6): 0.3,
-            	(11, 8): 0.35,
-            	}
-               return mapping.get(key, default)
+                default = 0.4
+                mapping = {
+                	(1, 8): 1,
+                	(2, 4): 0.7,
+                	(3, 8): 0.93,
+                	(4, 8): 0.93,
+                	(9, 8): 0.95,
+                	(12, 8): 0.94,
+                	(9, 6): 0.3,
+                	(11, 8): 0.35,
+                }
+                return mapping.get(key, default)
+                
                
         elif fitness_hypothesis == 16:
                 default = 0.4
                 mapping = {
-                (1, 8): 1,
-                (2, 4): 0.7,
-                (3, 8): 0.85,
-                (4, 8): 0.88,
-                (9, 8): 0.95,
-                (12, 8): 0.93,
-                (9, 6): 0.85,
-                (12, 6): 0.90,
-                (9, 4): 0.90,
-                (1, 6): 0.6,
-                (2, 8): 0.6,
-                (2, 6): 0.6,
+                	(1, 8): 1,
+                	(2, 4): 0.7,
+                	(3, 8): 0.85,
+                	(4, 8): 0.88,
+                	(9, 8): 0.95,
+                	(12, 8): 0.93,
+                	(9, 6): 0.85,
+                	(12, 6): 0.90,
+                	(9, 4): 0.90,
+                	(1, 6): 0.6,
+                	(2, 8): 0.6,
+                	(2, 6): 0.6,
                 }
                 return mapping.get(key, default)
                 
         elif fitness_hypothesis == 17:
                 default = 0.7
                 mapping = {
-                (1, 8): 1,
-                (2, 4): 0.85,
-                (3, 8): 0.85,
-                (4, 8): 0.88,
-                (9, 8): 0.95,
-                (12, 8): 0.93,
-                (9, 6): 0.83,
-                (12, 6): 0.90,
-                (9, 4): 0.90,
-                (1, 6): 0.8,
-                (2, 8): 0.8,
-                (2, 6): 0.8,
+                	(1, 8): 1,
+                	(2, 4): 0.85,
+                	(3, 8): 0.85,
+                	(4, 8): 0.88,
+                	(9, 8): 0.95,
+                	(12, 8): 0.93,
+                	(9, 6): 0.83,
+                	(12, 6): 0.90,
+                	(9, 4): 0.90,
+                	(1, 6): 0.8,
+                	(2, 8): 0.8,
+                	(2, 6): 0.8,
                 }
-           		return mapping.get(key, default)
+                return mapping.get(key, default)
            		
             # below fitness hypo. 18 was used in the analysis for the high baseline diversity setting in the report
         elif fitness_hypothesis == 18:
                 default = 0.65
                 mapping = {
-                (1, 8): 1,
-                (2, 4): 0.92,
-                (3, 8): 0.79,
-                (4, 8): 0.81,
-                (9, 8): 0.95,
-                (12, 8): 0.89,
-                (9, 6): 0.80,
-                (12, 6): 0.86,
-                (9, 4): 0.83,
-                (1, 6): 0.75,
-                (2, 8): 0.75,
-                (2, 6): 0.75,
+                	(1, 8): 1,
+                	(2, 4): 0.92,
+                	(3, 8): 0.79,
+                	(4, 8): 0.81,
+                	(9, 8): 0.95,
+                	(12, 8): 0.89,
+                	(9, 6): 0.80,
+                	(12, 6): 0.86,
+                	(9, 4): 0.83,
+                	(1, 6): 0.75,
+                	(2, 8): 0.75,
+                	(2, 6): 0.75,
                 }
                 return mapping.get(key, default)
                 
@@ -801,14 +801,15 @@ class RotaABM:
         elif fitness_hypothesis == 19:
                 default = 0.4
                 mapping = {
-                (1, 8): 1,
-                (2, 4): 0.5,
-                (3, 8): 0.55,
-                (4, 8): 0.55,
-                (9, 8): 0.6,
+                	(1, 8): 1,
+                	(2, 4): 0.5,
+                	(3, 8): 0.55,
+                	(4, 8): 0.55,
+                	(9, 8): 0.6,
                 }
                 return mapping.get(key, default)
-            else:
+            
+        else:
                 print("Invalid fitness_hypothesis: ", fitness_hypothesis)
                 exit(-1)
     
