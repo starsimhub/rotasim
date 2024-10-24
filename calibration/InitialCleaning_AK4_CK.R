@@ -48,7 +48,7 @@ head(cases_summary)
 #It's already pooled, so just need one observation per time point and then multiply by age bin
 #Doing one per age bin so that the frame is set up to easily multiply
 pop_pooled<-ddply(initial8, .(CollectionTime, AgeCat), function(x) head(x,1))
-pop_pooled2<-pop_pooled[,c(3,7,9)]
+pop_pooled2<-pop_pooled[,c(3,7,10)]
 
 #Multiplying by fraction of the population in each age bin
 pop_pooled2$Pop_Age<-NA
