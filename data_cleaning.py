@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Clean output data files
-dat = pd.read_csv('../results/rota_strains_infected_all_1_0.1_1_1_1_0_0.5_1.csv')
+dat = pd.read_csv('./results/rota_strains_infected_all_1_0.1_1_1_1_0_0.5_1.csv')
 print(dat.head())
 
 # Look at all years
