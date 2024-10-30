@@ -1273,7 +1273,7 @@ class RotaABM:
 
         self.tau_steps = 0
         self.last_data_colllected = 0
-        self.data_collection_rate = 0.1
+        self.data_collection_rate = 0.1*0 # TEMP
 
         for strain, count in strain_count.items():
             if strain[:self.numAgSegments] in self.total_strain_counts_vaccine:
@@ -1411,6 +1411,6 @@ class RotaABM:
 
 
 if __name__ == '__main__':
-    rota = RotaABM(N=5000, timelimit=2)
+    rota = RotaABM(N=5000, timelimit=0.1)
     events = rota.run()
 

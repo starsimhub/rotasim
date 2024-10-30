@@ -1090,7 +1090,7 @@ def main(defaults=None, verbose=None):
     birth_rate = mu * 2
 
     contact_rate = 365/1
-    timelimit = 2  #### simulation years
+    timelimit = 0.1  #### simulation years
 
     reassortmentRate_GP = reassortment_rate
 
@@ -1245,7 +1245,7 @@ def main(defaults=None, verbose=None):
     tau_steps = 0
     t0 = time.time() # for us to track the time it takes to run the simulation
     last_data_colllected = 0
-    data_collection_rate = 0.1
+    data_collection_rate = 0.1*0 # TEMP
 
     for strain, count in strainCount.items():
         if strain[:numAgSegments] in total_strain_counts_vaccine:
