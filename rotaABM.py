@@ -849,6 +849,7 @@ class RotaABM:
         h1_inds = np.random.randint(len(infected_pop), size=contacts)
         h2_inds = np.random.randint(len(self.host_pop), size=contacts)
         rnd_nums = np.random.random(size=contacts)
+        counter = 0
 
         for h1_ind, h2_ind, rnd_num in zip(h1_inds, h2_inds, rnd_nums):
             h1 = infected_pop[h1_ind]
@@ -869,20 +870,23 @@ class RotaABM:
 
             # No infection occurs
             if rnd_num > infecting_probability:
-                return
-
-            h2_previously_infected = h2.isInfected()
-
-            if len(h1.infecting_pathogen)==1:
-                if h2.can_variant_infect_host(h1.infecting_pathogen[0].strain, h2.infecting_pathogen):
-                    h2.infect_with_pathogen(h1.infecting_pathogen[0], strain_count)
+                continue # CK: was "return", which was a bug!
             else:
-                self.coInfected_contacts(h1,h2,strain_count)
+                counter += 1
+                h2_previously_infected = h2.isInfected()
 
-            # in this case h2 was not infected before but is infected now
-            if not h2_previously_infected and h2.isInfected():
-                infected_pop.append(h2)
-        return
+                if len(h1.infecting_pathogen)==1:
+                    if h2.can_variant_infect_host(h1.infecting_pathogen[0].strain, h2.infecting_pathogen):
+                        h2.infect_with_pathogen(h1.infecting_pathogen[0], strain_count)
+                    # else:
+                    #     print('Unclear what should happen here')
+                else:
+                    self.coInfected_contacts(h1,h2,strain_count)
+
+                # in this case h2 was not infected before but is infected now
+                if not h2_previously_infected and h2.isInfected():
+                    infected_pop.append(h2)
+        return counter
 
     def get_weights_by_age(self):
         bdays = np.array(self.host_pop.bdays)
@@ -1343,7 +1347,8 @@ class RotaABM:
             # perform the events for the obtained counts
             self.birth_events(births)
             self.reassortment_event(infected_pop, reassortments) # calling the function
-            self.contact_event(contacts, infected_pop, strain_count)
+            counter = self.contact_event(contacts, infected_pop, strain_count)
+            print(f'CKDEBUG: {counter}')
             self.death_event(deaths, infected_pop, strain_count)
             self.recovery_event(recoveries, infected_pop, strain_count)
             self.waning_event(wanings)
@@ -1411,6 +1416,6 @@ class RotaABM:
 
 
 if __name__ == '__main__':
-    rota = RotaABM(N=5000, timelimit=0.1)
+    rota = RotaABM(N=5000, timelimit=0.2)
     events = rota.run()
 

@@ -789,19 +789,22 @@ def main(defaults=None, verbose=None):
             infecting_probability = 0
         rnd_num = rnd.random()
         if rnd_num > infecting_probability:
-            return
+            return 0
 
         h2_previously_infected = h2.isInfected()
 
         if len(h1.infecting_pathogen)==1:
             if h2.can_variant_infect_host(h1.infecting_pathogen[0].strain, h2.infecting_pathogen):
                 h2.infect_with_pathogen(h1.infecting_pathogen[0], strainCount)
+            # else:
+            #     print('Unclear what should happen here')
         else:
             coInfected_contacts(h1,h2,strainCount)
 
         # in this case h2 was not infected before but is infected now
         if not h2_previously_infected and h2.isInfected():
             infected_pop.append(h2)
+        return 1
 
     def get_weights_by_age(host_pop):
         weights = np.array([t - x.bday for x in host_pop])
@@ -1090,7 +1093,7 @@ def main(defaults=None, verbose=None):
     birth_rate = mu * 2
 
     contact_rate = 365/1
-    timelimit = 0.1  #### simulation years
+    timelimit = 0.2  #### simulation years
 
     reassortmentRate_GP = reassortment_rate
 
@@ -1302,8 +1305,10 @@ def main(defaults=None, verbose=None):
         # perform the events for the obtained counts
         birth_events(births, host_pop)
         reassortment_event(infected_pop, reassortments) # calling the function
+        counter = 0
         for _ in range(contacts):
-            contact_event(infected_pop, host_pop, strainCount)
+            counter += contact_event(infected_pop, host_pop, strainCount)
+        print(f'CKDEBUG: {counter}')
         death_event(deaths, infected_pop, host_pop, strainCount)
         recovery_event(recoveries, infected_pop, strainCount)
         waning_event(host_pop, wanings)
