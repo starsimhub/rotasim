@@ -397,202 +397,6 @@ class Pathogen(object):
     def get_fitness(self):
         """ Get the fitness based on the fitness hypothesis and the two strains """
         fitness_hypothesis = self.sim.fitness_hypothesis
-        strain = self.strain
-
-        if fitness_hypothesis in self.fitness_map:
-            fitness_values = self.fitness_map[fitness_hypothesis]
-            return fitness_values.get((strain[0], strain[1]), fitness_values.get('default', 1))
-        else:
-            raise NotImplementedError(f"Invalid fitness_hypothesis: {fitness_hypothesis}")
-
-    def get_strain_name(self):
-        G,P,A,B = [str(self.strain[i]) for i in range(4)]
-        return f'G{G}P{P}A{A}B{B}'
-
-    def __str__(self):
-        return "Strain: " + self.get_strain_name() + " Severe: " + str(self.is_severe) + " Host: " + str(self.host.id) + str(self.creation_time)
-
-
-### RotaABM class
-class RotaABM:
-    """
-    Run the simulation
-    """
-
-    def __init__(self,
-            N = 100_000,
-            timelimit = 40,
-            verbose = None,
-            **kwargs,
-        ):
-        """
-        Create the simulation.
-
-        Args:
-            defaults (list): a list of parameters matching the command-line inputs; see below
-            verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
-        """
-        # Define the default parameters
-        args = sc.objdict(
-            immunity_hypothesis = 1,
-            reassortment_rate = 0.1,
-            fitness_hypothesis = 1,
-            vaccine_hypothesis = 1,
-            waning_hypothesis = 1,
-            initial_immunity = 0,
-            ve_i_to_ve_s_ratio = 0.5,
-            experiment_number = 1,
-        )
-
-        # Update with any keyword arguments
-        for k,v in kwargs.items():
-            if k in args:
-                args[k] = v
-            else:
-                KeyError(k)
-
-        # Loop over command line input arguments, if provided
-        for i,arg in enumerate(sys.argv[1:]):
-            args[i] = arg
-
-        if verbose is not False:
-            print(f'Creating simulation with N={N}, timelimit={timelimit} and parameters:')
-            print(args)
-
-        # Store parameters directly in the sim
-        self.immunity_hypothesis = int(args[0])
-        self.reassortment_rate = float(args[1])
-        self.fitness_hypothesis = int(args[2])
-        self.vaccine_hypothesis = int(args[3])
-        self.waning_hypothesis = int(args[4])
-        self.initial_immunity = int(args[5]) # 0 = no immunity
-        self.ve_i_to_ve_s_ratio = float(args[6])
-        self.experiment_number = int(args[7])
-        self.verbose = verbose
-
-        # Reset the seed
-        rnd.seed(self.experiment_number)
-        np.random.seed(self.experiment_number)
-
-        # Set filenames
-        name_suffix =  '%r_%r_%r_%r_%r_%r_%r_%r' % (self.immunity_hypothesis, self.reassortment_rate, self.fitness_hypothesis, self.vaccine_hypothesis, self.waning_hypothesis, self.initial_immunity, self.ve_i_to_ve_s_ratio, self.experiment_number)
-        self.files = sc.objdict()
-        self.files.outputfilename = './results/rota_strain_count_%s.csv' % (name_suffix)
-        self.files.vaccinations_outputfilename = './results/rota_vaccinecount_%s.csv' % (name_suffix)
-        self.files.sample_outputfilename = './results/rota_strains_sampled_%s.csv' % (name_suffix)
-        self.files.infected_all_outputfilename = './results/rota_strains_infected_all_%s.csv' % (name_suffix)
-        self.files.age_outputfilename = './results/rota_agecount_%s.csv' % (name_suffix)
-        self.files.vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
-        self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
-
-        # Set other parameters
-        self.N = N  # initial population size
-        self.timelimit = timelimit  # simulation years
-        self.mu = 1.0/70.0     # average life span is 70 years
-        self.gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
-        if self.waning_hypothesis == 1:
-            omega = 365/273  # duration of immunity by infection= 39 weeks
-        elif self.waning_hypothesis == 2:
-            omega = 365/50
-        elif self.waning_hypothesis == 3:
-            omega = 365/100
-        self.omega = omega
-        self.birth_rate = self.mu * 2 # Adjust birth rate to be more in line with Bangladesh
-
-        self.contact_rate = 365/1
-        self.reassortmentRate_GP = self.reassortment_rate
-
-        self.vaccination_time =  20
-
-        # Efficacy of the vaccine first dose
-        self.vaccine_efficacy_d1 = {
-            PathogenMatch.HOMOTYPIC: 0.6,
-            PathogenMatch.PARTIAL_HETERO: 0.45,
-            PathogenMatch.COMPLETE_HETERO:0.15,
-        }
-        # Efficacy of the vaccine second dose
-        self.vaccine_efficacy_d2 = {
-            PathogenMatch.HOMOTYPIC: 0.8,
-            PathogenMatch.PARTIAL_HETERO: 0.65,
-            PathogenMatch.COMPLETE_HETERO:0.35,
-        }
-
-        self.vaccination_single_dose_waning_rate = 365/273 #365/1273
-        self.vaccination_double_dose_waning_rate = 365/546 #365/2600
-        # vaccination_waning_lower_bound = 20 * 7 / 365.0
-
-        # Tau leap parametes
-        self.tau = 1/365.0
-
-        # if initialization starts with a proportion of immune agents:
-        self.num_initial_immune = 10000
-
-        # Final initialization
-        self.immunity_counts = 0
-        self.reassortment_count = 0
-        self.pop_id = 0
-        self.t = 0.0
-
-        return
-
-    @staticmethod
-    def get_probability_of_severe(sim, pathogen_in, vaccine, immunity_count): # TEMP: refactor and include above
-        if immunity_count >= 3:
-            severity_probability = 0.18
-        elif immunity_count == 2:
-            severity_probability = 0.24
-        elif immunity_count == 1:
-            severity_probability = 0.23
-        elif immunity_count == 0:
-            severity_probability = 0.17
-
-        if vaccine is not None:
-            # Probability of severity also depends on the strain (homotypic/heterltypic/etc.)
-            pathogen_strain_type = pathogen_in.match(vaccine[0][0])
-            # Effectiveness of the vaccination depends on the number of doses
-            if vaccine[2] == 1:
-                ve_s = sim.vaccine_efficacy_s_d1[pathogen_strain_type]
-            elif vaccine[2] == 2:
-                ve_s = sim.vaccine_efficacy_s_d2[pathogen_strain_type]
-            else:
-                raise NotImplementedError(f"Unsupported vaccine dose: {vaccine[2]}")
-            return severity_probability * (1-ve_s)
-        else:
-            return severity_probability
-
-    # Initialize all the output files
-    def initialize_files(self, strain_count):
-        files = self.files
-        with open(files.outputfilename, "w+", newline='') as outputfile:
-            write = csv.writer(outputfile)
-            write.writerow(["time"] + list(strain_count.keys()) + ["reassortment_count"])  # header for the csv file
-            write.writerow([self.t] + list(strain_count.values()) + [self.reassortment_count])  # first row of the csv file will be the initial state
-
-        with open(files.sample_outputfilename, "w+", newline='') as outputfile:
-            write = csv.writer(outputfile)
-            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
-        with open(files.infected_all_outputfilename, "w+", newline='') as outputfile:
-            write = csv.writer(outputfile)
-            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
-        with open(files.vaccinations_outputfilename, "w+", newline='') as outputfile:
-            write = csv.writer(outputfile)
-            write.writerow(["id", "VaccineStrain", "CollectionTime", "Age", "Dose"])  # header for the csv file
-
-        for outfile in [files.vaccine_efficacy_output_filename, files.sample_vaccine_efficacy_output_filename]:
-            with open(outfile, "w+", newline='') as outputfile:
-                write = csv.writer(outputfile)
-                write.writerow(["CollectionTime", "Vaccinated", "Unvaccinated", "VaccinatedInfected", "VaccinatedSevere", "UnVaccinatedInfected", "UnVaccinatedSevere",
-                                "VaccinatedHomotypic", "VaccinatedHomotypicSevere", "VaccinatedpartialHetero", "VaccinatedpartialHeteroSevere", "VaccinatedFullHetero", "VaccinatedFullHeteroSevere"])
-
-        with open(files.age_outputfilename, "w+", newline='') as outputfile:
-            write = csv.writer(outputfile)
-            write.writerow(["time"] + list(age_labels))
-
-    def get_fitness(self):
-        """ Get the fitness based on the fitness hypothesis and the two strains """
-        fitness_hypothesis = self.sim.fitness_hypothesis
-
-    def getFitness(self):
         key = (self.strain[0], self.strain[1])
 
         if fitness_hypothesis == 1:
@@ -812,6 +616,200 @@ class RotaABM:
         else:
                 print("Invalid fitness_hypothesis: ", fitness_hypothesis)
                 exit(-1)
+
+    # def get_fitness(self):
+    #     """ Get the fitness based on the fitness hypothesis and the two strains """
+    #     fitness_hypothesis = self.sim.fitness_hypothesis
+    #     strain = self.strain
+
+    #     if fitness_hypothesis in self.fitness_map:
+    #         fitness_values = self.fitness_map[fitness_hypothesis]
+    #         return fitness_values.get((strain[0], strain[1]), fitness_values.get('default', 1))
+    #     else:
+    #         raise NotImplementedError(f"Invalid fitness_hypothesis: {fitness_hypothesis}")
+
+    def get_strain_name(self):
+        G,P,A,B = [str(self.strain[i]) for i in range(4)]
+        return f'G{G}P{P}A{A}B{B}'
+
+    def __str__(self):
+        return "Strain: " + self.get_strain_name() + " Severe: " + str(self.is_severe) + " Host: " + str(self.host.id) + str(self.creation_time)
+
+
+### RotaABM class
+class RotaABM:
+    """
+    Run the simulation
+    """
+
+    def __init__(self,
+            N = 100_000,
+            timelimit = 40,
+            verbose = None,
+            **kwargs,
+        ):
+        """
+        Create the simulation.
+
+        Args:
+            defaults (list): a list of parameters matching the command-line inputs; see below
+            verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
+        """
+        # Define the default parameters
+        args = sc.objdict(
+            immunity_hypothesis = 1,
+            reassortment_rate = 0.1,
+            fitness_hypothesis = 1,
+            vaccine_hypothesis = 1,
+            waning_hypothesis = 1,
+            initial_immunity = 0,
+            ve_i_to_ve_s_ratio = 0.5,
+            experiment_number = 1,
+        )
+
+        # Update with any keyword arguments
+        for k,v in kwargs.items():
+            if k in args:
+                args[k] = v
+            else:
+                KeyError(k)
+
+        # Loop over command line input arguments, if provided
+        for i,arg in enumerate(sys.argv[1:]):
+            args[i] = arg
+
+        if verbose is not False:
+            print(f'Creating simulation with N={N}, timelimit={timelimit} and parameters:')
+            print(args)
+
+        # Store parameters directly in the sim
+        self.immunity_hypothesis = int(args[0])
+        self.reassortment_rate = float(args[1])
+        self.fitness_hypothesis = int(args[2])
+        self.vaccine_hypothesis = int(args[3])
+        self.waning_hypothesis = int(args[4])
+        self.initial_immunity = int(args[5]) # 0 = no immunity
+        self.ve_i_to_ve_s_ratio = float(args[6])
+        self.experiment_number = int(args[7])
+        self.verbose = verbose
+
+        # Reset the seed
+        rnd.seed(self.experiment_number)
+        np.random.seed(self.experiment_number)
+
+        # Set filenames
+        name_suffix =  '%r_%r_%r_%r_%r_%r_%r_%r' % (self.immunity_hypothesis, self.reassortment_rate, self.fitness_hypothesis, self.vaccine_hypothesis, self.waning_hypothesis, self.initial_immunity, self.ve_i_to_ve_s_ratio, self.experiment_number)
+        self.files = sc.objdict()
+        self.files.outputfilename = './results/rota_strain_count_%s.csv' % (name_suffix)
+        self.files.vaccinations_outputfilename = './results/rota_vaccinecount_%s.csv' % (name_suffix)
+        self.files.sample_outputfilename = './results/rota_strains_sampled_%s.csv' % (name_suffix)
+        self.files.infected_all_outputfilename = './results/rota_strains_infected_all_%s.csv' % (name_suffix)
+        self.files.age_outputfilename = './results/rota_agecount_%s.csv' % (name_suffix)
+        self.files.vaccine_efficacy_output_filename = './results/rota_vaccine_efficacy_%s.csv' % (name_suffix)
+        self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
+
+        # Set other parameters
+        self.N = N  # initial population size
+        self.timelimit = timelimit  # simulation years
+        self.mu = 1.0/70.0     # average life span is 70 years
+        self.gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
+        if self.waning_hypothesis == 1:
+            omega = 365/273  # duration of immunity by infection= 39 weeks
+        elif self.waning_hypothesis == 2:
+            omega = 365/50
+        elif self.waning_hypothesis == 3:
+            omega = 365/100
+        self.omega = omega
+        self.birth_rate = self.mu * 2 # Adjust birth rate to be more in line with Bangladesh
+
+        self.contact_rate = 365/1
+        self.reassortmentRate_GP = self.reassortment_rate
+
+        self.vaccination_time =  20
+
+        # Efficacy of the vaccine first dose
+        self.vaccine_efficacy_d1 = {
+            PathogenMatch.HOMOTYPIC: 0.6,
+            PathogenMatch.PARTIAL_HETERO: 0.45,
+            PathogenMatch.COMPLETE_HETERO:0.15,
+        }
+        # Efficacy of the vaccine second dose
+        self.vaccine_efficacy_d2 = {
+            PathogenMatch.HOMOTYPIC: 0.8,
+            PathogenMatch.PARTIAL_HETERO: 0.65,
+            PathogenMatch.COMPLETE_HETERO:0.35,
+        }
+
+        self.vaccination_single_dose_waning_rate = 365/273 #365/1273
+        self.vaccination_double_dose_waning_rate = 365/546 #365/2600
+        # vaccination_waning_lower_bound = 20 * 7 / 365.0
+
+        # Tau leap parametes
+        self.tau = 1/365.0
+
+        # if initialization starts with a proportion of immune agents:
+        self.num_initial_immune = 10000
+
+        # Final initialization
+        self.immunity_counts = 0
+        self.reassortment_count = 0
+        self.pop_id = 0
+        self.t = 0.0
+
+        return
+
+    @staticmethod
+    def get_probability_of_severe(sim, pathogen_in, vaccine, immunity_count): # TEMP: refactor and include above
+        if immunity_count >= 3:
+            severity_probability = 0.18
+        elif immunity_count == 2:
+            severity_probability = 0.24
+        elif immunity_count == 1:
+            severity_probability = 0.23
+        elif immunity_count == 0:
+            severity_probability = 0.17
+
+        if vaccine is not None:
+            # Probability of severity also depends on the strain (homotypic/heterltypic/etc.)
+            pathogen_strain_type = pathogen_in.match(vaccine[0][0])
+            # Effectiveness of the vaccination depends on the number of doses
+            if vaccine[2] == 1:
+                ve_s = sim.vaccine_efficacy_s_d1[pathogen_strain_type]
+            elif vaccine[2] == 2:
+                ve_s = sim.vaccine_efficacy_s_d2[pathogen_strain_type]
+            else:
+                raise NotImplementedError(f"Unsupported vaccine dose: {vaccine[2]}")
+            return severity_probability * (1-ve_s)
+        else:
+            return severity_probability
+
+    # Initialize all the output files
+    def initialize_files(self, strain_count):
+        files = self.files
+        with open(files.outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["time"] + list(strain_count.keys()) + ["reassortment_count"])  # header for the csv file
+            write.writerow([self.t] + list(strain_count.values()) + [self.reassortment_count])  # first row of the csv file will be the initial state
+
+        with open(files.sample_outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
+        with open(files.infected_all_outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
+        with open(files.vaccinations_outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["id", "VaccineStrain", "CollectionTime", "Age", "Dose"])  # header for the csv file
+
+        for outfile in [files.vaccine_efficacy_output_filename, files.sample_vaccine_efficacy_output_filename]:
+            with open(outfile, "w+", newline='') as outputfile:
+                write = csv.writer(outputfile)
+                write.writerow(["CollectionTime", "Vaccinated", "Unvaccinated", "VaccinatedInfected", "VaccinatedSevere", "UnVaccinatedInfected", "UnVaccinatedSevere",
+                                "VaccinatedHomotypic", "VaccinatedHomotypicSevere", "VaccinatedpartialHetero", "VaccinatedpartialHeteroSevere", "VaccinatedFullHetero", "VaccinatedFullHeteroSevere"])
+
+        with open(files.age_outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["time"] + list(age_labels))
 
     ############# tau-Function to calculate event counts ############################
     def get_event_counts(self, N, I, R, tau, RR_GP, single_dose_count, double_dose_count):
@@ -1413,6 +1411,6 @@ class RotaABM:
 
 
 if __name__ == '__main__':
-    rota = RotaABM(N=100000, timelimit=10)
+    rota = RotaABM(N=5000, timelimit=2)
     events = rota.run()
 
