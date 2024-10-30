@@ -1277,7 +1277,7 @@ class RotaABM:
 
         self.tau_steps = 0
         self.last_data_colllected = 0
-        self.data_collection_rate = 0.1*0 # TEMP
+        self.data_collection_rate = 0.1
 
         for strain, count in strain_count.items():
             if strain[:self.numAgSegments] in self.total_strain_counts_vaccine:
@@ -1348,7 +1348,7 @@ class RotaABM:
             self.birth_events(births)
             self.reassortment_event(infected_pop, reassortments) # calling the function
             counter = self.contact_event(contacts, infected_pop, strain_count)
-            print(f'CKDEBUG: {counter}')
+            # print(f'CKDEBUG: {counter}')
             self.death_event(deaths, infected_pop, strain_count)
             self.recovery_event(recoveries, infected_pop, strain_count)
             self.waning_event(wanings)
@@ -1416,6 +1416,6 @@ class RotaABM:
 
 
 if __name__ == '__main__':
-    rota = RotaABM(N=5000, timelimit=0.2)
+    rota = RotaABM(N=100_000, timelimit=2)
     events = rota.run()
 

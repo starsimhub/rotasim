@@ -1081,7 +1081,7 @@ def main(defaults=None, verbose=None):
 
 
     ########## Set Parameters ##########
-    N = 5000  # initial population size
+    N = 100_000  # initial population size
     mu = 1.0/70.0     # average life span is 70 years
     gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
     if waning_hypothesis == 1:
@@ -1093,7 +1093,7 @@ def main(defaults=None, verbose=None):
     birth_rate = mu * 2
 
     contact_rate = 365/1
-    timelimit = 0.2  #### simulation years
+    timelimit = 2  #### simulation years
 
     reassortmentRate_GP = reassortment_rate
 
@@ -1248,7 +1248,7 @@ def main(defaults=None, verbose=None):
     tau_steps = 0
     t0 = time.time() # for us to track the time it takes to run the simulation
     last_data_colllected = 0
-    data_collection_rate = 0.1*0 # TEMP
+    data_collection_rate = 0.1
 
     for strain, count in strainCount.items():
         if strain[:numAgSegments] in total_strain_counts_vaccine:
@@ -1308,7 +1308,7 @@ def main(defaults=None, verbose=None):
         counter = 0
         for _ in range(contacts):
             counter += contact_event(infected_pop, host_pop, strainCount)
-        print(f'CKDEBUG: {counter}')
+        # print(f'CKDEBUG: {counter}')
         death_event(deaths, infected_pop, host_pop, strainCount)
         recovery_event(recoveries, infected_pop, strainCount)
         waning_event(host_pop, wanings)
