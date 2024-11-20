@@ -646,6 +646,7 @@ class RotaABM:
             N = 100_000,
             timelimit = 40,
             verbose = None,
+            to_csv = True,
             **kwargs,
         ):
         """
@@ -711,6 +712,7 @@ class RotaABM:
         self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (name_suffix)
 
         # Set other parameters
+        self.to_csv = to_csv # whether to write files
         self.N = N  # initial population size
         self.timelimit = timelimit  # simulation years
         self.mu = 1.0/70.0     # average life span is 70 years
@@ -1121,20 +1123,23 @@ class RotaABM:
                 if was_there_a_severe_infection:
                     num_unvaccinated_infected_severe += 1
 
-            with open(vaccine_efficacy_output_filename, "a", newline='') as outputfile:
-                write = csv.writer(outputfile)
-                write.writerow([self.t, num_vaccinated, num_unvaccinated, num_vaccinated_infected, num_vaccinated_infected_severe, num_unvaccinated_infected, num_unvaccinated_infected_severe,
-                                num_homotypic[0], num_homotypic[1], num_partial_heterotypic[0], num_partial_heterotypic[1], num_full_heterotypic[0], num_full_heterotypic[1]])
+            if self.to_csv:
+                with open(vaccine_efficacy_output_filename, "a", newline='') as outputfile:
+                    write = csv.writer(outputfile)
+                    write.writerow([self.t, num_vaccinated, num_unvaccinated, num_vaccinated_infected, num_vaccinated_infected_severe, num_unvaccinated_infected, num_unvaccinated_infected_severe,
+                                    num_homotypic[0], num_homotypic[1], num_partial_heterotypic[0], num_partial_heterotypic[1], num_full_heterotypic[0], num_full_heterotypic[1]])
 
         # Write collected data to the output file
-        with open(output_filename, "a", newline='') as outputfile:
-            writer = csv.writer(outputfile)
-            writer.writerows(collected_data)
+        if self.to_csv:
+            with open(output_filename, "a", newline='') as outputfile:
+                writer = csv.writer(outputfile)
+                writer.writerows(collected_data)
         if not sample:
             self.results.infected_all.extend(collected_data)
-            with open(vaccine_output_filename, "a", newline='') as outputfile:
-                writer = csv.writer(outputfile)
-                writer.writerows(collected_vaccination_data)
+            if self.to_csv:
+                with open(vaccine_output_filename, "a", newline='') as outputfile:
+                    writer = csv.writer(outputfile)
+                    writer.writerows(collected_vaccination_data)
 
     def prepare_run(self):
         """
@@ -1275,7 +1280,8 @@ class RotaABM:
                 strain_count[p.strain] += 1
         if self.verbose: print(strain_count)
 
-        self.initialize_files(strain_count)
+        if self.to_csv:
+            self.initialize_files(strain_count)
 
         self.tau_steps = 0
         self.last_data_colllected = 0
@@ -1324,9 +1330,10 @@ class RotaABM:
                 for h in host_pop:
                     age_dict[h.get_age_category()] += 1
                 if self.verbose: print("Ages: ", age_dict)
-                with open(self.files.age_outputfilename, "a", newline='') as outputfile:
-                    write = csv.writer(outputfile)
-                    write.writerow(["{:.2}".format(self.t)] + list(age_dict.values()))
+                if self.to_csv:
+                    with open(self.files.age_outputfilename, "a", newline='') as outputfile:
+                        write = csv.writer(outputfile)
+                        write.writerow(["{:.2}".format(self.t)] + list(age_dict.values()))
 
             # Count the number of hosts with 1 or 2 vaccinations
             single_dose_hosts = []
@@ -1403,9 +1410,10 @@ class RotaABM:
                 self.collect_and_write_data(f.infected_all_outputfilename, f.vaccinations_outputfilename, f.vaccine_efficacy_output_filename, sample=False)
                 self.last_data_colllected += self.data_collection_rate
 
-            with open(f.outputfilename, "a", newline='') as outputfile:
-                write = csv.writer(outputfile)
-                write.writerow([self.t] + list(strain_count.values()) + [self.reassortment_count])
+            if self.to_csv:
+                with open(f.outputfilename, "a", newline='') as outputfile:
+                    write = csv.writer(outputfile)
+                    write.writerow([self.t] + list(strain_count.values()) + [self.reassortment_count])
 
             self.tau_steps += 1
             self.t += self.tau
