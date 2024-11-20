@@ -1347,7 +1347,7 @@ class RotaABM:
             # perform the events for the obtained counts
             self.birth_events(births)
             self.reassortment_event(infected_pop, reassortments) # calling the function
-            counter = self.contact_event(contacts, infected_pop, strain_count)
+            # counter = self.contact_event(contacts, infected_pop, strain_count)
             # print(f'CKDEBUG: {counter}')
             self.death_event(deaths, infected_pop, strain_count)
             self.recovery_event(recoveries, infected_pop, strain_count)

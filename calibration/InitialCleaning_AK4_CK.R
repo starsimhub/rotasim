@@ -1,5 +1,6 @@
 ##clean output data files
 library(rstudioapi)
+library(plyr)
 library(dplyr)
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 dat<-read.csv('../results/rota_strains_infected_all_1_0.1_1_1_1_0_0.5_1.csv')
