@@ -665,6 +665,7 @@ class RotaABM:
             initial_immunity = 0,
             ve_i_to_ve_s_ratio = 0.5,
             experiment_number = 1,
+            rel_beta = 1.0,
         )
 
         # Update with any keyword arguments
@@ -691,6 +692,7 @@ class RotaABM:
         self.initial_immunity = int(args[5]) # 0 = no immunity
         self.ve_i_to_ve_s_ratio = float(args[6])
         self.experiment_number = int(args[7])
+        self.rel_beta = float(args[8])
         self.verbose = verbose
 
         # Reset the seed
@@ -855,6 +857,14 @@ class RotaABM:
         rnd_nums = np.random.random(size=contacts)
         counter = 0
 
+        # based on prior infections and current infections, the relative risk of subsequent infections
+        infecting_probability_map = {
+            0: 1,
+            1: 0.61,
+            2: 0.48,
+            3: 0.33,
+        }
+
         for h1_ind, h2_ind, rnd_num in zip(h1_inds, h2_inds, rnd_nums):
             h1 = infected_pop[h1_ind]
             h2 = self.host_pop[h2_ind]
@@ -862,15 +872,8 @@ class RotaABM:
             while h1 == h2:
                 h2 = rnd.choice(self.host_pop)
 
-            # based on prior infections and current infections, the relative risk of subsequent infections
-            # number_of_current_infections = 0 # Note: not used
-            infecting_probability_map = {
-                0: 1,
-                1: 0.61,
-                2: 0.48,
-                3: 0.33,
-            }
             infecting_probability = infecting_probability_map.get(h2.prior_infections, 0)
+            infecting_probability *= self.rel_beta # Scale by this calibration parameter
 
             # No infection occurs
             if rnd_num > infecting_probability:
@@ -1132,14 +1135,6 @@ class RotaABM:
             with open(vaccine_output_filename, "a", newline='') as outputfile:
                 writer = csv.writer(outputfile)
                 writer.writerows(collected_vaccination_data)
-
-    def run(self):
-        """
-        Run the simulation
-        """
-        self.prepare_run()
-        events = self.integrate()
-        return events
 
     def prepare_run(self):
         """
@@ -1420,8 +1415,25 @@ class RotaABM:
             print(self.event_dict)
         return self.event_dict
 
+    def to_df(self):
+        """ Convert results to a dataframe """
+        cols = self.results.columns
+        res = self.results.infected_all
+        df = sc.dataframe(data=res, columns=cols)
+        self.df = df
+        return df
+
+    def run(self):
+        """
+        Run the simulation
+        """
+        self.prepare_run()
+        events = self.integrate()
+        self.to_df()
+        return events
+
 
 if __name__ == '__main__':
-    rota = RotaABM(N=100_000, timelimit=2)
+    rota = RotaABM(N=10_000, timelimit=2)
     events = rota.run()
 

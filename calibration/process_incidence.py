@@ -6,11 +6,40 @@ import sciris as sc
 import pandas as pd
 import numpy as np
 
+thisdir = sc.thispath(__file__)
+
+
+def process_data(filename=None, sheet=None):
+    """
+    Extract and process experimental data
+    """
+    if filename is None:
+        filename = thisdir / 'CalibrationDatafile_prevax 3.xlsx'
+    if sheet is None:
+        sheet = 'Matlab_ageincidence'
+    data = sc.dataframe.read_excel(filename, sheet_name=sheet)
+
+    # Standardize data format
+    age_mapping = {
+        '[0, 1)': 0,
+        '[1, 2)': 1,
+        '[2, 5)': 2,
+        '[5, 125)': 5,
+    }
+    ages = data['Age'].replace(age_mapping)
+    df = sc.dataframe(dict(ages=ages, inci=data['Cases per 100k']))
+    df = df.sort_values(by='ages').reset_index(drop=True)
+    return df
+
+
 def process_model(dat=None):
+    """
+    Extract and process data from the model
+    """
 
     # Load the data
     if dat is None:
-        dat = pd.read_csv(sc.thispath(__file__) / '../results/rota_strains_infected_all_1_0.1_1_1_1_0_0.5_1.csv')
+        dat = pd.read_csv(thisdir / '../results/rota_strains_infected_all_1_0.1_1_1_1_0_0.5_1.csv')
 
     # Look at all years
     dat['Strain3'] = 'Other'
@@ -68,10 +97,21 @@ def process_model(dat=None):
     AgeIncidence['IR_100k'] = (AgeIncidence['Cases_age'] / AgeIncidence['Pop_Age']) * 100000
 
     # Get an average to calibrate to average pre-vaccine period
-    Incidence_dist = AgeIncidence.groupby('AgeCat').agg(meanIR=('IR_100k', 'mean')).reset_index()
-    print(Incidence_dist)
-    return Incidence_dist
+    Inci_dist = AgeIncidence.groupby('AgeCat').agg(meanIR=('IR_100k', 'mean')).reset_index()
+
+    # Standardize data format
+    age_mapping = {
+        '<1 y': 0,
+        '1-2 y': 1,
+        '2-5 y': 2,
+        '>=5 y': 5,
+    }
+    ages = Inci_dist['AgeCat'].replace(age_mapping)
+    df = sc.dataframe(dict(ages=ages, inci=Inci_dist['meanIR']))
+    df = df.sort_values(by='ages').reset_index(drop=True)
+    return df
 
 if __name__ == '__main__':
 
-    inci = process_model()
+    m_inci = process_model()
+    d_inci = process_data()
