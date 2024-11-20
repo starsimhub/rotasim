@@ -755,6 +755,10 @@ class RotaABM:
         self.reassortment_count = 0
         self.pop_id = 0
         self.t = 0.0
+        self.results = sc.objdict(
+            columns = ["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"],
+            infected_all = [],
+        )
 
         return
 
@@ -1020,6 +1024,8 @@ class RotaABM:
         - sample: Boolean indicating whether to collect data from a sample or the entire population.
         - sample_size: Size of the sample to collect data from if sample is True.
         """
+
+
         # Select the population to collect data from
         if sample:
             population_to_collect = np.random.choice(self.host_pop, sample_size, replace=False)
@@ -1122,6 +1128,7 @@ class RotaABM:
             writer = csv.writer(outputfile)
             writer.writerows(collected_data)
         if not sample:
+            self.results.infected_all.extend(collected_data)
             with open(vaccine_output_filename, "a", newline='') as outputfile:
                 writer = csv.writer(outputfile)
                 writer.writerows(collected_vaccination_data)
