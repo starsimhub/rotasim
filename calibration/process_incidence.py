@@ -43,7 +43,7 @@ def process_model(dat=None, popsize=None, verbose=False):
     Extract and process data from the model
     """
 
-    FUDGE = 100
+    FUDGE = 1.0 # Adjust the fudge factor -- for testing only!!!!
 
     # Load the data
     if dat is None:
