@@ -127,6 +127,13 @@ class Calibration(sc.prettyobj):
         sim.run()
         return sim
 
+    def calib_to_sim_pars(self):
+        """ Pull out "best" from the list of calibration pars """
+        sim_pars = sc.objdict()
+        for par,(best,low,high) in self.calib_pars.items():
+            sim_pars[par] = best
+        return sim_pars
+
     def trial_to_sim_pars(self, calib_pars, trial):
         """ Take in an optuna trial and sample from pars """
         calib_pars = sc.mergedicts(calib_pars) # To allow None
@@ -231,10 +238,7 @@ class Calibration(sc.prettyobj):
 
     def check_fit(self):
         """ Run before and after simulations to validate the fit """
-        before_pars = sc.objdict()
-        for par,(best,low,high) in self.calib_pars.items():
-            before_pars[par] = best
-
+        before_pars = self.calib_to_sim_pars()
         self.before_sim = self.run_sim(calib_pars=before_pars, label='Before calibration')
         self.after_sim  = self.run_sim(calib_pars=self.best_pars, label='After calibration')
         self.before_fit = self.compute_fit(self.before_sim)
