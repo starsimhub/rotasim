@@ -736,7 +736,7 @@ def main(defaults=None, verbose=None):
         births = np.random.poisson(size=1, lam=tau*N*birth_rate)[0]
         deaths = np.random.poisson(size=1, lam=tau*N*mu)[0]
         recoveries = np.random.poisson(size=1, lam=tau*gamma*I)[0]
-        contacts = np.random.poisson(size=1, lam=tau*contact_rate*I)[0] # CK: CHECK!! cont vs contact_rate
+        contacts = np.random.poisson(size=1, lam=tau*contact_rate*I)[0]
         wanings = np.random.poisson(size=1, lam=tau*omega*R)[0]
         reassortments = np.random.poisson(size=1, lam=tau*RR_GP*I)[0]
         vaccination_wanings_one_dose = np.random.poisson(size=1, lam=tau*vacinnation_single_dose_waning_rate*single_dose_count)[0]
@@ -1078,7 +1078,7 @@ def main(defaults=None, verbose=None):
         
     
     ########## Set Parameters ##########
-    N = 10000  # initial population size # CK: was 100000
+    N = 100000  # initial population size
     mu = 1.0/70.0     # average life span is 70 years
     gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
     if waning_hypothesis == 1:
@@ -1087,10 +1087,10 @@ def main(defaults=None, verbose=None):
         omega = 365/50  
     elif waning_hypothesis == 3:
         omega = 365/100  
-    birth_rate = mu * 2 # CK: was mu * 4
+    birth_rate = mu * 4
     
     contact_rate = 365/1    
-    timelimit = 7  #### simulation years # CK: was 40
+    timelimit = 40  #### simulation years
    
     reassortmentRate_GP = reassortment_rate
     

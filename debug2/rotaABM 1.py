@@ -1058,7 +1058,7 @@ def main(defaults=None, verbose=None):
         
     
     ########## Set Parameters ##########
-    N = 10000  # initial population size # CK: was 100000
+    N = 100000  # population size
     mu = 1.0/70.0     # average life span is 70 years
     gamma = 365/7  # 1/average infectious period (1/gamma =7 days)
     if waning_hypothesis == 1:
@@ -1067,10 +1067,10 @@ def main(defaults=None, verbose=None):
         omega = 365/50  # duration of immunity by infection= 1 year
     elif waning_hypothesis == 3:
         omega = 365/100  # duration of immunity by infection= 2 years
-    birth_rate = mu * 2 # CK: was mu * 4
+    birth_rate = mu * 4
     
     cont = 365/1     # assumption
-    timelimit = 7  #### 50 years   # CK: was 40
+    timelimit = 40  #### 50 years 
     initialInfecteds = 10        ### for each strain infect initialInfecteds (with 2)
     
     reassortmentRate_GP = reassortment_rate
