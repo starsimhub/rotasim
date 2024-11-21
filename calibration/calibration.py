@@ -157,19 +157,28 @@ class Calibration(sc.prettyobj):
                 raise NotImplementedError(errormsg)
         return sim
 
-    def compute_fit(self, df):
+    def compute_fit(self, sim, full=False):
         """ Compute goodness-of-fit """
+        sim_df = self.sim_to_df(sim)
         actual = self.data.inci.values
-        expected = df.inci.values
+        expected = sim_df.inci.values
         gofs = compute_gof(actual, expected)
         fit = gofs.sum()
-        return fit
+        if full:
+            return fit, gofs
+        else:
+            return fit
+
+    @staticmethod
+    def sim_to_df(sim):
+        """ Convert the sim output to a data-like dataframe """
+        df = process_incidence.process_model(sim.df)
+        return df
 
     def run_trial(self, trial):
         """ Define the objective for Optuna """
         sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
-        df = process_incidence.process_model(sim.df)
-        fit = self.compute_fit(df)
+        fit = self.compute_fit(sim)
         return fit
 
     def load_study(self):
@@ -237,20 +246,24 @@ class Calibration(sc.prettyobj):
         self.T.toc()
         return self
 
-    def check_fit(self):
+    def check_fit(self, verbose=True):
         """ Run before and after simulations to validate the fit """
+        if verbose: print('Checking fit...')
         before_pars = self.calib_to_sim_pars()
-        self.before_sim = self.run_sim(calib_pars=before_pars, label='Before calibration')
-        self.after_sim  = self.run_sim(calib_pars=self.best_pars, label='After calibration')
-        self.before_fit = self.compute_fit(self.before_sim)
-        self.after_fit  = self.compute_fit(self.after_sim)
+        self.before_sim = self.run_sim(sim_pars=before_pars)
+        self.after_sim  = self.run_sim(sim_pars=self.best_pars)
+        self.before_df = self.sim_to_df(self.before_sim)
+        self.after_df = self.sim_to_df(self.after_sim)
+        self.before_fit, self.before_gofs = self.compute_fit(self.before_sim, full=True)
+        self.after_fit, self.after_gofs = self.compute_fit(self.after_sim, full=True)
 
-        print(f'Fit with original pars: {self.before_fit:n}')
-        print(f'Fit with best-fit pars: {self.after_fit:n}')
-        if self.after_fit <= self.before_fit:
-            print('✓ Calibration improved fit')
-        else:
-            print('✗ Calibration did not improve fit')
+        if verbose:
+            print(f'Fit with original pars: {self.before_fit:n}')
+            print(f'Fit with best-fit pars: {self.after_fit:n}')
+            if self.after_fit <= self.before_fit:
+                print('✓ Calibration improved fit')
+            else:
+                print('✗ Calibration did not improve fit')
         return self.before_fit, self.after_fit
 
     def parse_study(self, study):
@@ -304,7 +317,38 @@ class Calibration(sc.prettyobj):
 
     def plot_sims(self, **kwargs):
         """ Plot sims, before and after calibration """
-        raise NotImplementedError
+        data = self.data
+        if not hasattr(self, 'after_fit'):
+            self.check_fit(verbose=False)
+
+        fig = plt.figure()
+
+        # Plot raw values
+        plt.subplot(3,1,1)
+        for label,df in dict(Data=data, Before=self.before_df, After=self.after_df).items():
+            plt.scatter(df.ages, df.inci, label=label)
+        plt.ylim(bottom=0)
+        plt.xlabel('Age')
+        plt.ylabel('Incidence')
+        plt.legend()
+
+        # Plot goodness-of-fit
+        plt.subplot(3,1,2)
+        for i,label,gofs in sc.odict(Before=self.before_gofs, After=self.after_gofs).enumitems():
+            x = np.arange(len(gofs))
+            dx = 0.3
+            plt.bar(x+i*dx, gofs, label=label, width=dx)
+        plt.ylim(bottom=0)
+        plt.xlabel('Age')
+        plt.ylabel('Goodness-of-fit')
+        plt.legend()
+
+        # Plot fit
+        plt.subplot(3,1,3)
+        plt.barh(y=[1,0], width=[self.before_fit, self.after_fit])
+        plt.yticks([1,0], ['Before', 'After'])
+        plt.xlabel('Total mismatch')
+        return fig
 
     def plot_trend(self, best_thresh=None, fig_kw=None):
         """ Plot the trend in best mismatch over trials """
@@ -334,6 +378,7 @@ class Calibration(sc.prettyobj):
             sc.setxlim()
             plt.xlabel('Trial number')
             plt.ylabel('Mismatch')
+
         sc.figlayout()
         return fig
 
@@ -342,7 +387,7 @@ if __name__ == '__main__':
 
     # Run in debug mode (serial)
     debug = False
-    total_trials = 100
+    total_trials = 20
 
     # Create the base sim
     sim = rabm.RotaABM(
@@ -357,10 +402,18 @@ if __name__ == '__main__':
 
     # Specify the calibration parameters
     calib_pars = sc.objdict(
-        rel_beta = [1.0, 0.5, 2.0],
+        rel_beta = [1.0, 0.5, 1.0],
         reassortment_rate = [0.10, 0.09, 0.11]
     )
 
     # Run the calibration
-    calib = Calibration(sim=sim, data=data, calib_pars=calib_pars, debug=debug)
-    calib.calibrate(total_trials=total_trials)
+    calib = Calibration(
+        sim = sim,
+        data = data,
+        calib_pars = calib_pars,
+        total_trials = total_trials,
+        debug = debug,
+    )
+    calib.calibrate()
+    calib.check_fit()
+    calib.plot_sims()

@@ -38,10 +38,12 @@ def process_data(filename=None, sheet=None):
     return df
 
 
-def process_model(dat=None, verbose=False):
+def process_model(dat=None, popsize=None, verbose=False):
     """
     Extract and process data from the model
     """
+
+    FUDGE = 100
 
     # Load the data
     if dat is None:
@@ -100,7 +102,7 @@ def process_model(dat=None, verbose=False):
 
     # Merge incidence with the age and time appropriate denominator to get the ratio
     AgeIncidence = pd.merge(cases_summary, pop_pooled2, on=['AgeCat', 'CollectionTime'])
-    AgeIncidence['IR_100k'] = (AgeIncidence['Cases_age'] / AgeIncidence['Pop_Age']) * 100000
+    AgeIncidence['IR_100k'] = (AgeIncidence['Cases_age'] / AgeIncidence['Pop_Age']) * 100000 / FUDGE
 
     # Get an average to calibrate to average pre-vaccine period
     Inci_dist = AgeIncidence.groupby('AgeCat').agg(meanIR=('IR_100k', 'mean')).reset_index()
