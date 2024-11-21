@@ -164,13 +164,19 @@ class Calibration(sc.prettyobj):
         fit = self.compute_fit(df)
         return fit
 
+    def load_study(self):
+        """ Load a study from disk """
+        args = self.run_args
+        study = op.load_study( storage=args.storage, study_name=args.name)
+        return study
+
     def worker(self):
         """ Run a single worker """
         if self.verbose:
             op.logging.set_verbosity(op.logging.DEBUG)
         else:
             op.logging.set_verbosity(op.logging.ERROR)
-        study = op.load_study(storage=self.run_args.storage, study_name=self.run_args.name)
+        study = self.load_study()
         output = study.optimize(self.run_trial, n_trials=self.run_args.n_trials, callbacks=None)
         return output
 
@@ -211,7 +217,7 @@ class Calibration(sc.prettyobj):
         self.run_workers() # Actually run!
 
         # Load and parse results
-        study = op.load_study(storage=self.run_args.storage, study_name=self.run_args.name)
+        study = self.load_study()
         self.best_pars = sc.objdict(study.best_params)
         self.parse_study(study)
         if self.verbose:
@@ -337,6 +343,7 @@ if __name__ == '__main__':
         N = 10_000,
         timelimit = 2,
         to_csv = False,
+        verbose = False,
     )
 
     # Convert the data
@@ -350,4 +357,4 @@ if __name__ == '__main__':
 
     # Run the calibration
     calib = Calibration(sim=sim, data=data, calib_pars=calib_pars, debug=debug)
-    calib.calibrate()
+    calib.calibrate(total_trials=10)
