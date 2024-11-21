@@ -114,14 +114,6 @@ class Host(sc.prettyobj):
         max_infection_times = max([self.t - p.creation_time for p in self.infecting_pathogen])
         return max_infection_times
 
-    # def get_oldest_infection(self):
-    #     # max_infection_times = max([self.t - p for p in self.immunity.values()])
-    #     try:
-    #         oldest_infection = next(iter(self.immunity.values()))
-    #     except:
-    #         oldest_infection = np.nan
-    #     return oldest_infection
-
     def compute_combinations(self):
         seg_combinations = []
 

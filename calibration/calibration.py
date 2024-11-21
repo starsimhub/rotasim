@@ -161,7 +161,8 @@ class Calibration(sc.prettyobj):
         """ Compute goodness-of-fit """
         actual = self.data.inci.values
         expected = df.inci.values
-        fit = compute_gof(actual, expected)
+        gofs = compute_gof(actual, expected)
+        fit = gofs.sum()
         return fit
 
     def run_trial(self, trial):
@@ -184,7 +185,7 @@ class Calibration(sc.prettyobj):
         else:
             op.logging.set_verbosity(op.logging.ERROR)
         study = self.load_study()
-        output = study.optimize(self.run_trial, n_trials=self.run_args.n_trials, callbacks=None)
+        output = study.optimize(self.run_trial, n_trials=self.run_args.n_trials)
         return output
 
     def run_workers(self):
@@ -340,7 +341,8 @@ class Calibration(sc.prettyobj):
 if __name__ == '__main__':
 
     # Run in debug mode (serial)
-    debug = True
+    debug = False
+    total_trials = 100
 
     # Create the base sim
     sim = rabm.RotaABM(
@@ -361,4 +363,4 @@ if __name__ == '__main__':
 
     # Run the calibration
     calib = Calibration(sim=sim, data=data, calib_pars=calib_pars, debug=debug)
-    calib.calibrate(total_trials=10)
+    calib.calibrate(total_trials=total_trials)

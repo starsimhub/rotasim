@@ -5,9 +5,15 @@ Process incidence from the model and data
 import sciris as sc
 import pandas as pd
 import numpy as np
+import warnings
 
+# Set current folder
 thisdir = sc.thispath(__file__)
 
+# Disable annoying warnings
+warnings.simplefilter("ignore", FutureWarning)
+pd.options.mode.chained_assignment = None
+pd.set_option('future.no_silent_downcasting', True)
 
 def process_data(filename=None, sheet=None):
     """
@@ -32,7 +38,7 @@ def process_data(filename=None, sheet=None):
     return df
 
 
-def process_model(dat=None):
+def process_model(dat=None, verbose=False):
     """
     Extract and process data from the model
     """
@@ -56,7 +62,7 @@ def process_model(dat=None):
     # Subset to years 1-9 for now
     initial8 = dat[(dat['CollectionTime'] < 9) & (dat['CollectionTime'] > 1)]
 
-    print(initial8['Strain'].value_counts())
+    if verbose: print(initial8['Strain'].value_counts())
     initial8['Strain3'] = 'Other'
     initial8.loc[initial8['Strain'] == 'G1P8A1B1', 'Strain3'] = 'G1P8'
     initial8.loc[initial8['Strain'] == 'G2P4A1B1', 'Strain3'] = 'G2P4'
@@ -77,7 +83,7 @@ def process_model(dat=None):
 
     # Now, getting cases by age bin
     cases_summary = initial8.groupby(['AgeCat', 'CollectionTime']).agg(Cases_age=('id', 'nunique')).reset_index()
-    print(cases_summary.head())
+    if verbose: print(cases_summary.head())
 
     # Now, getting total population by time point
     # It's already pooled, so just need one observation per time point and then multiply by age bin
