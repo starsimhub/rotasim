@@ -152,15 +152,16 @@ class Calibration(sc.prettyobj):
 
     def compute_fit(self, df):
         """ Compute goodness-of-fit """
-        actual = self.data.inci.values()
-        expected = df.inci.values()
+        actual = self.data.inci.values
+        expected = df.inci.values
         fit = compute_gof(actual, expected)
         return fit
 
     def run_trial(self, trial):
         """ Define the objective for Optuna """
-        sim = self.run_sim(trial)
-        fit = self.compute_fit(sim.df)
+        sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+        df = process_incidence.process_model(sim.df)
+        fit = self.compute_fit(df)
         return fit
 
     def worker(self):
@@ -332,7 +333,11 @@ if __name__ == '__main__':
     debug = True
 
     # Create the base sim
-    sim = rabm.RotaABM(to_csv=False)
+    sim = rabm.RotaABM(
+        N = 10_000,
+        timelimit = 2,
+        to_csv = False,
+    )
 
     # Convert the data
     data = process_incidence.process_data()
