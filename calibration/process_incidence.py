@@ -47,7 +47,7 @@ def process_model(dat=None, popsize=None, verbose=False):
 
     # Load the data
     if dat is None:
-        dat = pd.read_csv(thisdir / '../results/rota_strains_infected_all_1_0.1_1_1_1_0_0.5_1.csv')
+        dat = pd.read_csv(thisdir / '../results/rota_strains_infected_all_1_0.1_2_1_1_0_0.5_1.csv')
 
     # Look at all years
     dat['Strain3'] = 'Other'

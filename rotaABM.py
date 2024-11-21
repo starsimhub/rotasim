@@ -652,7 +652,7 @@ class RotaABM:
         args = sc.objdict(
             immunity_hypothesis = 1,
             reassortment_rate = 0.1,
-            fitness_hypothesis = 1,
+            fitness_hypothesis = 2,
             vaccine_hypothesis = 1,
             waning_hypothesis = 1,
             initial_immunity = 0,
