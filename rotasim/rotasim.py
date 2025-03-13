@@ -787,6 +787,8 @@ class Sim(sc.quickobj):
 
     # Initialize all the output files
     def initialize_files(self, strain_count):
+        print('Initializing files')
+        sc.makefilepath('./results/', makedirs=True) # Ensure results folder exists # TODO: don't always export results
         files = self.files
         with open(files.outputfilename, "w+", newline='') as outputfile:
             write = csv.writer(outputfile)

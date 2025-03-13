@@ -1,7 +1,7 @@
 import sciris as sc
-import rotaABM as rabm
+import rotasim as rs
 
 with sc.timer():
-    rota = rabm.Rota()
-    events = rota.run()
+    sim = rs.Sim()
+    events = sim.run()
     print(events)
