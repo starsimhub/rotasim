@@ -2,9 +2,6 @@
 name = "rotasim"
 description = "Rotavirus Simulator"
 keywords = ["agent-based model", "simulation", "rotavirus"]
-readme = "README.md"
-dynamic = ["version"]
-requires-python = ">=3.10"
 authors = [
   { name = "Suvanthee Gunasekera" },
   { name = "Alicia Kraay" },
@@ -12,7 +9,10 @@ authors = [
   { name = "Cliff Kerr" },
   { name = "Jillian Gauld" },
 ]
+readme = "README.md"
 license = {file = "LICENSE"}
+dynamic = ["version"]
+requires-python = ">=3.10"
 dependencies = [
     "sciris",
     "numpy",
@@ -20,9 +20,9 @@ dependencies = [
     "pandas",
 ]
 
-
-[tool.setuptools]
-packages = ["rotasim"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rotasim*"]
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]
