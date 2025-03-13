@@ -1,8 +1,9 @@
 [project]
 name = "rotasim"
-version = "0.1.0"
 description = "Rotavirus Simulator"
+keywords = ["agent-based model", "simulation", "rotavirus"]
 readme = "README.md"
+dynamic = ["version"]
 requires-python = ">=3.10"
 authors = [
   { name = "Suvanthee Gunasekera" },
@@ -19,6 +20,13 @@ dependencies = [
     "pandas",
 ]
 
+
+[tool.setuptools]
+packages = ["rotasim"]
+
 [build-system]
 requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "rotasim.version.__version__"}
