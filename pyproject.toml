@@ -1,0 +1,24 @@
+[project]
+name = "rotasim"
+version = "0.1.0"
+description = "Rotavirus Simulator"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Suvanthee Gunasekera" },
+  { name = "Alicia Kraay" },
+  { name = "Ryan Hull" },
+  { name = "Cliff Kerr" },
+  { name = "Jillian Gauld" },
+]
+license = {file = "LICENSE"}
+dependencies = [
+    "sciris",
+    "numpy",
+    "matplotlib",
+    "pandas",
+]
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
