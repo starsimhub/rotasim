@@ -1,10 +1,10 @@
 """
-RotaABM class
+Rotasim model
 
 Usage:
-    import rotaABM as rabm
-    rota = rabm.RotaABM()
-    rota.run()
+    import rotasim as rs
+    sim = rs.RotaABM()
+    sim.run()
 
 TODO:
     - Figure out how to make host vaccination more efficient
@@ -26,6 +26,8 @@ import sciris as sc
 age_bins = [2/12, 4/12, 6/12, 12/12, 24/12, 36/12, 48/12, 60/12, 100]
 age_distribution = [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.84]                  # needs to be changed to fit the site-specific population
 age_labels = ['0-2', '2-4', '4-6', '6-12', '12-24', '24-36', '36-48', '48-60', '60+']
+
+__all__ = ['HostPop', 'Host', 'Pathogen', 'Sim']
 
 
 ### Host classes
@@ -334,7 +336,7 @@ class PathogenMatch:
     HOMOTYPIC = 3
 
 
-class Pathogen(object):
+class Pathogen(sc.quickobj):
     """
     Pathogen dynamics
     """
@@ -628,8 +630,8 @@ class Pathogen(object):
         return "Strain: " + self.get_strain_name() + " Severe: " + str(self.is_severe) + " Host: " + str(self.host.id) + str(self.creation_time)
 
 
-### RotaABM class
-class RotaABM:
+### Sim class
+class Sim(sc.quickobj):
     """
     Run the simulation
     """
@@ -1434,6 +1436,6 @@ class RotaABM:
 
 
 if __name__ == '__main__':
-    rota = RotaABM(N=10_000, timelimit=2)
-    events = rota.run()
+    sim = Sim(N=10_000, timelimit=2)
+    events = sim.run()
 
