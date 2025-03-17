@@ -5,7 +5,7 @@ NB: the two tests could be combined into one, but are left separate for clarity.
 """
 
 import sciris as sc
-import rotaABM as rabm
+import rotasim as rs
 
 N = 2_000
 timelimit = 10
@@ -17,14 +17,14 @@ def test_default(make=False, benchmark=False):
     # Generate new baseline
     if make:
         with sc.timer() as T:
-            rota = rabm.RotaABM(N=N, timelimit=timelimit)
+            rota = rs.Sim(N=N, timelimit=timelimit)
             events = rota.run()
         sc.savejson(filename, events)
         
     # Check old baseline
     else:
         with sc.timer() as T:
-            rota = rabm.RotaABM(N=N, timelimit=timelimit)
+            rota = rs.Sim(N=N, timelimit=timelimit)
             events = rota.run()
         saved = sc.objdict(sc.loadjson(filename))
         assert events == saved, 'Events do not match for default simulation'
@@ -54,13 +54,13 @@ def test_alt(make=False):
     
     # Generate new baseline
     if make:
-        rota = rabm.RotaABM(**inputs)
+        rota = rs.Sim(**inputs)
         events = rota.run()
         sc.savejson(filename, events)
         
     # Check old baseline
     else:
-        rota = rabm.RotaABM(**inputs)
+        rota = rs.Sim(**inputs)
         events = rota.run()
         saved = sc.objdict(sc.loadjson(filename))
         assert events == saved, 'Events do not match for alternate parameters simulation'
