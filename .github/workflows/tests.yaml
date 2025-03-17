@@ -33,5 +33,5 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: test_results
+          name: test_results_${{ github.run_id }}_${{ github.run_number }}
           path: tests/test-results.xml
