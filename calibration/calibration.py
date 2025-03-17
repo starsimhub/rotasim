@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 # Local imports ... should tidy up later
 thisdir = sc.thispath(__file__)
-rabm = sc.importbypath(thisdir.parent / 'rotaABM.py')
+rs = sc.importbypath(thisdir.parent / 'rotasim/rotasim.py')
 process_incidence = sc.importbypath(thisdir / 'process_incidence.py')
 
 
@@ -390,7 +390,7 @@ if __name__ == '__main__':
     total_trials = 20
 
     # Create the base sim
-    sim = rabm.RotaABM(
+    sim = rs.Sim(
         N = 10_000,
         timelimit = 2,
         to_csv = False,

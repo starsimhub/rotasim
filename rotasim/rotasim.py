@@ -671,8 +671,9 @@ class Sim(sc.quickobj):
                 KeyError(k)
 
         # Loop over command line input arguments, if provided
-        for i,arg in enumerate(sys.argv[1:]):
-            args[i] = arg
+        # Using sys.argv in this way breaks when using pytest because it passes two args instead of one (runner and script)
+        # for i,arg in enumerate(sys.argv[1:]):
+        #     args[i] = arg
 
         if verbose is not False:
             print(f'Creating simulation with N={N}, timelimit={timelimit} and parameters:')
