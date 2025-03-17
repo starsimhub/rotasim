@@ -24,7 +24,7 @@ def test_default(make=False, benchmark=False):
     # Check old baseline
     else:
         with sc.timer() as T:
-            rota = rs.Sim(N=N, timelimit=timelimit)
+            rota = rs.Sim(N=N, timelimit=timelimit, verbose=True)
             events = rota.run()
         saved = sc.objdict(sc.loadjson(filename))
         assert events == saved, 'Events do not match for default simulation'
