@@ -31,8 +31,6 @@ jobs:
         working-directory: ./tests
         run: pip install -r requirements.txt
       - name: Run API tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}
         working-directory: ./tests
         run: pytest test_*.py -n auto --durations=0 --junitxml=test-results.xml # Run actual tests
       - name: Upload test results
