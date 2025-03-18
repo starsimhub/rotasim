@@ -34,7 +34,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         working-directory: ./tests
-        run: pytest test_*.py -n auto --durations=0 --junitxml=test-results.xml # Run actual tests
+        run: pytest -n auto --durations=0 --junitxml=test-results.xml # Run actual tests
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: failure()
