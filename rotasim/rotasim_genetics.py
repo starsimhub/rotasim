@@ -61,37 +61,7 @@ age_labels = ['0-2', '2-4', '4-6', '6-12', '12-24', '24-36', '36-48', '48-60', '
 #                 return age_labels[i]
 #         return age_labels[-1]
 #
-#     def get_oldest_current_infection(self):
-#         max_infection_times = max([self.t - p.creation_time for p in self.infecting_pathogen])
-#         return max_infection_times
-#
-#     def compute_combinations(self):
-#         seg_combinations = []
-#
-#         # We want to only reassort the GP types
-#         # Assumes that antigenic segments are at the start
-#         for i in range(self.numAgSegments):
-#             availableVariants = set([])
-#             for j in self.infecting_pathogen:
-#                 availableVariants.add((j.strain[i]))
-#             seg_combinations.append(availableVariants)
-#
-#         # compute the parental strains
-#         parantal_strains = [j.strain[:self.numAgSegments] for j in self.infecting_pathogen]
-#
-#         # Itertools product returns all possible combinations
-#         # We are only interested in strain combinations that are reassortants of the parental strains
-#         # We need to skip all existing combinations from the parents
-#         # Ex: (1, 1, 2, 2) and (2, 2, 1, 1) should not create (1, 1, 1, 1) as a possible reassortant if only the antigenic parts reassort
-#
-#         # below block is for reassorting antigenic segments only
-#         all_antigenic_combinations = [i for i in itertools.product(*seg_combinations) if i not in parantal_strains]
-#         all_nonantigenic_combinations = [j.strain[self.numAgSegments:] for j in self.infecting_pathogen]
-#         all_strains = set([(i[0] + i[1]) for i in itertools.product(all_antigenic_combinations, all_nonantigenic_combinations)])
-#         all_pathogens = [Pathogen(self.sim, True, self.t, host = self, strain=tuple(i)) for i in all_strains]
-#
-#         return all_pathogens
-#
+
 #
 #
 #     def recover(self,strain_counts):
@@ -828,7 +798,7 @@ class Rota(ss.Module):
 
         # self.pop_id = self.sim.pars.n_agents
         self.to_be_vaccinated_uids = []
-        self.single_dose_vaccinated_pop = []
+        self.single_dose_vaccinated_uids = []
 
         # Store these for later
         self.infected_uids = infected_uids
@@ -945,44 +915,45 @@ class Rota(ss.Module):
             # perform the events for the obtained counts
             self.birth_events(births)
             self.reassortment_event(self.infected_uids, reassortments)  # calling the function
-            counter = self.contact_event(contacts, self.infected_uids, strain_count)
-            self.death_event(deaths, infected_pop, strain_count)
-            self.recovery_event(recoveries, infected_pop, strain_count)
+            counter = self.contact_event(contacts, self.infected_uids, self.strain_count)
+            self.death_event(deaths, self.infected_uids, self.strain_count)
+            self.recovery_event(recoveries, self.infected_uids, self.strain_count)
             self.waning_event(wanings)
             self.waning_vaccinations_first_dose(single_dose_hosts, vaccine_dose_1_wanings)
             self.waning_vaccinations_second_dose(double_dose_hosts, vaccine_dose_2_wanings)
 
             # Collect the total counts of strains at each time step to determine the most prevalent strain for vaccination
             if not self.done_vaccinated:
-                for strain, count in strain_count.items():
-                    total_strain_counts_vaccine[strain[:self.numAgSegments]] += count
+                for strain, count in self.strain_count.items():
+                    self.total_strain_counts_vaccine[strain[:self.pars.numAgSegments]] += count
 
             # Administer the first dose of the vaccine
             # Vaccination strain is the most prevalent strain in the population before the vaccination starts
-            if self.vaccine_hypothesis != 0 and (not self.done_vaccinated) and self.t >= self.vaccination_time:
+            if self.pars.vaccine_hypothesis != 0 and (not self.done_vaccinated) and self.t >= self.pars.vaccination_time:
                 # Sort the strains by the number of hosts infected with it in the past
                 # Pick the last one from the sorted list as the most prevalent strain
                 vaccinated_strain = \
-                sorted(list(total_strain_counts_vaccine.keys()), key=lambda x: total_strain_counts_vaccine[x])[-1]
+                sorted(list(self.total_strain_counts_vaccine.keys()), key=lambda x: self.total_strain_counts_vaccine[x])[-1]
                 # Select hosts under 6.5 weeks and over 4.55 weeks of age for vaccinate
-                child_host_pop = [h for h in host_pop if self.age <= 0.13 and self.age >= 0.09]
+                # child_host_pop = [h for h in host_pop if self.age <= 0.13 and self.age >= 0.09]
+                child_host_uids = (self.sim.people.age <= 0.13 and self.sim.people.age >= 0.9).uids
                 # Use the vaccination rate to determine the number of hosts to vaccinate
-                vaccination_count = int(len(child_host_pop) * self.vaccine_first_dose_rate)
-                sample_population = rnd.sample(child_host_pop, vaccination_count)
+                vaccination_count = int(len(child_host_uids) * self.vaccine_first_dose_rate)
+                sample_population_uids = rnd.sample(child_host_uids, vaccination_count)
                 if self.verbose: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
                 if self.verbose: print(
-                    "Number of people vaccinated: {} Number of people under 6 weeks: {}".format(len(sample_population),
-                                                                                                len(child_host_pop)))
-                for h in sample_population:
-                    h.vaccinate(vaccinated_strain)
-                    single_dose_vaccinated_pop.append(h)
+                    "Number of people vaccinated: {} Number of people under 6 weeks: {}".format(len(sample_population_uids),
+                                                                                                len(child_host_uids)))
+                for uid in sample_population_uids:
+                    self.vaccinate(uid, vaccinated_strain)
+                    self.single_dose_vaccinated_uids.append(uid)
                 self.done_vaccinated = True
             elif self.done_vaccinated:
                 for child_uid in self.to_be_vaccinated_uids:
-                    if self.age >= 0.11:
-                        child.vaccinate(vaccinated_strain)
-                        self.to_be_vaccinated_pop.remove(child)
-                        single_dose_vaccinated_pop.append(child)
+                    if self.sim.people.age[child_uid] >= 0.11:
+                        self.vaccinate(child_uid, vaccinated_strain)
+                        self.to_be_vaccinated_uids.remove(child_uid)
+                        self.single_dose_vaccinated_uids.append(child_uid)
 
             # Administer the second dose of the vaccine if first dose has already been administered.
             # The second dose is administered 6 weeks after the first dose with probability vaccine_second_dose_rate
@@ -1391,24 +1362,24 @@ class Rota(ss.Module):
         weights = weights / total_w
         return weights
 
-    def death_event(self, num_deaths, infected_pop, strain_count):
-        host_list = np.arange(len(self.host_pop))
+    def death_event(self, num_deaths, infected_uids, strain_count):
+        # host_list = np.arange(len(self.host_pop))
         p = self.get_weights_by_age()
-        inds = np.random.choice(host_list, p=p, size=num_deaths, replace=False)
-        dying_hosts = [self.host_pop[ind] for ind in inds]
-        for h in dying_hosts:
-            if h.isInfected():
-                infected_pop.remove(h)
-                for path in h.infecting_pathogen:
+        dying_uids = np.random.choice(self.sim.people.alive.uids, p=p, size=num_deaths, replace=False)
+        # dying_hosts = [self.host_pop[ind] for uid in uids]
+        for uid in dying_uids:
+            if self.isInfected(uid):
+                infected_uids.remove(uid)
+                for path in self.infecting_pathogen[uid]:
                     if not path.is_reassortant:
-                        strain_count[path.strain] -= 1
-            if h.is_immune_flag:
+                        self.strain_count[path.strain] -= 1
+            if self.is_immune_flag[uid]:
                 self.immunity_counts -= 1
-            self.host_pop.remove(h)
+            self.sim.people.request_death(uid)  # remove the host from the simulation
         return
 
-    def recovery_event(self, num_recovered, infected_pop, strain_count):
-        weights = np.array([x.get_oldest_current_infection() for x in infected_pop])
+    def recovery_event(self, num_recovered, infected_uids, strain_count):
+        weights = np.array([self.get_oldest_current_infection(x) for x in infected_uids])
         # If there is no one with an infection older than 0 return without recovery
         if (sum(weights) == 0):
             return
@@ -1416,12 +1387,18 @@ class Rota(ss.Module):
         total_w = np.sum(weights)
         weights = weights / total_w
 
-        recovering_hosts = np.random.choice(infected_pop, p=weights, size=num_recovered, replace=False)
-        for host in recovering_hosts:
-            if not host.is_immune_flag:
-                self.immunity_counts += 1
-            host.recover(strain_count)
-            infected_pop.remove(host)
+        recovering_hosts_uids = np.random.choice(infected_uids, p=weights, size=num_recovered, replace=False)
+        # for host in recovering_hosts:
+        #     if not host.is_immune_flag:
+        #         self.immunity_counts += 1
+        #     host.recover(strain_count)
+        #     infected_uids.remove(host)
+        #
+        not_immune = recovering_hosts_uids[self.is_immune_flag[recovering_hosts_uids] == False]
+        self.immunity_counts += len(not_immune)
+
+        self.recover(recovering_hosts_uids, strain_count)
+        infected_uids.remove(recovering_hosts_uids)
 
     def reassortment_event(self, infected_uids, reassortment_count):
         coinfectedhosts = []
@@ -1442,18 +1419,20 @@ class Rota(ss.Module):
 
     def waning_event(self, wanings):
         # Get all the hosts in the population that has an immunity
-        h_immune = [h for h in self.host_pop if h.is_immune_flag]
-        oldest = np.array([h.oldest_infection for h in h_immune])
+        h_immune_uids = (self.is_immune_flag).uids
+        #h_immune = [h for h in self.host_pop if h.is_immune_flag]
+        # oldest = np.array([h.oldest_infection for h in h_immune])
+        oldest_infections = self.oldest_infection[h_immune_uids]
         # oldest += 1e-6*np.random.random(len(oldest)) # For tiebreaking -- not needed
-        order = np.argsort(oldest, stable=True)
+        order = np.argsort(oldest_infections, stable=True)
 
         # For the selcted hosts set the immunity to be None
         for i in order[:wanings]:  # range(min(len(hosts_with_immunity), wanings)):
-            h = h_immune[i]
-            h.immunity = {}
-            h.is_immune_flag = False
-            h.oldest_infection = np.nan
-            h.prior_infections = 0
+            h_uid = h_immune_uids[i]
+            self.immunity[h_uid] = {}
+            self.is_immune_flag[h_uid] = False
+            self.oldest_infection[h_uid] = np.nan
+            self.prior_infections[h_uid] = 0
             self.immunity_counts -= 1
 
     @staticmethod
@@ -1571,9 +1550,33 @@ class Rota(ss.Module):
 
         return all_pathogens
 
+    def get_oldest_current_infection(self, uid):
+        max_infection_times = max([self.t - p.creation_time for p in self.infecting_pathogen[uid]])
+        return max_infection_times
 
+    def recover(self, uid, strain_counts):
+        # We will use the pathogen creation time to count the number of infections
+        creation_times = set()
+        for path in self.infecting_pathogen[uid]:
+            strain = path.strain
+            if not path.is_reassortant:
+                strain_counts[strain] -= 1
+                creation_times.add(path.creation_time)
+                self.immunity[uid][strain] = self.t
+                self.is_immune_flag[uid] = True
+                if np.isnan(self.oldest_infection[uid]):
+                    self.oldest_infection[uid] = self.t
+        self.prior_infections[uid] += len(creation_times)
+        self.infecting_pathogen[uid] = []
+        self.possibleCombinations[uid] = []
 
-
+    def vaccinate(self, uid, vaccinated_strain):
+        if len(self.prior_vaccinations[uid]) == 0:
+            self.prior_vaccinations[uid].append(vaccinated_strain)
+            self.vaccine[uid] = ([vaccinated_strain], self.t, 1)
+        else:
+            self.prior_vaccinations[uid].append(vaccinated_strain)
+            self.vaccine[uid] = ([vaccinated_strain], self.t, 2)
 
     def __str__(self):
         return "Strain: " + self.get_strain_name() + " Severe: " + str(self.is_severe) + " Host: " + str(self.host.id) + str(self.creation_time)
