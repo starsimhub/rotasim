@@ -41,6 +41,7 @@ class Sim(ss.Sim):
             start = 2000,
             verbose = 0,
             to_csv = True,
+            rand_seed = 1,
             **kwargs,
         ):
         """
@@ -51,7 +52,7 @@ class Sim(ss.Sim):
             verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
         """
 
-        super().__init__(n_agents=n_agents, start=start, stop=start+timelimit, verbose=verbose, **kwargs)
+        super().__init__(n_agents=n_agents, start=start, stop=start+timelimit, unit='year', dt=1/365, verbose=verbose, rand_seed=rand_seed, **kwargs)
 
 
 
@@ -69,7 +70,7 @@ class Sim(ss.Sim):
 
         if verbose:
             print(f'Creating simulation with N={n_agents}, timelimit={timelimit} and parameters:')
-            print(args)
+            # print(args)
 
         # # Store parameters directly in the sim
         # self.immunity_hypothesis = int(args[0])
@@ -431,14 +432,6 @@ class Sim(ss.Sim):
         self.df = df
         return df
 
-    # def run(self):
-    #     """
-    #     Run the simulation
-    #     """
-    #     self.init()
-    #     events = self.integrate()
-    #     self.to_df()
-    #     return events
 
 
 if __name__ == '__main__':
