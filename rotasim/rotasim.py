@@ -14,12 +14,9 @@ TODO:
     - Replace math with numpy
 """
 
-import sys
 import csv
-import math
 import random as rnd
 import numpy as np
-import itertools
 import sciris as sc
 import starsim as ss
 from . import rotasim_genetics as rg
@@ -51,6 +48,10 @@ class Sim(ss.Sim):
             defaults (list): a list of parameters matching the command-line inputs; see below
             verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
         """
+
+        if 'connectors' not in kwargs:
+            kwargs['connectors'] = rg.Rota()
+
 
         super().__init__(n_agents=n_agents, start=start, stop=start+timelimit, unit='year', dt=1/365, verbose=verbose, rand_seed=rand_seed, **kwargs)
 
@@ -289,140 +290,136 @@ class Sim(ss.Sim):
 
             super().init(force=force)
 
-
-
-
-
         return self
-
-    def integrate(self):
-        """
-        Perform the actual integration loop
-        """
-        host_pop = self.host_pop
-        strain_count = self.strain_count
-        infected_pop = self.infected_pop
-        single_dose_vaccinated_pop = self.single_dose_vaccinated_pop
-        to_be_vaccinated_pop = self.to_be_vaccinated_pop
-        total_strain_counts_vaccine = self.total_strain_counts_vaccine
-
-        self.event_dict = sc.objdict(
-            births=0,
-            deaths=0,
-            recoveries=0,
-            contacts=0,
-            wanings=0,
-            reassortments=0,
-            vaccine_dose_1_wanings=0,
-            vaccine_dose_2_wanings=0,
-        )
-
-        self.T = sc.timer() # To track the time it takes to run the simulation
-        while self.t<self.timelimit:
-            if self.tau_steps % 10 == 0:
-                if self.verbose is not False: print(f"Year: {self.t:n}; step: {self.tau_steps}; hosts: {len(host_pop)}; elapsed: {self.T.total:n} s")
-                if self.verbose: print(self.strain_count)
-
-            ### Every 100 steps, write the age distribution of the population to a file
-            if self.tau_steps % 100 == 0:
-                age_dict = {}
-                for age_range in age_labels:
-                    age_dict[age_range] = 0
-                for h in host_pop:
-                    age_dict[h.get_age_category()] += 1
-                if self.verbose: print("Ages: ", age_dict)
-                if self.to_csv:
-                    with open(self.files.age_outputfilename, "a", newline='') as outputfile:
-                        write = csv.writer(outputfile)
-                        write.writerow(["{:.2}".format(self.t)] + list(age_dict.values()))
-
-            # Count the number of hosts with 1 or 2 vaccinations
-            single_dose_hosts = []
-            double_dose_hosts = []
-            for h in host_pop:
-                if h.vaccine is not None:
-                    if h.vaccine[2] == 1:
-                        single_dose_hosts.append(h)
-                    elif h.vaccine[2] == 2:
-                        double_dose_hosts.append(h)
-
-            # Get the number of events in a single tau step
-            events = self.get_event_counts(len(host_pop), len(infected_pop), self.immunity_counts, self.tau, self.reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
-            births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = events
-            if self.verbose: print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(self.t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
-
-            # Parse into dict
-            self.event_dict[:] += events
-
-            # perform the events for the obtained counts
-            self.birth_events(births)
-            self.reassortment_event(infected_pop, reassortments) # calling the function
-            counter = self.contact_event(contacts, infected_pop, strain_count)
-            self.death_event(deaths, infected_pop, strain_count)
-            self.recovery_event(recoveries, infected_pop, strain_count)
-            self.waning_event(wanings)
-            self.waning_vaccinations_first_dose(single_dose_hosts, vaccine_dose_1_wanings)
-            self.waning_vaccinations_second_dose(double_dose_hosts, vaccine_dose_2_wanings)
-
-            # Collect the total counts of strains at each time step to determine the most prevalent strain for vaccination
-            if not self.done_vaccinated:
-                for strain, count in strain_count.items():
-                    total_strain_counts_vaccine[strain[:self.numAgSegments]] += count
-
-            # Administer the first dose of the vaccine
-            # Vaccination strain is the most prevalent strain in the population before the vaccination starts
-            if self.vaccine_hypothesis!=0 and (not self.done_vaccinated) and self.t >= self.vaccination_time:
-                # Sort the strains by the number of hosts infected with it in the past
-                # Pick the last one from the sorted list as the most prevalent strain
-                vaccinated_strain = sorted(list(total_strain_counts_vaccine.keys()), key=lambda x: total_strain_counts_vaccine[x])[-1]
-                # Select hosts under 6.5 weeks and over 4.55 weeks of age for vaccinate
-                child_host_pop = [h for h in host_pop if self.t - h.bday <= 0.13 and self.t - h.bday >= 0.09]
-                # Use the vaccination rate to determine the number of hosts to vaccinate
-                vaccination_count = int(len(child_host_pop)*self.vaccine_first_dose_rate)
-                sample_population = rnd.sample(child_host_pop, vaccination_count)
-                if self.verbose: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
-                if self.verbose: print("Number of people vaccinated: {} Number of people under 6 weeks: {}".format(len(sample_population), len(child_host_pop)))
-                for h in sample_population:
-                    h.vaccinate(vaccinated_strain)
-                    single_dose_vaccinated_pop.append(h)
-                self.done_vaccinated = True
-            elif self.done_vaccinated:
-                for child in to_be_vaccinated_pop:
-                    if self.t - child.bday >= 0.11:
-                        child.vaccinate(vaccinated_strain)
-                        to_be_vaccinated_pop.remove(child)
-                        single_dose_vaccinated_pop.append(child)
-
-            # Administer the second dose of the vaccine if first dose has already been administered.
-            # The second dose is administered 6 weeks after the first dose with probability vaccine_second_dose_rate
-            if self.done_vaccinated:
-                while len(single_dose_vaccinated_pop) > 0:
-                    # If the first dose of the vaccine is older than 6 weeks then administer the second dose
-                    if self.t - single_dose_vaccinated_pop[0].vaccine[1] >= 0.11:
-                        child = single_dose_vaccinated_pop.pop(0)
-                        if rnd.random() < self.vaccine_second_dose_rate:
-                            child.vaccinate(vaccinated_strain)
-                    else:
-                        break
-
-            f = self.files
-            if self.t >= self.last_data_colllected:
-                self.collect_and_write_data(f.sample_outputfilename, f.vaccinations_outputfilename, f.sample_vaccine_efficacy_output_filename, sample=True)
-                self.collect_and_write_data(f.infected_all_outputfilename, f.vaccinations_outputfilename, f.vaccine_efficacy_output_filename, sample=False)
-                self.last_data_colllected += self.data_collection_rate
-
-            if self.to_csv:
-                with open(f.outputfilename, "a", newline='') as outputfile:
-                    write = csv.writer(outputfile)
-                    write.writerow([self.t] + list(strain_count.values()) + [self.reassortment_count])
-
-            self.tau_steps += 1
-            self.t += self.tau
-
-        if self.verbose is not False:
-            self.T.toc()
-            print(self.event_dict)
-        return self.event_dict
+    #
+    # def integrate(self):
+    #     """
+    #     Perform the actual integration loop
+    #     """
+    #     host_pop = self.host_pop
+    #     strain_count = self.strain_count
+    #     infected_pop = self.infected_pop
+    #     single_dose_vaccinated_pop = self.single_dose_vaccinated_pop
+    #     to_be_vaccinated_pop = self.to_be_vaccinated_pop
+    #     total_strain_counts_vaccine = self.total_strain_counts_vaccine
+    #
+    #     self.event_dict = sc.objdict(
+    #         births=0,
+    #         deaths=0,
+    #         recoveries=0,
+    #         contacts=0,
+    #         wanings=0,
+    #         reassortments=0,
+    #         vaccine_dose_1_wanings=0,
+    #         vaccine_dose_2_wanings=0,
+    #     )
+    #
+    #     self.T = sc.timer() # To track the time it takes to run the simulation
+    #     while self.t<self.timelimit:
+    #         if self.tau_steps % 10 == 0:
+    #             if self.verbose is not False: print(f"Year: {self.t:n}; step: {self.tau_steps}; hosts: {len(host_pop)}; elapsed: {self.T.total:n} s")
+    #             if self.verbose: print(self.strain_count)
+    #
+    #         ### Every 100 steps, write the age distribution of the population to a file
+    #         if self.tau_steps % 100 == 0:
+    #             age_dict = {}
+    #             for age_range in age_labels:
+    #                 age_dict[age_range] = 0
+    #             for h in host_pop:
+    #                 age_dict[h.get_age_category()] += 1
+    #             if self.verbose: print("Ages: ", age_dict)
+    #             if self.to_csv:
+    #                 with open(self.files.age_outputfilename, "a", newline='') as outputfile:
+    #                     write = csv.writer(outputfile)
+    #                     write.writerow(["{:.2}".format(self.t)] + list(age_dict.values()))
+    #
+    #         # Count the number of hosts with 1 or 2 vaccinations
+    #         single_dose_hosts = []
+    #         double_dose_hosts = []
+    #         for h in host_pop:
+    #             if h.vaccine is not None:
+    #                 if h.vaccine[2] == 1:
+    #                     single_dose_hosts.append(h)
+    #                 elif h.vaccine[2] == 2:
+    #                     double_dose_hosts.append(h)
+    #
+    #         # Get the number of events in a single tau step
+    #         events = self.get_event_counts(len(host_pop), len(infected_pop), self.immunity_counts, self.tau, self.reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
+    #         births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = events
+    #         if self.verbose: print("t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(self.t, births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings))
+    #
+    #         # Parse into dict
+    #         self.event_dict[:] += events
+    #
+    #         # perform the events for the obtained counts
+    #         self.birth_events(births)
+    #         self.reassortment_event(infected_pop, reassortments) # calling the function
+    #         counter = self.contact_event(contacts, infected_pop, strain_count)
+    #         self.death_event(deaths, infected_pop, strain_count)
+    #         self.recovery_event(recoveries, infected_pop, strain_count)
+    #         self.waning_event(wanings)
+    #         self.waning_vaccinations_first_dose(single_dose_hosts, vaccine_dose_1_wanings)
+    #         self.waning_vaccinations_second_dose(double_dose_hosts, vaccine_dose_2_wanings)
+    #
+    #         # Collect the total counts of strains at each time step to determine the most prevalent strain for vaccination
+    #         if not self.done_vaccinated:
+    #             for strain, count in strain_count.items():
+    #                 total_strain_counts_vaccine[strain[:self.numAgSegments]] += count
+    #
+    #         # Administer the first dose of the vaccine
+    #         # Vaccination strain is the most prevalent strain in the population before the vaccination starts
+    #         if self.vaccine_hypothesis!=0 and (not self.done_vaccinated) and self.t >= self.vaccination_time:
+    #             # Sort the strains by the number of hosts infected with it in the past
+    #             # Pick the last one from the sorted list as the most prevalent strain
+    #             vaccinated_strain = sorted(list(total_strain_counts_vaccine.keys()), key=lambda x: total_strain_counts_vaccine[x])[-1]
+    #             # Select hosts under 6.5 weeks and over 4.55 weeks of age for vaccinate
+    #             child_host_pop = [h for h in host_pop if self.t - h.bday <= 0.13 and self.t - h.bday >= 0.09]
+    #             # Use the vaccination rate to determine the number of hosts to vaccinate
+    #             vaccination_count = int(len(child_host_pop)*self.vaccine_first_dose_rate)
+    #             sample_population = rnd.sample(child_host_pop, vaccination_count)
+    #             if self.verbose: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
+    #             if self.verbose: print("Number of people vaccinated: {} Number of people under 6 weeks: {}".format(len(sample_population), len(child_host_pop)))
+    #             for h in sample_population:
+    #                 h.vaccinate(vaccinated_strain)
+    #                 single_dose_vaccinated_pop.append(h)
+    #             self.done_vaccinated = True
+    #         elif self.done_vaccinated:
+    #             for child in to_be_vaccinated_pop:
+    #                 if self.t - child.bday >= 0.11:
+    #                     child.vaccinate(vaccinated_strain)
+    #                     to_be_vaccinated_pop.remove(child)
+    #                     single_dose_vaccinated_pop.append(child)
+    #
+    #         # Administer the second dose of the vaccine if first dose has already been administered.
+    #         # The second dose is administered 6 weeks after the first dose with probability vaccine_second_dose_rate
+    #         if self.done_vaccinated:
+    #             while len(single_dose_vaccinated_pop) > 0:
+    #                 # If the first dose of the vaccine is older than 6 weeks then administer the second dose
+    #                 if self.t - single_dose_vaccinated_pop[0].vaccine[1] >= 0.11:
+    #                     child = single_dose_vaccinated_pop.pop(0)
+    #                     if rnd.random() < self.vaccine_second_dose_rate:
+    #                         child.vaccinate(vaccinated_strain)
+    #                 else:
+    #                     break
+    #
+    #         f = self.files
+    #         if self.t >= self.last_data_colllected:
+    #             self.collect_and_write_data(f.sample_outputfilename, f.vaccinations_outputfilename, f.sample_vaccine_efficacy_output_filename, sample=True)
+    #             self.collect_and_write_data(f.infected_all_outputfilename, f.vaccinations_outputfilename, f.vaccine_efficacy_output_filename, sample=False)
+    #             self.last_data_colllected += self.data_collection_rate
+    #
+    #         if self.to_csv:
+    #             with open(f.outputfilename, "a", newline='') as outputfile:
+    #                 write = csv.writer(outputfile)
+    #                 write.writerow([self.t] + list(strain_count.values()) + [self.reassortment_count])
+    #
+    #         self.tau_steps += 1
+    #         self.t += self.tau
+    #
+    #     if self.verbose is not False:
+    #         self.T.toc()
+    #         print(self.event_dict)
+    #     return self.event_dict
 
     def to_df(self):
         """ Convert results to a dataframe """
@@ -435,6 +432,7 @@ class Sim(ss.Sim):
 
 
 if __name__ == '__main__':
-    sim = Sim(N=10_000, timelimit=2)
-    events = sim.run()
+    sim = Sim(n_agents=10_000, timelimit=10)
+    sim.run()
+    print("done!")
 
