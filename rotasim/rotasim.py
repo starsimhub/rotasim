@@ -35,7 +35,7 @@ class Sim(ss.Sim):
     def __init__(self,
             n_agents = 10_000,
             timelimit = 10,
-            start = 2000,
+            start = 0,
             verbose = 0,
             to_csv = True,
             rand_seed = 1,

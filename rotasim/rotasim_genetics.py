@@ -334,8 +334,6 @@ class Rota(ss.Module):
         super().__init__()
         self.T = sc.timer()
 
-
-
         numSegments = 4
         numNoneAgSegments = 2
         numAgSegments = numSegments - numNoneAgSegments
@@ -463,10 +461,10 @@ class Rota(ss.Module):
         self.pars.omega = omega
         self.pars.birth_rate = self.pars.mu * 2  # Adjust birth rate to be more in line with Bangladesh
         self.reassortmentRate_GP = self.pars.reassortment_rate
+
         # Final initialization
         self.immunity_counts = 0
         self.reassortment_count = 0
-        # self.pop_id = 0
         self.tau_steps = 0
         self.rota_results = sc.objdict(
             columns=["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"],
@@ -565,17 +563,12 @@ class Rota(ss.Module):
         # for each strain track the number of hosts infected with it at current time: strain_count
         strain_count = {}
 
-        # for each number in range of N, make a new Host object, i is the id.
-        # host_pop = ss.People(self.pars.n_agents)
-
-        # self.pop_id = self.sim.pars.n_agents
         self.to_be_vaccinated_uids = []
         self.single_dose_vaccinated_uids = []
 
         # Store these for later
         self.infected_uids = infected_uids
         self.pathogens_uids = pathogens_uids
-        # self.host_pop = host_pop
         self.strain_count = strain_count
 
         for i in range(number_all_strains):
@@ -623,6 +616,37 @@ class Rota(ss.Module):
                 self.total_strain_counts_vaccine[strain[:self.pars.numAgSegments]] = count
 
 
+    # Initialize all the output files
+    def initialize_files(self, strain_count):
+        print('Initializing files')
+        sc.makefilepath('./results/', makedirs=True) # Ensure results folder exists # TODO: don't always export results
+        files = self.files
+        with open(files.outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["time"] + list(strain_count.keys()) + ["reassortment_count"])  # header for the csv file
+            write.writerow([self.t] + list(strain_count.values()) + [self.reassortment_count])  # first row of the csv file will be the initial state
+
+        with open(files.sample_outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
+        with open(files.infected_all_outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
+        with open(files.vaccinations_outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["id", "VaccineStrain", "CollectionTime", "Age", "Dose"])  # header for the csv file
+
+        for outfile in [files.vaccine_efficacy_output_filename, files.sample_vaccine_efficacy_output_filename]:
+            with open(outfile, "w+", newline='') as outputfile:
+                write = csv.writer(outputfile)
+                write.writerow(["CollectionTime", "Vaccinated", "Unvaccinated", "VaccinatedInfected", "VaccinatedSevere", "UnVaccinatedInfected", "UnVaccinatedSevere",
+                                "VaccinatedHomotypic", "VaccinatedHomotypicSevere", "VaccinatedpartialHetero", "VaccinatedpartialHeteroSevere", "VaccinatedFullHetero", "VaccinatedFullHeteroSevere"])
+
+        with open(files.age_outputfilename, "w+", newline='') as outputfile:
+            write = csv.writer(outputfile)
+            write.writerow(["time"] + list(age_labels))
+
+
     def step(self):
         """
                 Perform the actual integration loop
@@ -640,15 +664,13 @@ class Rota(ss.Module):
 
         if self.tau_steps % 10 == 0:
             if self.sim.pars.verbose is not False: print(
-                f"Year: {self.t.yearvec[self.ti]}; step: {self.tau_steps}; hosts: {len(self.sim.people)}; elapsed: {self.T.total} s")
+                f"Year: {self.t.abstvec[self.ti]}; step: {self.tau_steps}; hosts: {len(self.sim.people)}; elapsed: {self.T.total} s")
             if self.sim.pars.verbose: print(self.strain_count)
 
         ### Every 100 steps, write the age distribution of the population to a file
         if self.tau_steps % 100 == 0:
             age_dict = {}
 
-            # for h in host_pop:
-            #     age_dict[h.get_age_category()] += 1
             binned_ages = np.digitize(self.sim.people.age, age_bins)
             bin_counts = np.bincount(binned_ages, minlength=len(age_bins)+1)
             for i in np.arange(len(age_labels)):
@@ -663,12 +685,7 @@ class Rota(ss.Module):
         # Count the number of hosts with 1 or 2 vaccinations
         single_dose_hosts = []
         double_dose_hosts = []
-        # for h in host_pop:
-        #    if h.vaccine is not None:
-        #        if h.vaccine[2] == 1:
-        #            single_dose_hosts.append(h)
-        #        elif h.vaccine[2] == 2:
-        #            double_dose_hosts.append(h)
+
         vaccinated_inds = [index for index, value in enumerate(self.vaccine.values) if value is not None]
         if len(vaccinated_inds):
             single_dose_hosts = (self.vaccine.raw[vaccinated_inds][2]==1).auids
@@ -680,7 +697,7 @@ class Rota(ss.Module):
         births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = events
         if self.sim.pars.verbose: print(
             "t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(
-                self.t.yearvec[self.ti], births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings,
+                self.t.abstvec[self.ti], births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings,
                 vaccine_dose_2_wanings))
 
         # Parse into dict
@@ -703,11 +720,11 @@ class Rota(ss.Module):
 
         # Administer the first dose of the vaccine
         # Vaccination strain is the most prevalent strain in the population before the vaccination starts
+        vaccinated_strain = sorted(list(self.total_strain_counts_vaccine.keys()), key=lambda x: self.total_strain_counts_vaccine[x])[-1]
         if (self.pars.vaccine_hypothesis != 0) and (not self.done_vaccinated) and (self.t.abstvec[self.ti] >= self.pars.vaccination_time):
             # Sort the strains by the number of hosts infected with it in the past
             # Pick the last one from the sorted list as the most prevalent strain
-            vaccinated_strain = \
-            sorted(list(self.total_strain_counts_vaccine.keys()), key=lambda x: self.total_strain_counts_vaccine[x])[-1]
+
             # Select hosts under 6.5 weeks and over 4.55 weeks of age for vaccinate
             # child_host_pop = [h for h in host_pop if self.age <= 0.13 and self.age >= 0.09]
             child_host_uids = (self.sim.people.age <= 0.13 and self.sim.people.age >= 0.9).uids
@@ -841,6 +858,69 @@ class Rota(ss.Module):
                     if infected:
                         break
 
+    def isInfected(self, uid):
+        return len(self.infecting_pathogen[uid]) != 0
+
+    def get_weights_by_age(self):
+        # bdays = np.array(self.host_pop.bdays)
+        # weights = self.t - bdays
+        weights = self.sim.people.age.values
+        total_w = np.sum(weights)
+        weights = weights / total_w
+        return weights
+
+    def birth_events(self, birth_count):
+        for _ in range(birth_count):
+            # self.pop_id += 1
+            # new_host = Host(self.pop_id, sim=self)
+            # new_host.bday = self.t
+            # self.host_pop.append(new_host)
+            new_uids = self.sim.people.grow(birth_count) # add more people!
+            self.sim.people.age[new_uids] = 0
+
+            if self.pars.vaccine_hypothesis != 0 and self.done_vaccinated:
+                if rnd.random() < self.vaccine_first_dose_rate:
+                    self.to_be_vaccinated_uids.append(new_uids)
+
+    def death_event(self, num_deaths, infected_uids, strain_count):
+        # host_list = np.arange(len(self.host_pop))
+        p = self.get_weights_by_age()
+        dying_uids = np.random.choice(self.sim.people.alive.uids, p=p, size=num_deaths, replace=False)
+        # dying_hosts = [self.host_pop[ind] for uid in uids]
+        for uid in dying_uids:
+            if self.isInfected(uid):
+                infected_uids.remove(uid)
+                for path in self.infecting_pathogen[uid]:
+                    if not path.is_reassortant:
+                        self.strain_count[path.strain] -= 1
+            if self.is_immune_flag[uid]:
+                self.immunity_counts -= 1
+            self.sim.people.request_death(uid)  # remove the host from the simulation
+        return
+
+    def recovery_event(self, num_recovered, infected_uids, strain_count):
+        weights = np.array([self.get_oldest_current_infection(x) for x in infected_uids])
+        # If there is no one with an infection older than 0 return without recovery
+        if (sum(weights) == 0):
+            return
+        # weights_e = np.exp(weights)
+        total_w = np.sum(weights)
+        weights = weights / total_w
+
+        recovering_hosts_uids = np.random.choice(infected_uids, p=weights, size=num_recovered, replace=False)
+        # for host in recovering_hosts:
+        #     if not host.is_immune_flag:
+        #         self.immunity_counts += 1
+        #     host.recover(strain_count)
+        #     infected_uids.remove(host)
+        #
+        not_immune = recovering_hosts_uids[self.is_immune_flag[ss.uids(recovering_hosts_uids)] == False]
+        self.immunity_counts += len(not_immune)
+
+        self.recover(recovering_hosts_uids, strain_count)
+        for recovering_host_uid in recovering_hosts_uids:
+            infected_uids.remove(recovering_host_uid)
+
     def contact_event(self, contacts, infected_uids, strain_count):
         if len(infected_uids) == 0:
             print("[Warning] No infected hosts in a contact event. Skipping")
@@ -889,57 +969,6 @@ class Rota(ss.Module):
                 if not h2_previously_infected and self.isInfected(h2_uid):
                     infected_uids.append(h2_uid)
         return counter
-
-
-    def isInfected(self, uid):
-        return len(self.infecting_pathogen[uid]) != 0
-
-    def get_weights_by_age(self):
-        # bdays = np.array(self.host_pop.bdays)
-        # weights = self.t - bdays
-        weights = self.sim.people.age.values
-        total_w = np.sum(weights)
-        weights = weights / total_w
-        return weights
-
-    def death_event(self, num_deaths, infected_uids, strain_count):
-        # host_list = np.arange(len(self.host_pop))
-        p = self.get_weights_by_age()
-        dying_uids = np.random.choice(self.sim.people.alive.uids, p=p, size=num_deaths, replace=False)
-        # dying_hosts = [self.host_pop[ind] for uid in uids]
-        for uid in dying_uids:
-            if self.isInfected(uid):
-                infected_uids.remove(uid)
-                for path in self.infecting_pathogen[uid]:
-                    if not path.is_reassortant:
-                        self.strain_count[path.strain] -= 1
-            if self.is_immune_flag[uid]:
-                self.immunity_counts -= 1
-            self.sim.people.request_death(uid)  # remove the host from the simulation
-        return
-
-    def recovery_event(self, num_recovered, infected_uids, strain_count):
-        weights = np.array([self.get_oldest_current_infection(x) for x in infected_uids])
-        # If there is no one with an infection older than 0 return without recovery
-        if (sum(weights) == 0):
-            return
-        # weights_e = np.exp(weights)
-        total_w = np.sum(weights)
-        weights = weights / total_w
-
-        recovering_hosts_uids = np.random.choice(infected_uids, p=weights, size=num_recovered, replace=False)
-        # for host in recovering_hosts:
-        #     if not host.is_immune_flag:
-        #         self.immunity_counts += 1
-        #     host.recover(strain_count)
-        #     infected_uids.remove(host)
-        #
-        not_immune = recovering_hosts_uids[self.is_immune_flag[ss.uids(recovering_hosts_uids)] == False]
-        self.immunity_counts += len(not_immune)
-
-        self.recover(recovering_hosts_uids, strain_count)
-        for recovering_host_uid in recovering_hosts_uids:
-            infected_uids.remove(recovering_host_uid)
 
     def reassortment_event(self, infected_uids, reassortment_count):
         coinfectedhosts = []
@@ -993,19 +1022,6 @@ class Rota(ss.Module):
             h_uid = second_dose_uids[i]
             self.vaccinations[h_uid] = None
 
-    def birth_events(self, birth_count):
-        for _ in range(birth_count):
-            # self.pop_id += 1
-            # new_host = Host(self.pop_id, sim=self)
-            # new_host.bday = self.t
-            # self.host_pop.append(new_host)
-            new_uids = self.sim.people.grow(birth_count) # add more people!
-            self.sim.people.age[new_uids] = 0
-
-            if self.pars.vaccine_hypothesis != 0 and self.done_vaccinated:
-                if rnd.random() < self.vaccine_first_dose_rate:
-                    self.to_be_vaccinated_uids.append(new_uids)
-
     @staticmethod
     def get_strain_antigenic_name(strain):
         return "G" + str(strain[0]) + "P" + str(strain[1])
@@ -1031,38 +1047,6 @@ class Rota(ss.Module):
             raise RuntimeError("No valid solution to the equation: x: %d, ve: %d. Solutions: %f %f" % (x, ve, r1, r2))
         ve_i = x * ve_s
         return (ve_i, ve_s)
-
-
-
-    # Initialize all the output files
-    def initialize_files(self, strain_count):
-        print('Initializing files')
-        sc.makefilepath('./results/', makedirs=True) # Ensure results folder exists # TODO: don't always export results
-        files = self.files
-        with open(files.outputfilename, "w+", newline='') as outputfile:
-            write = csv.writer(outputfile)
-            write.writerow(["time"] + list(strain_count.keys()) + ["reassortment_count"])  # header for the csv file
-            write.writerow([self.t] + list(strain_count.values()) + [self.reassortment_count])  # first row of the csv file will be the initial state
-
-        with open(files.sample_outputfilename, "w+", newline='') as outputfile:
-            write = csv.writer(outputfile)
-            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
-        with open(files.infected_all_outputfilename, "w+", newline='') as outputfile:
-            write = csv.writer(outputfile)
-            write.writerow(["id", "Strain", "CollectionTime", "Age", "Severity", "InfectionTime", "PopulationSize"])
-        with open(files.vaccinations_outputfilename, "w+", newline='') as outputfile:
-            write = csv.writer(outputfile)
-            write.writerow(["id", "VaccineStrain", "CollectionTime", "Age", "Dose"])  # header for the csv file
-
-        for outfile in [files.vaccine_efficacy_output_filename, files.sample_vaccine_efficacy_output_filename]:
-            with open(outfile, "w+", newline='') as outputfile:
-                write = csv.writer(outputfile)
-                write.writerow(["CollectionTime", "Vaccinated", "Unvaccinated", "VaccinatedInfected", "VaccinatedSevere", "UnVaccinatedInfected", "UnVaccinatedSevere",
-                                "VaccinatedHomotypic", "VaccinatedHomotypicSevere", "VaccinatedpartialHetero", "VaccinatedpartialHeteroSevere", "VaccinatedFullHetero", "VaccinatedFullHeteroSevere"])
-
-        with open(files.age_outputfilename, "w+", newline='') as outputfile:
-            write = csv.writer(outputfile)
-            write.writerow(["time"] + list(age_labels))
 
     def compute_combinations(self, uid):
         seg_combinations = []
@@ -1336,6 +1320,9 @@ class Rota(ss.Module):
 
         return True
 
+    def infect_with_reassortant(self, uid, reassortant_virus):
+        self.infecting_pathogen[uid].append(reassortant_virus)
+
     def record_infection(self, new_p):
         uid = new_p.host_uid
         if len(self.prior_vaccinations[uid]) != 0:
@@ -1343,9 +1330,6 @@ class Rota(ss.Module):
             self.infections_with_vaccination[uid].append((new_p, new_p.match(vaccine_strain)))
         else:
             self.infections_without_vaccination[uid].append(new_p)
-
-    def infect_with_reassortant(self, uid, reassortant_virus):
-        self.infecting_pathogen[uid].append(reassortant_virus)
 
 
     def __str__(self):
