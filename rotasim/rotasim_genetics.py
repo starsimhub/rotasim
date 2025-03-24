@@ -414,7 +414,6 @@ class Rota(ss.Module):
             ss.BoolArr('is_severe'),  # is the pathogen severe
             ss.BoolArr('is_infected'),
             ss.FloatArr('strain'),
-            #ss.Arr('infecting_pathogen', default=[]),  # list of pathogens infecting the host
             rsa.MultiList('infecting_pathogen', default=[]),  # Ages at time of live births
             rsa.MultiList('possibleCombinations', default=[]),  # list of possible reassortant combinations
             rsa.MultiList('immunity', default={}), # set of strains the host is immune to
@@ -526,7 +525,7 @@ class Rota(ss.Module):
 
         self.total_strain_counts_vaccine = {}
 
-        # segmentVariants = [[i for i in range(1, 3)], [i for i in range(1, 3)], [i for i in range(1, 2)], [i for i in range(1, 2)]]     ## creating variats for the segments
+
         segmentVariants = [[1, 2, 3, 4, 9, 11, 12], [8, 4, 6], [i for i in range(1, 2)], [i for i in range(1, 2)]]
         # segmentVariants for the Low baseline diversity setting
         # segmentVariants = [[1,2,3,4,9], [8,4], [i for i in range(1, 2)], [i for i in range(1, 2)]]
@@ -649,8 +648,8 @@ class Rota(ss.Module):
 
     def step(self):
         """
-                Perform the actual integration loop
-                """
+        Perform the actual integration loop
+        """
         self.event_dict = sc.objdict(
             births=0,
             deaths=0,
@@ -722,12 +721,9 @@ class Rota(ss.Module):
         # Vaccination strain is the most prevalent strain in the population before the vaccination starts
         vaccinated_strain = sorted(list(self.total_strain_counts_vaccine.keys()), key=lambda x: self.total_strain_counts_vaccine[x])[-1]
         if (self.pars.vaccine_hypothesis != 0) and (not self.done_vaccinated) and (self.t.abstvec[self.ti] >= self.pars.vaccination_time):
-            # Sort the strains by the number of hosts infected with it in the past
-            # Pick the last one from the sorted list as the most prevalent strain
-
             # Select hosts under 6.5 weeks and over 4.55 weeks of age for vaccinate
-            # child_host_pop = [h for h in host_pop if self.age <= 0.13 and self.age >= 0.09]
             child_host_uids = (self.sim.people.age <= 0.13 and self.sim.people.age >= 0.9).uids
+
             # Use the vaccination rate to determine the number of hosts to vaccinate
             vaccination_count = int(len(child_host_uids) * self.vaccine_first_dose_rate)
             sample_population_uids = rnd.sample(child_host_uids, vaccination_count)
@@ -739,6 +735,7 @@ class Rota(ss.Module):
                 self.vaccinate(uid, vaccinated_strain)
                 self.single_dose_vaccinated_uids.append(uid)
             self.done_vaccinated = True
+
         elif self.done_vaccinated:
             for child_uid in self.to_be_vaccinated_uids:
                 if self.sim.people.age[child_uid] >= 0.11:
@@ -772,12 +769,11 @@ class Rota(ss.Module):
                 write.writerow([self.t] + list(self.strain_count.values()) + [self.reassortment_count])
 
         self.tau_steps += 1
-        # self.t += self.tau
 
-        # if self.sim.pars.verbose > 0:
-        #     self.T.toc()
-        #     print(self.event_dict)
-        # return self.event_dict
+        if self.sim.pars.verbose:
+            self.T.toc()
+            print(self.event_dict)
+        return self.event_dict
 
     # compares two strains
     # if they both have the same antigenic segments we return homotypic
@@ -825,8 +821,7 @@ class Rota(ss.Module):
         else:
             return severity_probability
 
-        ############# tau-Function to calculate event counts ############################
-
+    ############# tau-Function to calculate event counts ############################
     def get_event_counts(self, N, I, R, tau, RR_GP, single_dose_count, double_dose_count):
         births = np.random.poisson(size=1, lam=tau * N * self.pars.birth_rate)[0]
         deaths = np.random.poisson(size=1, lam=tau * N * self.pars.mu)[0]
@@ -842,7 +837,6 @@ class Rota(ss.Module):
                 vaccination_wanings_two_dose)
 
     def coInfected_contacts(self, h1_uid, h2_uid, strain_counts):
-        h2existing_pathogens = list(self.infecting_pathogen[h2_uid])
         randomnumber = rnd.random()
         if randomnumber < 0.02:  # giving all the possible strains
             for path in self.infecting_pathogen[h1_uid]:
@@ -862,8 +856,6 @@ class Rota(ss.Module):
         return len(self.infecting_pathogen[uid]) != 0
 
     def get_weights_by_age(self):
-        # bdays = np.array(self.host_pop.bdays)
-        # weights = self.t - bdays
         weights = self.sim.people.age.values
         total_w = np.sum(weights)
         weights = weights / total_w
@@ -871,10 +863,6 @@ class Rota(ss.Module):
 
     def birth_events(self, birth_count):
         for _ in range(birth_count):
-            # self.pop_id += 1
-            # new_host = Host(self.pop_id, sim=self)
-            # new_host.bday = self.t
-            # self.host_pop.append(new_host)
             new_uids = self.sim.people.grow(birth_count) # add more people!
             self.sim.people.age[new_uids] = 0
 
@@ -978,10 +966,7 @@ class Rota(ss.Module):
         rnd.shuffle(coinfectedhosts)  # TODO: maybe replace this
 
         for i in range(min(len(coinfectedhosts), reassortment_count)):
-            #parentalstrains = [path.strain for path in coinfectedhosts[i].infecting_pathogen]
             parentalstrains = [path.strain for path in self.infecting_pathogen[coinfectedhosts[i]]]
-            #possible_reassortants = [path for path in coinfectedhosts[i].compute_combinations() if
-            #                         path not in parentalstrains]
             possible_reassortants = [path for path in self.compute_combinations(coinfectedhosts[i]) if
                                      path not in parentalstrains]
             for path in possible_reassortants:
