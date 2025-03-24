@@ -307,16 +307,6 @@ class RotaPathogen(sc.quickobj):
             print("Invalid fitness_hypothesis: ", fitness_hypothesis)
             exit(-1)
 
-    # def get_fitness(self):
-    #     """ Get the fitness based on the fitness hypothesis and the two strains """
-    #     fitness_hypothesis = self.sim.fitness_hypothesis
-    #     strain = self.strain
-
-    #     if fitness_hypothesis in self.fitness_map:
-    #         fitness_values = self.fitness_map[fitness_hypothesis]
-    #         return fitness_values.get((strain[0], strain[1]), fitness_values.get('default', 1))
-    #     else:
-    #         raise NotImplementedError(f"Invalid fitness_hypothesis: {fitness_hypothesis}")
 
     def get_strain_name(self):
         G, P, A, B = [str(self.strain[i]) for i in range(4)]
@@ -789,16 +779,6 @@ class Rota(ss.Module):
         else:
             return PathogenMatch.COMPLETE_HETERO
 
-    # def get_fitness(self):
-    #     """ Get the fitness based on the fitness hypothesis and the two strains """
-    #     fitness_hypothesis = self.sim.fitness_hypothesis
-    #     strain = self.strain
-
-    #     if fitness_hypothesis in self.fitness_map:
-    #         fitness_values = self.fitness_map[fitness_hypothesis]
-    #         return fitness_values.get((strain[0], strain[1]), fitness_values.get('default', 1))
-    #     else:
-    #         raise NotImplementedError(f"Invalid fitness_hypothesis: {fitness_hypothesis}")
 
     def get_strain_name(self):
         G,P,A,B = [str(self.strain[i]) for i in range(4)]
