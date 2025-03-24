@@ -722,11 +722,14 @@ class Rota(ss.Module):
         vaccinated_strain = sorted(list(self.total_strain_counts_vaccine.keys()), key=lambda x: self.total_strain_counts_vaccine[x])[-1]
         if (self.pars.vaccine_hypothesis != 0) and (not self.done_vaccinated) and (self.t.abstvec[self.ti] >= self.pars.vaccination_time):
             # Select hosts under 6.5 weeks and over 4.55 weeks of age for vaccinate
-            child_host_uids = (self.sim.people.age <= 0.13 and self.sim.people.age >= 0.9).uids
+            upperlimit_uids = (self.sim.people.age <= 0.13).uids
+            lowerlimit_uids = upperlimit_uids[(self.sim.people.age[upperlimit_uids] >= 0.09)]
+
+            child_host_uids = lowerlimit_uids
 
             # Use the vaccination rate to determine the number of hosts to vaccinate
             vaccination_count = int(len(child_host_uids) * self.vaccine_first_dose_rate)
-            sample_population_uids = rnd.sample(child_host_uids, vaccination_count)
+            sample_population_uids = rnd.sample(child_host_uids.tolist(), vaccination_count)
             if self.sim.pars.verbose: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
             if self.sim.pars.verbose: print(
                 "Number of people vaccinated: {} Number of people under 6 weeks: {}".format(len(sample_population_uids),
