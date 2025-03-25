@@ -38,6 +38,7 @@ class RotaPathogen(sc.quickobj):
         self.strain = strain
         self.is_severe = is_severe
         self.fitness_hypothesis = self.sim.pars.rota.fitness_hypothesis
+        self.numAgSegments = self.sim.pars.rota.numAgSegments
 
         self.fitness_map = {
             1: {'default': 1},
@@ -70,7 +71,7 @@ class RotaPathogen(sc.quickobj):
     # compares two strains
     # if they both have the same antigenic segments we return homotypic
     def match(self, strainIn):
-        numAgSegments = self.sim.numAgSegments
+        numAgSegments = self.numAgSegments
         if strainIn[:numAgSegments] == self.strain[:numAgSegments]:
             return PathogenMatch.HOMOTYPIC
 
@@ -757,9 +758,13 @@ class Rota(ss.Module):
         # The second dose is administered 6 weeks after the first dose with probability vaccine_second_dose_rate
         if self.done_vaccinated:
             while len(self.single_dose_vaccinated_uids) > 0:
+                child_uid = self.single_dose_vaccinated_uids[0]
                 # If the first dose of the vaccine is older than 6 weeks then administer the second dose
-                if self.t.abstvec[self.ti] - self.vaccine[self.single_dose_vaccinated_uids[0]][1] >= 0.11:
-                    child_uid = self.single_dose_vaccinated_uids.pop(0)
+                # TODO this doesn't work as expected if the vaccine wanes before 6 weeks is up as the self.vaccine is reset to null.
+                #  I added a check for None to keep the code running when this happens, but Nones will now accumulate in
+                #  self.single_dose_vaccinated_uids and those uids will never receive a second dose.
+                if (self.vaccine[child_uid] is not None) and (self.t.abstvec[self.ti] - self.vaccine[child_uid][1] >= 0.11):
+                    self.single_dose_vaccinated_uids.pop(0)
                     if rnd.random() < self.vaccine_second_dose_rate:
                         self.vaccinate(child_uid, vaccinated_strain)
                 else:
@@ -822,9 +827,9 @@ class Rota(ss.Module):
             pathogen_strain_type = pathogen_in.match(vaccine[0][0])
             # Effectiveness of the vaccination depends on the number of doses
             if vaccine[2] == 1:
-                ve_s = self.pars.vaccine_efficacy_s_d1[pathogen_strain_type]
+                ve_s = self.vaccine_efficacy_s_d1[pathogen_strain_type]
             elif vaccine[2] == 2:
-                ve_s = self.pars.vaccine_efficacy_s_d2[pathogen_strain_type]
+                ve_s = self.vaccine_efficacy_s_d2[pathogen_strain_type]
             else:
                 raise NotImplementedError(f"Unsupported vaccine dose: {vaccine[2]}")
             return severity_probability * (1 - ve_s)
@@ -993,8 +998,6 @@ class Rota(ss.Module):
 
         # For the selected hosts set the immunity to be None
         for i in order[:wanings]:  # range(min(len(hosts_with_immunity), wanings)):
-            if i == 33461:
-                print("waning!")
             h_uid = h_immune_uids[i]
             self.immunity[h_uid] = {}
             self.is_immune_flag[h_uid] = False
@@ -1008,14 +1011,14 @@ class Rota(ss.Module):
         # For the selcted hosts set the immunity to be None
         for i in range(min(len(single_dose_uids), wanings)):
             h_uid = single_dose_uids[i]
-            self.vaccinations[h_uid] = None
+            self.vaccine[h_uid] = None
 
     def waning_vaccinations_second_dose(self, second_dose_uids, wanings):
         rnd.shuffle(second_dose_uids)
         # For the selected hosts set the immunity to be None
         for i in range(min(len(second_dose_uids), wanings)):
             h_uid = second_dose_uids[i]
-            self.vaccinations[h_uid] = None
+            self.vaccine[h_uid] = None
 
     @staticmethod
     def get_strain_antigenic_name(strain):
@@ -1094,10 +1097,70 @@ class Rota(ss.Module):
     def vaccinate(self, uid, vaccinated_strain):
         if len(self.prior_vaccinations[uid]) == 0:
             self.prior_vaccinations[uid].append(vaccinated_strain)
-            self.vaccine[uid] = ([vaccinated_strain], self.t.abstvec[self.ti], 1)
+            self.vaccine[uid] = ([vaccinated_strain], self.sim.t.abstvec[self.ti], 1)
         else:
             self.prior_vaccinations[uid].append(vaccinated_strain)
-            self.vaccine[uid] = ([vaccinated_strain], self.t.abstvec[self.ti], 2)
+            self.vaccine[uid] = ([vaccinated_strain], self.sim.t.abstvec[self.ti], 2)
+
+    def is_vaccine_immune(self, uid, infecting_strain):
+        # Effectiveness of the vaccination depends on the number of doses
+        if self.vaccine[uid][2] == 1:
+            ve_i_rates = self.vaccine_efficacy_i_d1
+        elif self.vaccine[uid][2] == 2:
+            ve_i_rates = self.vaccine_efficacy_i_d2
+        else:
+            raise NotImplementedError(f"Unsupported vaccine dose: {self.vaccine[2]}")
+
+        # Vaccine strain only contains the antigenic parts
+        vaccine_strain = self.vaccine[uid][0]
+        vaccine_hypothesis = self.pars.vaccine_hypothesis
+
+        if vaccine_hypothesis == 0:
+            return False
+        if vaccine_hypothesis == 1:
+            if infecting_strain[:self.pars.numAgSegments] in vaccine_strain:
+                if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
+                    return True
+                else:
+                    return False
+        elif vaccine_hypothesis == 2:
+            if infecting_strain[:self.pars.numAgSegments] in vaccine_strain:
+                if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
+                    return True
+                else:
+                    return False
+            strains_match = False
+            for i in range(self.pars.numAgSegments):
+                immune_genotypes = [strain[i] for strain in vaccine_strain]
+                if infecting_strain[i] in immune_genotypes:
+                    strains_match = True
+            if strains_match:
+                if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
+                    return True
+            else:
+                return False
+        # used below hypothesis for the analysis in the report
+        elif vaccine_hypothesis == 3:
+            if infecting_strain[:self.pars.numAgSegments] in vaccine_strain:
+                if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
+                    return True
+                else:
+                    return False
+            strains_match = False
+            for i in range(self.pars.numAgSegments):
+                immune_genotypes = [strain[i] for strain in vaccine_strain]
+                if infecting_strain[i] in immune_genotypes:
+                    strains_match = True
+            if strains_match:
+                if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
+                    return True
+            else:
+                if rnd.random() < ve_i_rates[PathogenMatch.COMPLETE_HETERO]:
+                    return True
+                else:
+                    return False
+        else:
+            raise NotImplementedError("Unsupported vaccine hypothesis")
 
     def collect_and_write_data(self, output_filename, vaccine_output_filename, vaccine_efficacy_output_filename, sample=False, sample_size=1000):
         """

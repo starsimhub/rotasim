@@ -50,7 +50,7 @@ class Sim(ss.Sim):
             kwargs['connectors'] = rg.Rota()
 
 
-        super().__init__(n_agents=n_agents, start=start, stop=start+timelimit, unit='year', dt=1/365, verbose=verbose, rand_seed=rand_seed, **kwargs)
+        super().__init__(n_agents=n_agents, start=start, stop=start+timelimit, unit='year', dt=1/365, verbose=verbose, rand_seed=rand_seed, use_aging=True, **kwargs)
 
 
 
