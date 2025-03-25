@@ -685,10 +685,17 @@ class Rota(ss.Module):
         single_dose_hosts = []
         double_dose_hosts = []
 
-        vaccinated_inds = [index for index, value in enumerate(self.vaccine.values) if value is not None]
-        if len(vaccinated_inds):
-            single_dose_hosts = (self.vaccine.raw[vaccinated_inds][2]==1).auids
-            double_dose_hosts = (self.vaccine.raw[vaccinated_inds][2]==2).auids
+        #vaccinated_inds = [index for index, value in enumerate(self.vaccine.raw) if value is not None]
+        #if len(vaccinated_inds):
+        #    single_dose_hosts = (self.vaccine.raw[vaccinated_inds][2]==1).auids
+        #    double_dose_hosts = (self.vaccine.raw[vaccinated_inds][2]==2).auids
+
+        for uid in self.sim.people.uid:
+            if self.vaccine[uid] is not None:
+                if self.vaccine[uid][2] == 1:
+                    single_dose_hosts.append(uid)
+                elif self.vaccine[uid][2] == 2:
+                    double_dose_hosts.append(uid)
 
         # Get the number of events in a single tau step
         events = self.get_event_counts(len(self.sim.people), len(self.infected_uids), self.immunity_counts, self.pars.tau,
@@ -753,7 +760,7 @@ class Rota(ss.Module):
                 # If the first dose of the vaccine is older than 6 weeks then administer the second dose
                 if self.t.abstvec[self.ti] - self.vaccine[self.single_dose_vaccinated_uids[0]][1] >= 0.11:
                     child_uid = self.single_dose_vaccinated_uids.pop(0)
-                    if rnd.random() < self.pars.vaccine_second_dose_rate:
+                    if rnd.random() < self.vaccine_second_dose_rate:
                         self.vaccinate(child_uid, vaccinated_strain)
                 else:
                     break
@@ -871,7 +878,7 @@ class Rota(ss.Module):
 
             if self.pars.vaccine_hypothesis != 0 and self.done_vaccinated:
                 if rnd.random() < self.vaccine_first_dose_rate:
-                    self.to_be_vaccinated_uids.append(new_uids)
+                    self.to_be_vaccinated_uids.extend(new_uids)
 
     def death_event(self, num_deaths, infected_uids, strain_count):
         # host_list = np.arange(len(self.host_pop))
@@ -1196,7 +1203,7 @@ class Rota(ss.Module):
                 if was_there_a_severe_infection:
                     num_unvaccinated_infected_severe += 1
 
-            if self.to_csv:
+            if self.pars.to_csv:
                 with open(vaccine_efficacy_output_filename, "a", newline='') as outputfile:
                     write = csv.writer(outputfile)
                     write.writerow([self.t, num_vaccinated, num_unvaccinated, num_vaccinated_infected, num_vaccinated_infected_severe, num_unvaccinated_infected, num_unvaccinated_infected_severe,

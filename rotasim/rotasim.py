@@ -14,9 +14,6 @@ TODO:
     - Replace math with numpy
 """
 
-import csv
-import random as rnd
-import numpy as np
 import sciris as sc
 import starsim as ss
 from . import rotasim_genetics as rg
