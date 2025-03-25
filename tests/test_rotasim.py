@@ -9,6 +9,7 @@ import rotasim as rs
 
 N = 2_000
 timelimit = 10
+verbose=1
 
 def test_default(make=False, benchmark=False):
     sc.heading('Testing default parameters')
@@ -17,14 +18,14 @@ def test_default(make=False, benchmark=False):
     # Generate new baseline
     if make:
         with sc.timer() as T:
-            rota = rs.Sim(N=N, timelimit=timelimit)
+            rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose)
             events = rota.run()
         sc.savejson(filename, events)
         
     # Check old baseline
     else:
         with sc.timer() as T:
-            rota = rs.Sim(N=N, timelimit=timelimit, verbose=True)
+            rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose)
             events = rota.run()
         saved = sc.objdict(sc.loadjson(filename))
         assert events == saved, 'Events do not match for default simulation'
@@ -39,9 +40,8 @@ def test_default(make=False, benchmark=False):
 def test_alt(make=False):
     sc.heading('Testing alternate parameters')
     filename = 'test_events_alt.json'
-    inputs = dict(
-        N = N,
-        timelimit = timelimit,
+
+    rota_inputs = dict(
         immunity_hypothesis = 2,
         reassortment_rate = 0.2,
         fitness_hypothesis = 2,
@@ -54,14 +54,16 @@ def test_alt(make=False):
     
     # Generate new baseline
     if make:
-        rota = rs.Sim(**inputs)
-        events = rota.run()
+        rota = rs.Rota(**rota_inputs)
+        sim = rs.Sim(n_agents=N, timelimit=timelimit, connectors=rota, rand_seed=rota_inputs['experiment_number'], verbose=verbose)
+        events = sim.run()
         sc.savejson(filename, events)
         
     # Check old baseline
     else:
-        rota = rs.Sim(**inputs)
-        events = rota.run()
+        rota = rs.Rota(**rota_inputs)
+        sim = rs.sim(n_agents=N, timelimit=timelimit, connectors=rota, verbose=verbose)
+        events = sim.run()
         saved = sc.objdict(sc.loadjson(filename))
         assert events == saved, 'Events do not match for alternate parameters simulation'
         print(f'Alternate parameters matched:\n{events}')

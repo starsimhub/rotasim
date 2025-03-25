@@ -33,6 +33,8 @@ class Sim(ss.Sim):
             n_agents = 10_000,
             timelimit = 10,
             start = 0,
+            unit = 'year',
+            dt = 1/365,
             verbose = 0,
             to_csv = True,
             rand_seed = 1,
@@ -45,12 +47,16 @@ class Sim(ss.Sim):
             defaults (list): a list of parameters matching the command-line inputs; see below
             verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
         """
+        if 'N' in kwargs:
+            n_agents = kwargs.pop('N')
 
         if 'connectors' not in kwargs:
-            kwargs['connectors'] = rg.Rota()
+            kwargs['connectors'] = rg.Rota(to_csv=to_csv)
 
 
-        super().__init__(n_agents=n_agents, start=start, stop=start+timelimit, unit='year', dt=1/365, verbose=verbose, rand_seed=rand_seed, use_aging=True, **kwargs)
+
+
+        super().__init__(n_agents=n_agents, start=start, stop=start+timelimit, unit=unit, dt=dt, verbose=verbose, rand_seed=rand_seed, use_aging=True, **kwargs)
 
 
 

@@ -331,7 +331,7 @@ class Rota(ss.Module):
     """
     Pathogen dynamics
     """
-    def __init__(self, to_csv=True, timelimit=2, **kwargs):
+    def __init__(self, to_csv=True, **kwargs):
         super().__init__()
         self.T = sc.timer()
 
@@ -392,7 +392,7 @@ class Rota(ss.Module):
                 PathogenMatch.PARTIAL_HETERO: 0.45,
                 PathogenMatch.COMPLETE_HETERO: 0.15,
             },
-        # Efficacy of the vaccine second dose
+            # Efficacy of the vaccine second dose
             vaccine_efficacy_d2 = {
                 PathogenMatch.HOMOTYPIC: 0.8,
                 PathogenMatch.PARTIAL_HETERO: 0.65,
@@ -409,6 +409,9 @@ class Rota(ss.Module):
             # if initialization starts with a proportion of immune agents:
             num_initial_immune = 10000,
         )
+
+        # update the pars based on the kwargs
+        self.update_pars(pars=kwargs)
 
         self.define_states(
             ss.BoolArr('is_reassortant'),  # is the pathogen a reassortant
@@ -515,13 +518,13 @@ class Rota(ss.Module):
             self.vaccine_efficacy_i_d2[k] = ve_i
             self.vaccine_efficacy_s_d2[k] = ve_s
 
-        if self.sim.pars.verbose: print("VE_i: ", self.vaccine_efficacy_i_d1)
-        if self.sim.pars.verbose: print("VE_s: ", self.vaccine_efficacy_s_d1)
+        if self.sim.pars.verbose > 0: print("VE_i: ", self.vaccine_efficacy_i_d1)
+        if self.sim.pars.verbose > 0: print("VE_s: ", self.vaccine_efficacy_s_d1)
 
         # Vaccination rates are derived based on the following formula
         self.vaccine_second_dose_rate = 0.8
         self.vaccine_first_dose_rate = math.sqrt(self.vaccine_second_dose_rate)
-        if self.sim.pars.verbose: print("Vaccination - first dose rate: %s, second dose rate %s" % (
+        if self.sim.pars.verbose > 0: print("Vaccination - first dose rate: %s, second dose rate %s" % (
         self.vaccine_first_dose_rate, self.vaccine_second_dose_rate))
 
         self.total_strain_counts_vaccine = {}
@@ -575,7 +578,7 @@ class Rota(ss.Module):
             self.strain_count[segment_combinations[i]] = 0
 
         # if initial immunity is true
-        if self.sim.pars.verbose:
+        if self.sim.pars.verbose > 0:
             if self.pars.initial_immunity:
                 print("Initial immunity is set to True")
             else:
@@ -585,10 +588,10 @@ class Rota(ss.Module):
         for (initial_strain, num_infected) in initial_segment_combinations.items():
             if self.pars.initial_immunity:
                 for j in range(self.pars.num_initial_immune):
-                    h = rnd.choice(self.people)
-                    h.immunity[initial_strain] = self.t
+                    h_uid = rnd.choice(self.sim.people.uid)
+                    self.immunity[h_uid][initial_strain] = self.t.abstvec[self.ti]
                     self.immunity_counts += 1
-                    h.is_immune_flag = True
+                    self.is_immune_flag[h_uid] = True
 
             # This does NOT guarantee num_infected will be the starting number of infected hosts. Need a random choice
             # without replacement for that.
@@ -600,7 +603,7 @@ class Rota(ss.Module):
                 pathogens_uids.append(p)
                 self.infecting_pathogen[h].append(p)
                 strain_count[p.strain] += 1
-        if self.sim.pars.verbose: print(strain_count)
+        if self.sim.pars.verbose > 0: print(strain_count)
 
         if self.pars.to_csv:
             self.initialize_files(strain_count)
@@ -618,7 +621,7 @@ class Rota(ss.Module):
 
     # Initialize all the output files
     def initialize_files(self, strain_count):
-        print('Initializing files')
+        if self.sim.pars.verbose > 0: print('Initializing files')
         sc.makefilepath('./results/', makedirs=True) # Ensure results folder exists
         files = self.files
         with open(files.outputfilename, "w+", newline='') as outputfile:
@@ -646,6 +649,8 @@ class Rota(ss.Module):
             write = csv.writer(outputfile)
             write.writerow(["time"] + list(age_labels))
 
+        if self.sim.pars.verbose > 0: print('Files initialized')
+
 
     def step(self):
         """
@@ -663,9 +668,9 @@ class Rota(ss.Module):
         )
 
         if self.tau_steps % 10 == 0:
-            if self.sim.pars.verbose is not False: print(
+            if self.sim.pars.verbose > 0: print(
                 f"Year: {self.t.abstvec[self.ti]}; step: {self.tau_steps}; hosts: {len(self.sim.people)}; elapsed: {self.T.total} s")
-            if self.sim.pars.verbose: print(self.strain_count)
+            if self.sim.pars.verbose > 0: print(self.strain_count)
 
         ### Every 100 steps, write the age distribution of the population to a file
         if self.tau_steps % 100 == 0:
@@ -676,7 +681,7 @@ class Rota(ss.Module):
             for i in np.arange(len(age_labels)):
                 age_dict[age_labels[i]] = bin_counts[i]
 
-            if self.sim.pars.verbose: print("Ages: ", age_dict)
+            if self.sim.pars.verbose > 0: print("Ages: ", age_dict)
             if self.pars.to_csv:
                 with open(self.files.age_outputfilename, "a", newline='') as outputfile:
                     write = csv.writer(outputfile)
@@ -702,7 +707,7 @@ class Rota(ss.Module):
         events = self.get_event_counts(len(self.sim.people), len(self.infected_uids), self.immunity_counts, self.pars.tau,
                                        self.reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
         births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = events
-        if self.sim.pars.verbose: print(
+        if self.sim.pars.verbose > 0: print(
             "t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(
                 self.t.abstvec[self.ti], births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings,
                 vaccine_dose_2_wanings))
@@ -738,8 +743,8 @@ class Rota(ss.Module):
             # Use the vaccination rate to determine the number of hosts to vaccinate
             vaccination_count = int(len(child_host_uids) * self.vaccine_first_dose_rate)
             sample_population_uids = rnd.sample(child_host_uids.tolist(), vaccination_count)
-            if self.sim.pars.verbose: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
-            if self.sim.pars.verbose: print(
+            if self.sim.pars.verbose > 0: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
+            if self.sim.pars.verbose > 0: print(
                 "Number of people vaccinated: {} Number of people under 6 weeks: {}".format(len(sample_population_uids),
                                                                                             len(child_host_uids)))
             for uid in sample_population_uids:
@@ -785,7 +790,7 @@ class Rota(ss.Module):
 
         self.tau_steps += 1
 
-        if self.sim.pars.verbose:
+        if self.sim.pars.verbose > 0:
             self.T.toc()
             print(self.event_dict)
         return self.event_dict
@@ -1036,7 +1041,7 @@ class Rota(ss.Module):
 
     def breakdown_vaccine_efficacy(self, ve, x):
         (r1, r2) = self.solve_quadratic(x, -(1 + x), ve)
-        if self.sim.pars.verbose: print(r1, r2)
+        if self.sim.pars.verbose > 0: print(r1, r2)
         if r1 >= 0 and r1 <= 1:
             ve_s = r1
         elif r2 >= 0 and r2 <= 1:
