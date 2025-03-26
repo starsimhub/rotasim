@@ -30,15 +30,15 @@ class RotaPathogen(sc.quickobj):
     Pathogen dynamics
     """
 
-    def __init__(self, sim, is_reassortant, creation_time, is_severe=False, host_uid=None, strain=None):
-        self.sim = sim
+    def __init__(self, is_reassortant, creation_time, is_severe=False, host_uid=None, strain=None, fitness_hypothesis=None, numAgSegments=None):
+        # self.sim = sim
         self.host_uid = host_uid
         self.creation_time = creation_time
         self.is_reassortant = is_reassortant
         self.strain = strain
         self.is_severe = is_severe
-        self.fitness_hypothesis = self.sim.pars.rota.fitness_hypothesis
-        self.numAgSegments = self.sim.pars.rota.numAgSegments
+        self.fitness_hypothesis = fitness_hypothesis
+        self.numAgSegments = numAgSegments
 
         self.fitness_map = {
             1: {'default': 1},
@@ -599,7 +599,7 @@ class Rota(ss.Module):
                 h = int(rnd.choice(self.sim.people.uid))
                 if not self.isInfected(h):
                     infected_uids.append(h)
-                p = RotaPathogen(self.sim, False, self.t.abstvec[self.ti], host_uid=h, strain=initial_strain)
+                p = RotaPathogen(is_reassortant=False, creation_time=self.t.abstvec[self.ti], host_uid=h, strain=initial_strain, fitness_hypothesis=self.pars.fitness_hypothesis, numAgSegments=self.pars.numAgSegments)
                 pathogens_uids.append(p)
                 self.infecting_pathogen[h].append(p)
                 strain_count[p.strain] += 1
@@ -1073,7 +1073,7 @@ class Rota(ss.Module):
         all_antigenic_combinations = [i for i in itertools.product(*seg_combinations) if i not in parantal_strains]
         all_nonantigenic_combinations = [j.strain[self.pars.numAgSegments:] for j in self.infecting_pathogen[uid]]
         all_strains = set([(i[0] + i[1]) for i in itertools.product(all_antigenic_combinations, all_nonantigenic_combinations)])
-        all_pathogens = [RotaPathogen(self.sim, True, self.t.abstvec[self.ti], host_uid = uid, strain=tuple(i)) for i in all_strains]
+        all_pathogens = [RotaPathogen(is_reassortant=True, creation_time=self.t.abstvec[self.ti], host_uid = uid, strain=tuple(i), fitness_hypothesis=self.pars.fitness_hypothesis, numAgSegments=self.pars.numAgSegments) for i in all_strains]
 
         return all_pathogens
 
@@ -1374,7 +1374,7 @@ class Rota(ss.Module):
         else:
             severe = False
 
-        new_p = RotaPathogen(self.sim, False, self.t.abstvec[self.ti], host_uid=uid, strain=pathogen_in.strain, is_severe=severe)
+        new_p = RotaPathogen(is_reassortant=False, creation_time=self.t.abstvec[self.ti], host_uid=uid, strain=pathogen_in.strain, is_severe=severe, fitness_hypothesis=self.pars.fitness_hypothesis, numAgSegments=self.pars.numAgSegments)
         self.infecting_pathogen[uid].append(new_p)
         self.record_infection(new_p)
 
