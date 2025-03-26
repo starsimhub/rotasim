@@ -627,7 +627,7 @@ class Rota(ss.Module):
         with open(files.outputfilename, "w+", newline='') as outputfile:
             write = csv.writer(outputfile)
             write.writerow(["time"] + list(strain_count.keys()) + ["reassortment_count"])  # header for the csv file
-            write.writerow([self.t] + list(strain_count.values()) + [self.reassortment_count])  # first row of the csv file will be the initial state
+            write.writerow([self.t.abstvec[self.ti]] + list(strain_count.values()) + [self.reassortment_count])  # first row of the csv file will be the initial state
 
         with open(files.sample_outputfilename, "w+", newline='') as outputfile:
             write = csv.writer(outputfile)
@@ -685,7 +685,7 @@ class Rota(ss.Module):
             if self.pars.to_csv:
                 with open(self.files.age_outputfilename, "a", newline='') as outputfile:
                     write = csv.writer(outputfile)
-                    write.writerow(["{:.2}".format(self.t.timevec[self.ti])] + list(age_dict.values()))
+                    write.writerow(["{:.2}".format(self.t.abstvec[self.ti])] + list(age_dict.values()))
 
         # Count the number of hosts with 1 or 2 vaccinations
         single_dose_hosts = []
@@ -786,7 +786,7 @@ class Rota(ss.Module):
         if self.pars.to_csv:
             with open(f.outputfilename, "a", newline='') as outputfile:
                 write = csv.writer(outputfile)
-                write.writerow([self.t] + list(self.strain_count.values()) + [self.reassortment_count])
+                write.writerow([self.t.abstvec[self.ti]] + list(self.strain_count.values()) + [self.reassortment_count])
 
         self.tau_steps += 1
 
@@ -1202,7 +1202,7 @@ class Rota(ss.Module):
                 # This will exclude those who previously got the vaccine but the immunity waned.
                 if self.vaccine[uid] is not None:
                     for vs in [self.get_strain_antigenic_name(s) for s in self.vaccine[uid][0]]:
-                        collected_vaccination_data.append((uid, vs, self.t, self.get_age_category(uid), self.vaccine[uid][2]))
+                        collected_vaccination_data.append((uid, vs, self.t.abstvec[self.ti], self.get_age_category(uid), self.vaccine[uid][2]))
             if len(self.prior_vaccinations[uid]) != 0:
                 if len(vaccinated_uids) < 1000:
                     vaccinated_uids.append(uid)
@@ -1274,7 +1274,7 @@ class Rota(ss.Module):
             if self.pars.to_csv:
                 with open(vaccine_efficacy_output_filename, "a", newline='') as outputfile:
                     write = csv.writer(outputfile)
-                    write.writerow([self.t, num_vaccinated, num_unvaccinated, num_vaccinated_infected, num_vaccinated_infected_severe, num_unvaccinated_infected, num_unvaccinated_infected_severe,
+                    write.writerow([self.t.abstvec[self.ti], num_vaccinated, num_unvaccinated, num_vaccinated_infected, num_vaccinated_infected_severe, num_unvaccinated_infected, num_unvaccinated_infected_severe,
                                     num_homotypic[0], num_homotypic[1], num_partial_heterotypic[0], num_partial_heterotypic[1], num_full_heterotypic[0], num_full_heterotypic[1]])
 
         # Write collected data to the output file
