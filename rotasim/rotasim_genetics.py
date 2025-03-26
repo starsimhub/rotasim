@@ -346,6 +346,7 @@ class Rota(ss.Module):
             vaccine_hypothesis = 1,
             waning_hypothesis = 1,
             initial_immunity = 0,
+            initial_immunity_rate = 0.1,
             ve_i_to_ve_s_ratio = 0.5,
             experiment_number = 1,
             rel_beta = 1.0,
@@ -407,7 +408,8 @@ class Rota(ss.Module):
             tau = 1 / 365.0,
 
             # if initialization starts with a proportion of immune agents:
-            num_initial_immune = 10000,
+            # num_initial_immune = 10000,
+            num_initial_immune = 0,
         )
 
         # update the pars based on the kwargs
@@ -588,7 +590,7 @@ class Rota(ss.Module):
         ### infecting the initial infecteds
         for (initial_strain, num_infected) in initial_segment_combinations.items():
             if self.pars.initial_immunity:
-                for j in range(self.pars.num_initial_immune):
+                for j in range(int(self.sim.pars.n_agents * self.pars.initial_immunity_rate)):
                     h_uid = rnd.choice(self.sim.people.uid)
                     self.immunity[h_uid][initial_strain] = self.t.abstvec[self.ti]
                     self.immunity_counts += 1
