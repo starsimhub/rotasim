@@ -345,7 +345,7 @@ class Rota(ss.Module):
             fitness_hypothesis = 2,
             vaccine_hypothesis = 1,
             waning_hypothesis = 1,
-            initial_immunity = 0,
+            initial_immunity = False,
             initial_immunity_rate = 0.1,
             ve_i_to_ve_s_ratio = 0.5,
             experiment_number = 1,
