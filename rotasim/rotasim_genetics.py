@@ -792,7 +792,6 @@ class Rota(ss.Module):
 
         if self.sim.pars.verbose > 0:
             self.T.toc()
-            print(self.event_dict)
         return self.event_dict
 
     # compares two strains
