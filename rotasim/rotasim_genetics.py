@@ -792,6 +792,7 @@ class Rota(ss.Module):
 
         if self.sim.pars.verbose > 0:
             self.T.toc()
+            print(f"Max number of infection paths: {max([len(x) for x in self.infecting_pathogen])}")
         return self.event_dict
 
     # compares two strains
