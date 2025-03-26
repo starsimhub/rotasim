@@ -62,7 +62,7 @@ def test_alt(make=False):
     # Check old baseline
     else:
         rota = rs.Rota(**rota_inputs)
-        sim = rs.sim(n_agents=N, timelimit=timelimit, connectors=rota, verbose=verbose)
+        sim = rs.Sim(n_agents=N, timelimit=timelimit, connectors=rota, verbose=verbose)
         events = sim.run()
         saved = sc.objdict(sc.loadjson(filename))
         assert events == saved, 'Events do not match for alternate parameters simulation'
@@ -74,5 +74,5 @@ def test_alt(make=False):
 if __name__ == '__main__':
     make = False # Set to True to regenerate results
     benchmark = False # Set to True to redo the performance results
-    test_default(make=make, benchmark=benchmark)
+    # test_default(make=make, benchmark=benchmark)
     test_alt(make=make)
