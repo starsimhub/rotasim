@@ -568,6 +568,7 @@ class Rota(ss.Module):
 
         self.to_be_vaccinated_uids = []
         self.single_dose_vaccinated_uids = []
+        self.double_dose_vaccinated_uids = []
 
         # Store these for later
         self.infected_uids = infected_uids
@@ -695,17 +696,17 @@ class Rota(ss.Module):
         #if len(vaccinated_inds):
         #    single_dose_hosts = (self.vaccine.raw[vaccinated_inds][2]==1).auids
         #    double_dose_hosts = (self.vaccine.raw[vaccinated_inds][2]==2).auids
-
-        for uid in self.sim.people.uid:
-            if self.vaccine[uid] is not None:
-                if self.vaccine[uid][2] == 1:
-                    single_dose_hosts.append(uid)
-                elif self.vaccine[uid][2] == 2:
-                    double_dose_hosts.append(uid)
+        #
+        # for uid in self.sim.people.uid:
+        #     if self.vaccine[uid] is not None:
+        #         if self.vaccine[uid][2] == 1:
+        #             single_dose_hosts.append(uid)
+        #         elif self.vaccine[uid][2] == 2:
+        #             double_dose_hosts.append(uid)
 
         # Get the number of events in a single tau step
         events = self.get_event_counts(len(self.sim.people), len(self.infected_uids), self.immunity_counts, self.pars.tau,
-                                       self.reassortmentRate_GP, len(single_dose_hosts), len(double_dose_hosts))
+                                       self.reassortmentRate_GP, len(self.single_dose_vaccinated_uids), len(self.double_dose_vaccinated_uids))
         births, deaths, recoveries, contacts, wanings, reassortments, vaccine_dose_1_wanings, vaccine_dose_2_wanings = events
         if self.sim.pars.verbose > 0: print(
             "t={}, births={}, deaths={}, recoveries={}, contacts={}, wanings={}, reassortments={}, waning_vaccine_d1={}, waning_vaccine_d2={}".format(
@@ -722,8 +723,8 @@ class Rota(ss.Module):
         self.death_event(deaths, self.infected_uids, self.strain_count)
         self.recovery_event(recoveries, self.infected_uids, self.strain_count)
         self.waning_event(wanings)
-        self.waning_vaccinations_first_dose(single_dose_hosts, vaccine_dose_1_wanings)
-        self.waning_vaccinations_second_dose(double_dose_hosts, vaccine_dose_2_wanings)
+        self.waning_vaccinations_first_dose(vaccine_dose_1_wanings)
+        self.waning_vaccinations_second_dose(vaccine_dose_2_wanings)
 
         # Collect the total counts of strains at each time step to determine the most prevalent strain for vaccination
         if not self.done_vaccinated:
@@ -772,6 +773,7 @@ class Rota(ss.Module):
                     self.single_dose_vaccinated_uids.pop(0)
                     if rnd.random() < self.vaccine_second_dose_rate:
                         self.vaccinate(child_uid, vaccinated_strain)
+                        self.double_dose_vaccinated_uids.append(child_uid)
                 else:
                     break
 
@@ -793,7 +795,8 @@ class Rota(ss.Module):
         if self.sim.pars.verbose > 0:
             self.T.toc()
             print(f"Max number of infection paths: {max([len(x) for x in self.infecting_pathogen])}")
-        return self.event_dict
+        # return self.event_dict
+        return
 
     # compares two strains
     # if they both have the same antigenic segments we return homotypic
@@ -1010,20 +1013,22 @@ class Rota(ss.Module):
             self.prior_infections[h_uid] = 0
             self.immunity_counts -= 1
 
-    def waning_vaccinations_first_dose(self, single_dose_uids, wanings):
+    def waning_vaccinations_first_dose(self, wanings):
         """ Get all the hosts in the population that has an vaccine immunity """
-        rnd.shuffle(single_dose_uids)
+        rnd.shuffle(self.single_dose_vaccinated_uids)
         # For the selcted hosts set the immunity to be None
-        for i in range(min(len(single_dose_uids), wanings)):
-            h_uid = single_dose_uids[i]
+        for i in range(min(len(self.single_dose_vaccinated_uids), wanings)):
+            h_uid = self.single_dose_vaccinated_uids[0]
             self.vaccine[h_uid] = None
+            self.single_dose_vaccinated_uids.pop(0)
 
-    def waning_vaccinations_second_dose(self, second_dose_uids, wanings):
-        rnd.shuffle(second_dose_uids)
+    def waning_vaccinations_second_dose(self, wanings):
+        rnd.shuffle(self.double_dose_vaccinated_uids)
         # For the selected hosts set the immunity to be None
-        for i in range(min(len(second_dose_uids), wanings)):
-            h_uid = second_dose_uids[i]
+        for i in range(min(len(self.double_dose_vaccinated_uids), wanings)):
+            h_uid = self.double_dose_vaccinated_uids[0]
             self.vaccine[h_uid] = None
+            self.double_dose_vaccinated_uids.pop(0)
 
     @staticmethod
     def get_strain_antigenic_name(strain):
@@ -1102,10 +1107,10 @@ class Rota(ss.Module):
     def vaccinate(self, uid, vaccinated_strain):
         if len(self.prior_vaccinations[uid]) == 0:
             self.prior_vaccinations[uid].append(vaccinated_strain)
-            self.vaccine[uid] = ([vaccinated_strain], self.sim.t.abstvec[self.ti], 1)
+            self.vaccine[uid] = Vaccine([vaccinated_strain], self.sim.t.abstvec[self.ti], 1)
         else:
             self.prior_vaccinations[uid].append(vaccinated_strain)
-            self.vaccine[uid] = ([vaccinated_strain], self.sim.t.abstvec[self.ti], 2)
+            self.vaccine[uid] = Vaccine([vaccinated_strain], self.sim.t.abstvec[self.ti], 2)
 
     def is_vaccine_immune(self, uid, infecting_strain):
         # Effectiveness of the vaccination depends on the number of doses
