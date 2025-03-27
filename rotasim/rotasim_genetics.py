@@ -447,6 +447,18 @@ class Rota(ss.Module):
         self.files.sample_vaccine_efficacy_output_filename = './results/rota_sample_vaccine_efficacy_%s.csv' % (
             name_suffix)
 
+        # todo convert to results
+        self.event_dict = sc.objdict(
+            births=0,
+            deaths=0,
+            recoveries=0,
+            contacts=0,
+            wanings=0,
+            reassortments=0,
+            vaccine_dose_1_wanings=0,
+            vaccine_dose_2_wanings=0,
+        )
+
 
         return
 
@@ -659,16 +671,7 @@ class Rota(ss.Module):
         """
         Perform the actual integration loop
         """
-        self.event_dict = sc.objdict(
-            births=0,
-            deaths=0,
-            recoveries=0,
-            contacts=0,
-            wanings=0,
-            reassortments=0,
-            vaccine_dose_1_wanings=0,
-            vaccine_dose_2_wanings=0,
-        )
+
 
         if self.tau_steps % 10 == 0:
             if self.sim.pars.verbose > 0: print(
