@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 T = sc.timer()
 
-fns = sc.getfilelist(folder='../rotasim/results', pattern='rota_strains_infected_all*.csv')
+fns = sc.getfilelist(folder='../tests/results', pattern='rota_strains_infected_all*.csv')
 
 dfs = sc.objdict()
 rrs = sc.objdict()
