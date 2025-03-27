@@ -755,9 +755,6 @@ class Rota(ss.Module):
             while len(self.single_dose_vaccinated_uids) > 0:
                 child_uid = self.single_dose_vaccinated_uids[0]
                 # If the first dose of the vaccine is older than 6 weeks then administer the second dose
-                # TODO this doesn't work as expected if the vaccine wanes before 6 weeks is up as the self.vaccine is reset to null.
-                #  I added a check for None to keep the code running when this happens, but Nones will now accumulate in
-                #  self.single_dose_vaccinated_uids and those uids will never receive a second dose.
                 if (self.vaccine[child_uid] is not None) and (self.t.abstvec[self.ti] - self.vaccine[child_uid][1] >= 0.11):
                     self.single_dose_vaccinated_uids.pop(0)
                     if rnd.random() < self.vaccine_second_dose_rate:
@@ -997,6 +994,8 @@ class Rota(ss.Module):
         # For the selcted hosts set the immunity to be None
         for i in range(min(len(self.single_dose_vaccinated_uids), wanings)):
             h_uid = self.single_dose_vaccinated_uids[0]
+
+            # TODO verify that setting vaccine to None and popping the uid is sufficient and no other changes are needed
             self.vaccine[h_uid] = None
             self.single_dose_vaccinated_uids.pop(0)
 
@@ -1005,6 +1004,8 @@ class Rota(ss.Module):
         # For the selected hosts set the immunity to be None
         for i in range(min(len(self.double_dose_vaccinated_uids), wanings)):
             h_uid = self.double_dose_vaccinated_uids[0]
+
+            # TODO verify that setting vaccine to None and popping the uid is sufficient and no other changes are needed
             self.vaccine[h_uid] = None
             self.double_dose_vaccinated_uids.pop(0)
 
