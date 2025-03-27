@@ -2,8 +2,7 @@ import sciris as sc
 import rotasim as rs
 
 with sc.timer():
-    rota = rs.Rota()
-    sim = rs.Sim(connectors=rota)
+    sim = rs.Sim(verbose=True)
     sim.run()
 
     events = sim.connectors['rota'].event_dict
