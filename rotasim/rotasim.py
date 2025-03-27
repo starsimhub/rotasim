@@ -64,29 +64,10 @@ class Sim(ss.Sim):
         if 'connectors' not in kwargs:
             kwargs['connectors'] = rg.Rota(to_csv=to_csv, **rota_kwargs)
 
-
-
-
         super().__init__(n_agents=n_agents, start=start, stop=start+timelimit, unit=unit, dt=dt, verbose=verbose, rand_seed=rand_seed, use_aging=True, **kwargs)
 
-
-
-        # Update with any keyword arguments
-        # for k,v in kwargs.items():
-        #     if k in args:
-        #         args[k] = v
-        #     else:
-        #         KeyError(k)
-
-        # Loop over command line input arguments, if provided
-        # Using sys.argv in this way breaks when using pytest because it passes two args instead of one (runner and script)
-        # for i,arg in enumerate(sys.argv[1:]):
-        #     args[i] = arg
-
         if verbose:
-            print(f'Creating simulation with N={n_agents}, timelimit={timelimit} and parameters:')
-            # print(args)
-
+            print(f'Creating simulation with n_agents={n_agents}, timelimit={timelimit} and parameters:')
 
         return
 
