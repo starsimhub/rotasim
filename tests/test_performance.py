@@ -5,8 +5,8 @@ Check performance
 import sciris as sc
 import rotasim as rs
 
-N = 5_000
-timelimit = 30
+N = 2_000
+timelimit = 10
 kwargs = dict(N=N, timelimit=timelimit)
 
 
