@@ -38,20 +38,31 @@ class Sim(ss.Sim):
             verbose = 0,
             to_csv = True,
             rand_seed = 1,
+            rota_kwargs = {},
             **kwargs,
         ):
         """
         Create the simulation.
 
         Args:
-            defaults (list): a list of parameters matching the command-line inputs; see below
+            n_agents (int): the number of agents in the simulation
+            timelimit (int): the number of time units to run the simulation for
+            start (int): the starting date of the simulation
+            unit (str): the unit of time to use
+            dt (float): the time step to use
             verbose (bool): the "verbosity" of the output: if False, print nothing; if None, print the timestep; if True, print out results
+            to_csv (bool): whether to save the results to a CSV file
+            rand_seed (int): the random seed to use
+            rota_kwargs (dict): custom parameters for the Rota class
+            kwargs (dict): additional Sim keyword arguments,
         """
+        # N is the old name for n_agents, replace it with the new key if it's present
         if 'N' in kwargs:
             n_agents = kwargs.pop('N')
 
+        # If the Rota module isn't provided, create it
         if 'connectors' not in kwargs:
-            kwargs['connectors'] = rg.Rota(to_csv=to_csv)
+            kwargs['connectors'] = rg.Rota(to_csv=to_csv, **rota_kwargs)
 
 
 
@@ -78,20 +89,6 @@ class Sim(ss.Sim):
 
 
         return
-
-
-    def init(self, force=False):
-        """
-        Set up the variables for the run
-        """
-        if force or not self.initialized:
-
-            if self.pars.people is None:
-                self.pars.people = ss.People(n_agents=self.pars.n_agents)
-
-            super().init(force=force)
-
-        return self
 
 
     def to_df(self):
