@@ -404,11 +404,10 @@ class Rota(ss.Module):
             vaccination_double_dose_waning_rate = 365 / 546,  # 365/2600
             # vaccination_waning_lower_bound = 20 * 7 / 365.0,
 
-            # Tau leap parametes
+            # Tau leap parameters
             tau = 1 / 365.0,
 
-            # if initialization starts with a proportion of immune agents:
-            # num_initial_immune = 10000,
+            # default num_initial_immune to 0, will be updated later if needed
             num_initial_immune = 0,
         )
 
@@ -784,7 +783,6 @@ class Rota(ss.Module):
 
         if self.sim.pars.verbose > 0:
             self.T.toc()
-            print(f"Max number of infection paths: {max([len(x) for x in self.infecting_pathogen])}")
         return
 
     # compares two strains
