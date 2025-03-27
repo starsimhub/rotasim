@@ -1378,6 +1378,14 @@ class Rota(ss.Module):
         else:
             self.infections_without_vaccination[uid].append(new_p)
 
+    def to_df(self):
+        """ Convert results to a dataframe """
+        cols = self.results.columns
+        res = self.results.infected_all
+        df = sc.dataframe(data=res, columns=cols)
+        self.df = df
+        return df
+
 
     def __str__(self):
         return "Strain: " + self.get_strain_name() + " Severe: " + str(self.is_severe) + " Host: " + str(self.host.id) + str(self.creation_time)
