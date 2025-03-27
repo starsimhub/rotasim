@@ -30,7 +30,8 @@ def update_performance(save=False):
 def profile():
     sc.heading('Running sc.profile')
     rota = rs.Sim(**kwargs)
-    prf = sc.profile(rota.run, follow=rota.integrate)
+    rota.init()
+    prf = sc.profile(rota.run, follow=rota.connectors['rota'].step)
     return prf
 
 
