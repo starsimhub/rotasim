@@ -1380,11 +1380,15 @@ class Rota(ss.Module):
 
     def to_df(self):
         """ Convert results to a dataframe """
-        cols = self.results.columns
-        res = self.results.infected_all
+        cols = self.rota_results.columns
+        res = self.rota_results.infected_all
         df = sc.dataframe(data=res, columns=cols)
         self.df = df
         return df
+
+    def finalize(self):
+        self.df = self.to_df()
+        super().finalize()
 
 
     def __str__(self):
