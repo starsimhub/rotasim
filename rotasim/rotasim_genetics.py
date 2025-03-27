@@ -755,7 +755,7 @@ class Rota(ss.Module):
             while len(self.single_dose_vaccinated_uids) > 0:
                 child_uid = self.single_dose_vaccinated_uids[0]
                 # If the first dose of the vaccine is older than 6 weeks then administer the second dose
-                if (self.vaccine[child_uid] is not None) and (self.t.abstvec[self.ti] - self.vaccine[child_uid][1] >= 0.11):
+                if (self.vaccine[child_uid] is not None) and (self.t.abstvec[self.ti] - self.vaccine[child_uid].time >= 0.11):
                     self.single_dose_vaccinated_uids.pop(0)
                     if rnd.random() < self.vaccine_second_dose_rate:
                         self.vaccinate(child_uid, vaccinated_strain)
@@ -816,14 +816,14 @@ class Rota(ss.Module):
 
         if vaccine is not None:
             # Probability of severity also depends on the strain (homotypic/heterltypic/etc.)
-            pathogen_strain_type = pathogen_in.match(vaccine[0][0])
+            pathogen_strain_type = pathogen_in.match(vaccine.strain[0])
             # Effectiveness of the vaccination depends on the number of doses
-            if vaccine[2] == 1:
+            if vaccine.dose == 1:
                 ve_s = self.vaccine_efficacy_s_d1[pathogen_strain_type]
-            elif vaccine[2] == 2:
+            elif vaccine.dose == 2:
                 ve_s = self.vaccine_efficacy_s_d2[pathogen_strain_type]
             else:
-                raise NotImplementedError(f"Unsupported vaccine dose: {vaccine[2]}")
+                raise NotImplementedError(f"Unsupported vaccine dose: {vaccine.dose}")
             return severity_probability * (1 - ve_s)
         else:
             return severity_probability
@@ -1093,15 +1093,15 @@ class Rota(ss.Module):
 
     def is_vaccine_immune(self, uid, infecting_strain):
         # Effectiveness of the vaccination depends on the number of doses
-        if self.vaccine[uid][2] == 1:
+        if self.vaccine[uid].dose == 1:
             ve_i_rates = self.vaccine_efficacy_i_d1
-        elif self.vaccine[uid][2] == 2:
+        elif self.vaccine[uid].dose == 2:
             ve_i_rates = self.vaccine_efficacy_i_d2
         else:
-            raise NotImplementedError(f"Unsupported vaccine dose: {self.vaccine[2]}")
+            raise NotImplementedError(f"Unsupported vaccine dose: {self.vaccine[uid].dose}")
 
         # Vaccine strain only contains the antigenic parts
-        vaccine_strain = self.vaccine[uid][0]
+        vaccine_strain = self.vaccine[uid].strain
         vaccine_hypothesis = self.pars.vaccine_hypothesis
 
         if vaccine_hypothesis == 0:
@@ -1185,8 +1185,8 @@ class Rota(ss.Module):
                 # For vaccination data file, we will count the number of agents with current vaccine immunity
                 # This will exclude those who previously got the vaccine but the immunity waned.
                 if self.vaccine[uid] is not None:
-                    for vs in [self.get_strain_antigenic_name(s) for s in self.vaccine[uid][0]]:
-                        collected_vaccination_data.append((uid, vs, self.t.abstvec[self.ti], self.get_age_category(uid), self.vaccine[uid][2]))
+                    for vs in [self.get_strain_antigenic_name(s) for s in self.vaccine[uid].strain]:
+                        collected_vaccination_data.append((uid, vs, self.t.abstvec[self.ti], self.get_age_category(uid), self.vaccine[uid].time))
             if len(self.prior_vaccinations[uid]) != 0:
                 if len(vaccinated_uids) < 1000:
                     vaccinated_uids.append(uid)
