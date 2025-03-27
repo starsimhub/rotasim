@@ -385,7 +385,7 @@ class Rota(ss.Module):
             contact_rate = 365 / 1,
             reassortmentRate_GP = None,
 
-            vaccination_time = 20,
+            vaccination_time = 20, # vaccinations begin at this year in the sim
 
             # Efficacy of the vaccine first dose
             vaccine_efficacy_d1 = {
