@@ -18,8 +18,8 @@ def update_performance(save=False):
     rota = rs.Sim(**kwargs)
     rota.run()
     T.toc()
-    time = f'{T.elapsed:0.2f}'
-    benchmark = f'{sc.benchmark()['numpy']:0.2f}'
+    time = round(T.elapsed, 2)
+    benchmark = round(sc.benchmark()['numpy'], 2)
     data = dict(time=time, sc_benchmark=benchmark)
     if save:
         sc.savejson(filename, data)
