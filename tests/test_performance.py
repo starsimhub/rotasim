@@ -19,7 +19,7 @@ def update_performance(save=False):
     rota.run()
     T.toc()
     string = f'{T.elapsed:0.2f}'
-    data = dict(time=string)
+    data = dict(time=string, sc_benchmark=sc.benchmark()['numpy'])
     if save:
         sc.savejson(filename, data)
     print(data)
