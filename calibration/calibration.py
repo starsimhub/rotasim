@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 # Local imports ... should tidy up later
 thisdir = sc.thispath(__file__)
-rs = sc.importbypath(thisdir.parent / 'rotasim/rotasim.py')
+import rotasim as rs
 process_incidence = sc.importbypath(thisdir / 'process_incidence.py')
 
 
