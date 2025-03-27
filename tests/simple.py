@@ -4,5 +4,7 @@ import rotasim as rs
 with sc.timer():
     rota = rs.Rota()
     sim = rs.Sim(connectors=rota)
-    events = sim.run()
+    sim.run()
+
+    events = sim.connectors['rota'].event_dict
     print(events)
