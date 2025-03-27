@@ -693,21 +693,6 @@ class Rota(ss.Module):
                     write = csv.writer(outputfile)
                     write.writerow(["{:.2}".format(self.t.abstvec[self.ti])] + list(age_dict.values()))
 
-        # Count the number of hosts with 1 or 2 vaccinations
-        single_dose_hosts = []
-        double_dose_hosts = []
-
-        #vaccinated_inds = [index for index, value in enumerate(self.vaccine.raw) if value is not None]
-        #if len(vaccinated_inds):
-        #    single_dose_hosts = (self.vaccine.raw[vaccinated_inds][2]==1).auids
-        #    double_dose_hosts = (self.vaccine.raw[vaccinated_inds][2]==2).auids
-        #
-        # for uid in self.sim.people.uid:
-        #     if self.vaccine[uid] is not None:
-        #         if self.vaccine[uid][2] == 1:
-        #             single_dose_hosts.append(uid)
-        #         elif self.vaccine[uid][2] == 2:
-        #             double_dose_hosts.append(uid)
 
         # Get the number of events in a single tau step
         events = self.get_event_counts(len(self.sim.people), len(self.infected_uids), self.immunity_counts, self.pars.tau,
@@ -800,7 +785,6 @@ class Rota(ss.Module):
         if self.sim.pars.verbose > 0:
             self.T.toc()
             print(f"Max number of infection paths: {max([len(x) for x in self.infecting_pathogen])}")
-        # return self.event_dict
         return
 
     # compares two strains
@@ -924,12 +908,6 @@ class Rota(ss.Module):
         weights = weights / total_w
 
         recovering_hosts_uids = np.random.choice(infected_uids, p=weights, size=num_recovered, replace=False)
-        # for host in recovering_hosts:
-        #     if not host.is_immune_flag:
-        #         self.immunity_counts += 1
-        #     host.recover(strain_count)
-        #     infected_uids.remove(host)
-        #
         not_immune = recovering_hosts_uids[self.is_immune_flag[ss.uids(recovering_hosts_uids)] == False]
         self.immunity_counts += len(not_immune)
 
@@ -968,7 +946,7 @@ class Rota(ss.Module):
 
             # No infection occurs
             if rnd_num > infecting_probability:
-                continue  # CK: was "return", which was a bug!
+                continue
             else:
                 counter += 1
                 h2_previously_infected = self.isInfected(uid=h2_uid)
@@ -1003,14 +981,11 @@ class Rota(ss.Module):
     def waning_event(self, wanings):
         # Get all the hosts in the population that has an immunity
         h_immune_uids = (self.is_immune_flag).uids
-        #h_immune = [h for h in self.host_pop if h.is_immune_flag]
-        # oldest = np.array([h.oldest_infection for h in h_immune])
         oldest_infections = self.oldest_infection[h_immune_uids]
-        # oldest += 1e-6*np.random.random(len(oldest)) # For tiebreaking -- not needed
         order = np.argsort(oldest_infections, stable=True)
 
         # For the selected hosts set the immunity to be None
-        for i in order[:wanings]:  # range(min(len(hosts_with_immunity), wanings)):
+        for i in order[:wanings]:
             h_uid = h_immune_uids[i]
             self.immunity[h_uid] = {}
             self.is_immune_flag[h_uid] = False
