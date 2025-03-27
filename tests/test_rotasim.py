@@ -5,34 +5,31 @@ NB: the two tests could be combined into one, but are left separate for clarity.
 """
 
 import sciris as sc
-import rotaABM as rabm
+import rotasim as rs
 
 N = 2_000
 timelimit = 10
 
-def test_default(make=False, benchmark=False):
+def test_default(make=False):
     sc.heading('Testing default parameters')
     filename = 'test_events_default.json'
     
     # Generate new baseline
     if make:
         with sc.timer() as T:
-            rota = rabm.RotaABM(N=N, timelimit=timelimit)
+            rota = rs.Sim(N=N, timelimit=timelimit)
             events = rota.run()
         sc.savejson(filename, events)
         
     # Check old baseline
     else:
         with sc.timer() as T:
-            rota = rabm.RotaABM(N=N, timelimit=timelimit)
+            rota = rs.Sim(N=N, timelimit=timelimit, verbose=True)
             events = rota.run()
         saved = sc.objdict(sc.loadjson(filename))
         assert events == saved, 'Events do not match for default simulation'
         print(f'Defaults matched:\n{events}')
     
-    if benchmark:
-        sc.savejson('test_performance.json', dict(time=f'{T.elapsed:0.1f}'))
-        
     return
 
 
@@ -54,13 +51,13 @@ def test_alt(make=False):
     
     # Generate new baseline
     if make:
-        rota = rabm.RotaABM(**inputs)
+        rota = rs.Sim(**inputs)
         events = rota.run()
         sc.savejson(filename, events)
         
     # Check old baseline
     else:
-        rota = rabm.RotaABM(**inputs)
+        rota = rs.Sim(**inputs)
         events = rota.run()
         saved = sc.objdict(sc.loadjson(filename))
         assert events == saved, 'Events do not match for alternate parameters simulation'

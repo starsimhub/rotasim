@@ -1,0 +1,43 @@
+name: Rotasim CI tests
+on: [pull_request]
+
+jobs:
+  install_and_test:
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: '3.10'
+          - os: ubuntu-latest
+            python-version: '3.12'
+          - os: windows-latest
+            python-version: '3.12'
+
+    runs-on: ${{ matrix.os }}
+    name: Install and test
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: actions/setup-python@master
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+      - name: Install Rotasim
+        run: pip install -e .
+      - name: Install tests
+        working-directory: ./tests
+        run: pip install -r requirements.txt
+      - name: Run API tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        working-directory: ./tests
+        run: pytest -n auto --durations=0 --junitxml=test-results.xml # Run actual tests
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test_results_${{ github.run_id }}_${{ github.run_number }}
+          path: tests/test-results.xml

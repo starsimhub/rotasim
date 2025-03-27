@@ -671,8 +671,9 @@ class Sim(sc.quickobj):
                 KeyError(k)
 
         # Loop over command line input arguments, if provided
-        for i,arg in enumerate(sys.argv[1:]):
-            args[i] = arg
+        # Using sys.argv in this way breaks when using pytest because it passes two args instead of one (runner and script)
+        # for i,arg in enumerate(sys.argv[1:]):
+        #     args[i] = arg
 
         if verbose is not False:
             print(f'Creating simulation with N={N}, timelimit={timelimit} and parameters:')
@@ -951,7 +952,7 @@ class Sim(sc.quickobj):
         h_immune = [h for h in self.host_pop if h.is_immune_flag]
         oldest = np.array([h.oldest_infection for h in h_immune])
         # oldest += 1e-6*np.random.random(len(oldest)) # For tiebreaking -- not needed
-        order = np.argsort(oldest)
+        order = np.argsort(oldest, stable=True)
 
         # For the selcted hosts set the immunity to be None
         for i in order[:wanings]:#range(min(len(hosts_with_immunity), wanings)):
