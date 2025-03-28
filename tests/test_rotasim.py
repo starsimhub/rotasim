@@ -11,7 +11,7 @@ N = 2_000
 timelimit = 10
 verbose=False
 
-def test_default(make=False, benchmark=False):
+def test_default(make=False):
     sc.heading('Testing default parameters')
     filename = 'test_events_default.json'
     
@@ -33,9 +33,6 @@ def test_default(make=False, benchmark=False):
         assert events == saved, 'Events do not match for default simulation'
         print(f'Defaults matched:\n{events}')
     
-    if benchmark:
-        sc.savejson('test_performance.json', dict(time=f'{T.elapsed:0.1f}'))
-        
     return
 
 

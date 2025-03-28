@@ -5,8 +5,8 @@ Check performance
 import sciris as sc
 import rotasim as rs
 
-N = 5_000
-timelimit = 30
+N = 2_000
+timelimit = 10
 kwargs = dict(N=N, timelimit=timelimit)
 
 
@@ -18,8 +18,9 @@ def update_performance(save=False):
     rota = rs.Sim(**kwargs)
     rota.run()
     T.toc()
-    string = f'{T.elapsed:0.2f}'
-    data = dict(time=string, sc_benchmark=sc.benchmark()['numpy'])
+    time = round(T.elapsed, 2)
+    benchmark = round(sc.benchmark()['numpy'], 2)
+    data = dict(time=time, sc_benchmark=benchmark)
     if save:
         sc.savejson(filename, data)
     print(data)
