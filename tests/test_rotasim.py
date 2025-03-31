@@ -73,7 +73,7 @@ def test_alt(make=False):
 
 
 if __name__ == '__main__':
-    make = True # Set to True to regenerate results
-    benchmark = True # Set to True to redo the performance results
-    test_default(make=make, benchmark=benchmark)
+    make = False # Set to True to regenerate results
+    benchmark = False # Set to True to redo the performance results
+    test_default(make=make)
     test_alt(make=make)

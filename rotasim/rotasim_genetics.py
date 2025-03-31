@@ -869,13 +869,12 @@ class Rota(ss.Module):
         return weights
 
     def birth_events(self, birth_count):
-        for _ in range(birth_count):
-            new_uids = self.sim.people.grow(birth_count) # add more people!
-            self.sim.people.age[new_uids] = 0
+        new_uids = self.sim.people.grow(birth_count) # add more people!
+        self.sim.people.age[new_uids] = 0
 
-            if self.pars.vaccine_hypothesis != 0 and self.done_vaccinated:
-                if rnd.random() < self.vaccine_first_dose_rate:
-                    self.to_be_vaccinated_uids.extend(new_uids)
+        if self.pars.vaccine_hypothesis != 0 and self.done_vaccinated:
+            if rnd.random() < self.vaccine_first_dose_rate:
+                self.to_be_vaccinated_uids.extend(new_uids)
 
     def death_event(self, num_deaths, infected_uids, strain_count):
         # host_list = np.arange(len(self.host_pop))
