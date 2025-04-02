@@ -30,15 +30,13 @@ class RotaPathogen(sc.quickobj):
     Pathogen dynamics
     """
 
-    def __init__(self, is_reassortant, creation_time, is_severe=False, host_uid=None, strain=None, fitness_hypothesis=None, numAgSegments=None):
-        # self.sim = sim
+    def __init__(self, rotasim, is_reassortant, creation_time, is_severe=False, host_uid=None, strain=None):
+        self.rotasim = rotasim # The Rota module
         self.host_uid = host_uid
         self.creation_time = creation_time
         self.is_reassortant = is_reassortant
         self.strain = strain
         self.is_severe = is_severe
-        self.fitness_hypothesis = fitness_hypothesis
-        self.numAgSegments = numAgSegments
 
         self.fitness_map = {
             1: {'default': 1},
@@ -71,7 +69,7 @@ class RotaPathogen(sc.quickobj):
     # compares two strains
     # if they both have the same antigenic segments we return homotypic
     def match(self, strainIn):
-        numAgSegments = self.numAgSegments
+        numAgSegments = self.rotasim.pars.numAgSegments
         if strainIn[:numAgSegments] == self.strain[:numAgSegments]:
             return PathogenMatch.HOMOTYPIC
 
@@ -87,7 +85,7 @@ class RotaPathogen(sc.quickobj):
 
     def get_fitness(self):
         """ Get the fitness based on the fitness hypothesis and the two strains """
-        fitness_hypothesis = self.fitness_hypothesis
+        fitness_hypothesis = self.rotasim.pars.fitness_hypothesis
         key = (self.strain[0], self.strain[1])
 
         if fitness_hypothesis == 1:
@@ -334,6 +332,8 @@ class Rota(ss.Module):
     def __init__(self, to_csv=True, **kwargs):
         super().__init__()
         self.T = sc.timer()
+        self.vx_first_dose = ss.bernoulli()
+        self.vx_second_dose = ss.bernoulli()
 
         numSegments = 4
         numNoneAgSegments = 2
@@ -536,7 +536,10 @@ class Rota(ss.Module):
 
         # Vaccination rates are derived based on the following formula
         self.vaccine_second_dose_rate = 0.8
+        self.vx_second_dose.set(p=self.vaccine_second_dose_rate)
         self.vaccine_first_dose_rate = math.sqrt(self.vaccine_second_dose_rate)
+        self.vx_first_dose.set(p=self.vaccine_first_dose_rate)
+
         if self.sim.pars.verbose > 0: print("Vaccination - first dose rate: %s, second dose rate %s" % (
         self.vaccine_first_dose_rate, self.vaccine_second_dose_rate))
 
@@ -613,7 +616,7 @@ class Rota(ss.Module):
                 h = int(rnd.choice(self.sim.people.uid))
                 if not self.isInfected(h):
                     infected_uids.append(h)
-                p = RotaPathogen(is_reassortant=False, creation_time=self.t.abstvec[self.ti], host_uid=h, strain=initial_strain, fitness_hypothesis=self.pars.fitness_hypothesis, numAgSegments=self.pars.numAgSegments)
+                p = RotaPathogen(rotasim=self, is_reassortant=False, creation_time=self.t.abstvec[self.ti], host_uid=h, strain=initial_strain)
                 pathogens_uids.append(p)
                 self.infecting_pathogen[h].append(p)
                 strain_count[p.strain] += 1
@@ -752,16 +755,13 @@ class Rota(ss.Module):
         # Administer the second dose of the vaccine if first dose has already been administered.
         # The second dose is administered 6 weeks after the first dose with probability vaccine_second_dose_rate
         if self.done_vaccinated:
-            while len(self.single_dose_vaccinated_uids) > 0:
-                child_uid = self.single_dose_vaccinated_uids[0]
+            for child_uid in self.single_dose_vaccinated_uids[:]:
                 # If the first dose of the vaccine is older than 6 weeks then administer the second dose
                 if (self.vaccine[child_uid] is not None) and (self.t.abstvec[self.ti] - self.vaccine[child_uid].time >= 0.11):
-                    self.single_dose_vaccinated_uids.pop(0)
-                    if rnd.random() < self.vaccine_second_dose_rate:
+                    self.single_dose_vaccinated_uids.remove(child_uid)
+                    if self.vx_second_dose.rvs(1):
                         self.vaccinate(child_uid, vaccinated_strain)
                         self.double_dose_vaccinated_uids.append(child_uid)
-                else:
-                    break
 
         f = self.files
         if self.t.abstvec[self.ti] >= self.last_data_colllected:
@@ -873,8 +873,8 @@ class Rota(ss.Module):
         self.sim.people.age[new_uids] = 0
 
         if self.pars.vaccine_hypothesis != 0 and self.done_vaccinated:
-            if rnd.random() < self.vaccine_first_dose_rate:
-                self.to_be_vaccinated_uids.extend(new_uids)
+            vax_uids = self.vx_first_dose.filter(uids=new_uids)
+            self.to_be_vaccinated_uids.extend(vax_uids)
 
     def death_event(self, num_deaths, infected_uids, strain_count):
         # host_list = np.arange(len(self.host_pop))
@@ -948,8 +948,6 @@ class Rota(ss.Module):
                 if len(self.infecting_pathogen[h1_uid]) == 1:
                     if self.can_variant_infect_host(h2_uid, self.infecting_pathogen[h1_uid][0].strain):
                         self.infect_with_pathogen(h2_uid, self.infecting_pathogen[h1_uid][0], strain_count)
-                    # else:
-                    #     print('Unclear what should happen here')
                 else:
                     self.coInfected_contacts(h1_uid, h2_uid, strain_count)
 
@@ -1057,7 +1055,7 @@ class Rota(ss.Module):
         all_antigenic_combinations = [i for i in itertools.product(*seg_combinations) if i not in parantal_strains]
         all_nonantigenic_combinations = [j.strain[self.pars.numAgSegments:] for j in self.infecting_pathogen[uid]]
         all_strains = set([(i[0] + i[1]) for i in itertools.product(all_antigenic_combinations, all_nonantigenic_combinations)])
-        all_pathogens = [RotaPathogen(is_reassortant=True, creation_time=self.t.abstvec[self.ti], host_uid = uid, strain=tuple(i), fitness_hypothesis=self.pars.fitness_hypothesis, numAgSegments=self.pars.numAgSegments) for i in all_strains]
+        all_pathogens = [RotaPathogen(rotasim=self, is_reassortant=True, creation_time=self.t.abstvec[self.ti], host_uid = uid, strain=tuple(i)) for i in all_strains]
 
         return all_pathogens
 
@@ -1358,7 +1356,7 @@ class Rota(ss.Module):
         else:
             severe = False
 
-        new_p = RotaPathogen(is_reassortant=False, creation_time=self.t.abstvec[self.ti], host_uid=uid, strain=pathogen_in.strain, is_severe=severe, fitness_hypothesis=self.pars.fitness_hypothesis, numAgSegments=self.pars.numAgSegments)
+        new_p = RotaPathogen(rotasim=self, is_reassortant=False, creation_time=self.t.abstvec[self.ti], host_uid=uid, strain=pathogen_in.strain, is_severe=severe)
         self.infecting_pathogen[uid].append(new_p)
         self.record_infection(new_p)
 
