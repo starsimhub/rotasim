@@ -961,14 +961,15 @@ class Rota(ss.Module):
         for i in infected_uids:
             if len(self.infecting_pathogen[i]) >= 2:
                 coinfectedhosts.append(i)
-        rnd.shuffle(coinfectedhosts)  # TODO: maybe replace this
 
-        for i in range(min(len(coinfectedhosts), reassortment_count)):
-            parentalstrains = [path.strain for path in self.infecting_pathogen[coinfectedhosts[i]]]
-            possible_reassortants = [path for path in self.compute_combinations(coinfectedhosts[i]) if
+        reassortment_hosts = np.random.choice(coinfectedhosts, min(len(coinfectedhosts), reassortment_count))
+
+        for reassortment_host in reassortment_hosts:
+            parentalstrains = [path.strain for path in self.infecting_pathogen[reassortment_host]]
+            possible_reassortants = [path for path in self.compute_combinations(reassortment_host) if
                                      path not in parentalstrains]
             for path in possible_reassortants:
-                self.infect_with_reassortant(coinfectedhosts[i], path)
+                self.infect_with_reassortant(reassortment_host, path)
 
     def waning_event(self, wanings):
         # Get all the hosts in the population that has an immunity
