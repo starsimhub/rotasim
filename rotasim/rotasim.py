@@ -32,7 +32,7 @@ class Sim(ss.Sim):
     def __init__(self,
             n_agents = 10_000,
             timelimit = 10,
-            start = 0,
+            start = 2000,
             unit = 'year',
             dt = 1/365,
             verbose = 0,
