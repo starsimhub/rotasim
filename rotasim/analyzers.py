@@ -1,5 +1,5 @@
 import starsim as ss
-import numpy as np
+import rotasim as rs
 
 class StrainStats(ss.Analyzer):
     """
@@ -7,7 +7,6 @@ class StrainStats(ss.Analyzer):
     """
     def __init__(self):
         super().__init__()
-        # self.results = {}
         return
 
 
@@ -15,8 +14,8 @@ class StrainStats(ss.Analyzer):
         super().init_results()
 
         for strain in self.sim.connectors.rota.pars.segment_combinations:
-            self.results += ss.Result(f'({', '.join(map(str, strain))}) proportion', dtype=float, scale=False, module=self.name, shape=self.timevec.shape, timevec=self.timevec)
-            self.results += ss.Result(f'({', '.join(map(str, strain))}) count', dtype=float, scale=False,
+            self.results += ss.Result(f'{strain} proportion', dtype=float, scale=False, module=self.name, shape=self.timevec.shape, timevec=self.timevec)
+            self.results += ss.Result(f'{strain} count', dtype=float, scale=False,
                                       module=self.name, shape=self.timevec.shape, timevec=self.timevec)
         return
 

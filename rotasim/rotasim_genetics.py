@@ -1388,6 +1388,5 @@ class Rota(ss.Module):
         self.df = self.to_df()
         super().finalize()
 
-
     def __str__(self):
         return "Strain: " + self.get_strain_name() + " Severe: " + str(self.is_severe) + " Host: " + str(self.host.id) + str(self.creation_time)
