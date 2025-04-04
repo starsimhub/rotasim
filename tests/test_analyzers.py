@@ -19,4 +19,7 @@ def test_strainstats():
             prop_sum += sim.results.strainstats[f'{strain} proportion'][i]
         assert pytest.approx(prop_sum, .001) == 1
 
+    df = sim.analyzers.strainstats.to_df()
+    plots = sim.results.strainstats.plot()
+
     return

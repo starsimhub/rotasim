@@ -33,3 +33,12 @@ class StrainStats(ss.Analyzer):
             res[f'{strain} count'][sim.ti] = strain_count[strain]
 
         return
+
+    def to_df(self):
+        df = self.results.to_df()
+
+        # get the list of extra timevec column indexes and drop all but the first
+        indexes_to_drop = df.columns.get_indexer_for(['timevec'])
+        df.drop(columns=df.columns[indexes_to_drop[1:]], inplace=True)
+
+        return df
