@@ -27,10 +27,12 @@ class StrainStats(ss.Analyzer):
 
         # get the list of strains that appeared in the entire simulation
 
-        for strain in strain_count:
-            # Calculate the proportion of the strain in the population
-            res[f'{strain} proportion'][sim.ti] = strain_count[strain] / sum(strain_count.values())
-            res[f'{strain} count'][sim.ti] = strain_count[strain]
+        total_count = sum(strain_count.values())
+        if total_count:
+            for strain in strain_count:
+                # Calculate the proportion of the strain in the population
+                res[f'{strain} proportion'][sim.ti] = strain_count[strain] / total_count
+                res[f'{strain} count'][sim.ti] = strain_count[strain]
 
         return
 
