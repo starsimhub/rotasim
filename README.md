@@ -6,10 +6,19 @@ This repository contains code for the rotavirus genetic diversity project.
 
 ## Installation
 
-`pip install -r requirements.txt`
+`pip install -e .`
 
-This does _not_ install the code as an importable module; just run `rotaABM.py` for that (see below).
+This installs Rotasim as an importable module.
 
 ## Running the code
 
-Call `python rotaABM.py` which writes results to the `results` folder. File names are set based on parameter values. Run `plot_results.py` to plot key results.
+To run the code, import the module and call the `run` function. For example:
+
+```python
+import rotasim
+
+sim = rotasim.Sim()
+sim.run()
+```
+
+Alternatively, run the simple.py script in the tests directory which writes results to the `results` folder. File names are set based on parameter values. Run `plot_results.py` to plot key results.
