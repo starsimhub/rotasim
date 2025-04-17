@@ -1314,9 +1314,7 @@ class Rota(ss.Module):
 
 
         if immunity_hypothesis == 1:
-            if is_completely_immune():
-                return False
-            return True
+            return not is_completely_immune()
 
         elif immunity_hypothesis == 2:
             if has_shared_genotype():
