@@ -893,47 +893,93 @@ class Rota(ss.Module):
             print("[Warning] No infected hosts in a contact event. Skipping")
             return
 
+        # Randomly select contacts
         h1_uids = np.random.choice(infected_uids, size=contacts)
-        h2_uids = np.random.choice(self.sim.people.alive.uids, size=contacts)
-        rnd_nums = np.random.random(size=contacts)
-        counter = 0
+        h2_uids = np.random.choice(self.sim.people.alive.uids, size=contacts, replace=True)
 
-        # based on prior infections and current infections, the relative risk of subsequent infections
-        infecting_probability_map = {
-            0: 1,
-            1: 0.61,
-            2: 0.48,
-            3: 0.33,
-        }
+        # Ensure h1_uids and h2_uids are distinct
+        invalid_contacts = h1_uids == h2_uids
+        while np.any(invalid_contacts):
+            h2_uids[invalid_contacts] = np.random.choice(self.sim.people.alive.uids, size=np.sum(invalid_contacts), replace=True)
+            invalid_contacts = h1_uids == h2_uids
 
-        for h1_uid, h2_uid, rnd_num in zip(h1_uids, h2_uids, rnd_nums):
-            # h1 = infected_pop[h1_ind]
-            # h2 = self.host_pop[h2_ind]
+        # Precompute relative risks for all individuals
+        infecting_probability_map = np.array([1, 0.61, 0.48, 0.33])
+        infecting_probabilities = infecting_probability_map[np.clip(self.prior_infections[ss.uids(h2_uids)].astype(int), 0, 3)]
+        infecting_probabilities *= self.pars.rel_beta  # Scale by calibration parameter
 
-            # If the contact is the same as the infected host, pick another host at random
-            while h1_uid == h2_uid:
-                h2_uid = rnd.choice(self.sim.people.alive.uids)
+        # Calculate infection probabilities
+        rnd_nums = np.random.random(size=len(h1_uids))
+        # infecting_probabilities = infecting_probability[h2_uids]
 
-            infecting_probability = infecting_probability_map.get(self.prior_infections[h2_uid], 0)
-            infecting_probability *= self.pars.rel_beta  # Scale by this calibration parameter
+        # Filter successful infections
+        successful_contacts = rnd_nums <= infecting_probabilities
+        h1_uids = h1_uids[successful_contacts]
+        h2_uids = h2_uids[successful_contacts]
 
-            # No infection occurs
-            if rnd_num > infecting_probability:
-                continue
+        # Perform infections
+        counter = len(h1_uids)
+        for h1_uid, h2_uid in zip(h1_uids, h2_uids):
+            h2_previously_infected = self.isInfected(uid=h2_uid)
+            host1paths = list(self.infecting_pathogen[h1_uid])
+
+            if len(self.infecting_pathogen[h1_uid]) == 1 and self.can_variant_infect_host(h2_uid, host1paths[0].strain):
+                self.infect_with_pathogen(h2_uid, host1paths[0])
             else:
-                counter += 1
-                h2_previously_infected = self.isInfected(uid=h2_uid)
+                self.coInfected_contacts(h1_uid, h2_uid)
 
-                if len(self.infecting_pathogen[h1_uid]) == 1:
-                    if self.can_variant_infect_host(h2_uid, self.infecting_pathogen[h1_uid][0].strain):
-                        self.infect_with_pathogen(h2_uid, self.infecting_pathogen[h1_uid][0])
-                else:
-                    self.coInfected_contacts(h1_uid, h2_uid)
+            if not h2_previously_infected and self.isInfected(uid=h2_uid):
+                infected_uids.append(h2_uid)
 
-                # in this case h2 was not infected before but is infected now
-                if not h2_previously_infected and self.isInfected(h2_uid):
-                    infected_uids.append(h2_uid)
         return counter
+
+    # def contact_event(self, contacts, infected_uids):
+    #     if len(infected_uids) == 0:
+    #         print("[Warning] No infected hosts in a contact event. Skipping")
+    #         return
+    #
+    #     h1_uids = np.random.choice(infected_uids, size=contacts)
+    #     h2_uids = np.random.choice(self.sim.people.alive.uids, size=contacts)
+    #     rnd_nums = np.random.random(size=contacts)
+    #     counter = 0
+    #
+    #     # based on prior infections and current infections, the relative risk of subsequent infections
+    #     infecting_probability_map = {
+    #         0: 1,
+    #         1: 0.61,
+    #         2: 0.48,
+    #         3: 0.33,
+    #     }
+    #
+    #     for h1_uid, h2_uid, rnd_num in zip(h1_uids, h2_uids, rnd_nums):
+    #         # h1 = infected_pop[h1_ind]
+    #         # h2 = self.host_pop[h2_ind]
+    #
+    #         # If the contact is the same as the infected host, pick another host at random
+    #         while h1_uid == h2_uid:
+    #             h2_uid = rnd.choice(self.sim.people.alive.uids)
+    #
+    #         infecting_probability = infecting_probability_map.get(self.prior_infections[h2_uid], 0)
+    #         infecting_probability *= self.pars.rel_beta  # Scale by this calibration parameter
+    #
+    #         # No infection occurs
+    #         if rnd_num > infecting_probability:
+    #             continue
+    #         else:
+    #             counter += 1
+    #             h2_previously_infected = self.isInfected(uid=h2_uid)
+    #
+    #             if len(self.infecting_pathogen[h1_uid]) == 1:
+    #                 if self.can_variant_infect_host(h2_uid, self.infecting_pathogen[h1_uid][0].strain):
+    #                     self.infect_with_pathogen(h2_uid, self.infecting_pathogen[h1_uid][0])
+    #             else:
+    #                 self.coInfected_contacts(h1_uid, h2_uid)
+    #
+    #             # in this case h2 was not infected before but is infected now
+    #             if not h2_previously_infected and self.isInfected(h2_uid):
+    #                 infected_uids.append(h2_uid)
+    #     return counter
+
 
     def reassortment_event(self, infected_uids, reassortment_count):
         coinfectedhosts = []
@@ -1264,17 +1310,17 @@ class Rota(ss.Module):
         if self.vaccine[uid] is not None and self.is_vaccine_immune(uid, infecting_strain):
             return False
 
-        current_infecting_strains = (i.strain[:numAgSegments] for i in current_infections)
+        current_infecting_strains = {i.strain[:numAgSegments] for i in current_infections}
         if infecting_strain[:numAgSegments] in current_infecting_strains:
             return False
 
         def is_completely_immune():
-            immune_strains = (s[:numAgSegments] for s in self.immunity[uid].keys())
+            immune_strains = {s[:numAgSegments] for s in self.immunity[uid].keys()}
             return infecting_strain[:numAgSegments] in immune_strains
 
         def has_shared_genotype():
             for i in range(numAgSegments):
-                immune_genotypes = (strain[i] for strain in self.immunity[uid].keys())
+                immune_genotypes = {strain[i] for strain in self.immunity[uid].keys()}
                 if infecting_strain[i] in immune_genotypes:
                     return True
             return False
@@ -1307,11 +1353,11 @@ class Rota(ss.Module):
             return True
 
         elif immunity_hypothesis == 5:
-            immune_ptypes = (strain[1] for strain in self.immunity.keys())
+            immune_ptypes = {strain[1] for strain in self.immunity[uid].keys()}
             return infecting_strain[1] not in immune_ptypes
 
         elif immunity_hypothesis == 6:
-            immune_ptypes = (strain[0] for strain in self.immunity.keys())
+            immune_ptypes = {strain[0] for strain in self.immunity[uid].keys()}
             return infecting_strain[0] not in immune_ptypes
 
         else:
