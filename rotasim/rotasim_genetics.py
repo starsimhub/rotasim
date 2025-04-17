@@ -309,10 +309,6 @@ class Rota(ss.Module):
         self.vx_first_dose = ss.bernoulli()
         self.vx_second_dose = ss.bernoulli()
 
-        numSegments = 4
-        numNoneAgSegments = 2
-        numAgSegments = numSegments - numNoneAgSegments
-
         segmentVariants = [[1, 2, 3, 4, 9, 11, 12], [8, 4, 6], [i for i in range(1, 2)], [i for i in range(1, 2)]]
         # segmentVariants for the Low baseline diversity setting
         # segmentVariants = [[1,2,3,4,9], [8,4], [i for i in range(1, 2)], [i for i in range(1, 2)]]
@@ -354,7 +350,7 @@ class Rota(ss.Module):
                      (9, 6): 0.80, (12, 6): 0.86, (9, 4): 0.83, (1, 6): 0.75, (2, 8): 0.75, (2, 6): 0.75},
                 19: {'default': 0.4, (1, 8): 1, (2, 4): 0.5, (3, 8): 0.55, (4, 8): 0.55, (9, 8): 0.6},
             },
-            numAgSegments = numAgSegments,
+            numAgSegments = 2,
             to_csv = to_csv,  # whether to write files
             mu = 1.0 / 70.0,  # average life span is 70 years
             gamma = 365 / 7,  # 1/average infectious period (1/gamma =7 days)
@@ -381,6 +377,8 @@ class Rota(ss.Module):
             vaccination_single_dose_waning_rate = 365 / 273,  # 365/1273
             vaccination_double_dose_waning_rate = 365 / 546,  # 365/2600
             # vaccination_waning_lower_bound = 20 * 7 / 365.0,
+
+            severity_probability = [0.17, 0.23, 0.24, 0.18], # severity probabilities by number of infections
 
             # Tau leap parameters
             tau = 1 / 365.0,
@@ -784,14 +782,7 @@ class Rota(ss.Module):
         return f'G{G}P{P}A{A}B{B}'
 
     def get_probability_of_severe(self, pathogen_in, vaccine, immunity_count):  # TEMP: refactor and include above
-        if immunity_count >= 3:
-            severity_probability = 0.18
-        elif immunity_count == 2:
-            severity_probability = 0.24
-        elif immunity_count == 1:
-            severity_probability = 0.23
-        elif immunity_count == 0:
-            severity_probability = 0.17
+        severity_probability = self.pars.severity_probability[min(len(self.pars.severity_probability)-1, int(immunity_count))]
 
         if vaccine is not None:
             # Probability of severity also depends on the strain (homotypic/heterltypic/etc.)
@@ -856,10 +847,8 @@ class Rota(ss.Module):
             self.to_be_vaccinated_uids.extend(vax_uids)
 
     def death_event(self, num_deaths, infected_uids):
-        # host_list = np.arange(len(self.host_pop))
         p = self.get_weights_by_age()
         dying_uids = np.random.choice(self.sim.people.alive.uids, p=p, size=num_deaths, replace=False)
-        # dying_hosts = [self.host_pop[ind] for uid in uids]
         for uid in dying_uids:
             if self.isInfected(uid):
                 infected_uids.remove(uid)
@@ -910,7 +899,6 @@ class Rota(ss.Module):
 
         # Calculate infection probabilities
         rnd_nums = np.random.random(size=len(h1_uids))
-        # infecting_probabilities = infecting_probability[h2_uids]
 
         # Filter successful infections
         successful_contacts = rnd_nums <= infecting_probabilities
@@ -1082,8 +1070,7 @@ class Rota(ss.Module):
         return all_pathogens
 
     def get_oldest_current_infection(self, uid):
-        max_infection_times = max([self.t.abstvec[self.ti] - p.creation_time for p in self.infecting_pathogen[uid]])
-        return max_infection_times
+        return self.t.abstvec[self.ti] - self.infecting_pathogen[uid][0].creation_time
 
     def recover(self, uids):
         # We will use the pathogen creation time to count the number of infections
