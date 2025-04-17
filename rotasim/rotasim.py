@@ -8,9 +8,7 @@ Usage:
 
 TODO:
     - Figure out how to make host vaccination more efficient
-    - Replace host with array
-    - Replace pathogen with array
-    - Replace random with numpy
+    - Replace random with ss dists
     - Replace math with numpy
 """
 
@@ -32,7 +30,7 @@ class Sim(ss.Sim):
     def __init__(self,
             n_agents = 10_000,
             timelimit = 10,
-            start = 2000,
+            start = sc.date('2000-01-01'),
             unit = 'year',
             dt = 1/365,
             verbose = 0,
@@ -64,7 +62,7 @@ class Sim(ss.Sim):
         if 'connectors' not in kwargs:
             kwargs['connectors'] = rg.Rota(to_csv=to_csv, **rota_kwargs)
 
-        super().__init__(n_agents=n_agents, start=start, stop=start+timelimit, unit=unit, dt=dt, verbose=verbose, rand_seed=rand_seed, use_aging=True, **kwargs)
+        super().__init__(n_agents=n_agents, start=start, stop=start+sc.datedelta(years=timelimit), unit=unit, dt=dt, verbose=verbose, rand_seed=rand_seed, use_aging=True, **kwargs)
 
         if verbose:
             print(f'Creating simulation with n_agents={n_agents}, timelimit={timelimit} and parameters:')

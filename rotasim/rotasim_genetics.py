@@ -389,6 +389,8 @@ class Rota(ss.Module):
             num_initial_immune = 0,
 
             segment_combinations = [tuple(i) for i in itertools.product(*segmentVariants)],  # getting all possible combinations from a list of list
+
+            data_collection_rate = 0.1,
         )
 
         # update the pars based on the kwargs
@@ -606,7 +608,7 @@ class Rota(ss.Module):
 
         self.tau_steps = 0
         self.last_data_colllected = 0
-        self.data_collection_rate = 0.1
+
 
         for strain, count in self.strain_count.items():
             if strain[:self.pars.numAgSegments] in self.total_strain_counts_vaccine:
@@ -748,7 +750,7 @@ class Rota(ss.Module):
                                         f.sample_vaccine_efficacy_output_filename, sample=True)
             self.collect_and_write_data(f.infected_all_outputfilename, f.vaccinations_outputfilename,
                                         f.vaccine_efficacy_output_filename, sample=False)
-            self.last_data_colllected += self.data_collection_rate
+            self.last_data_colllected += self.pars.data_collection_rate
 
         if self.pars.to_csv:
             with open(f.outputfilename, "a", newline='') as outputfile:
@@ -880,7 +882,7 @@ class Rota(ss.Module):
         total_w = np.sum(weights)
         weights = weights / total_w
 
-        recovering_hosts_uids = np.random.choice(infected_uids, p=weights, size=num_recovered, replace=False)
+        recovering_hosts_uids = np.random.choice(infected_uids, p=weights, size=min(num_recovered, len(infected_uids)), replace=False)
         not_immune = recovering_hosts_uids[self.is_immune_flag[ss.uids(recovering_hosts_uids)] == False]
         self.immunity_counts += len(not_immune)
 
