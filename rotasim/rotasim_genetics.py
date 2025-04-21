@@ -1,3 +1,4 @@
+from collections import defaultdict
 import csv
 import itertools
 import math
@@ -389,6 +390,9 @@ class Rota(ss.Module):
             num_initial_immune = 0,
 
             segment_combinations = [tuple(i) for i in itertools.product(*segmentVariants)],  # getting all possible combinations from a list of list
+
+            # Time to wait before computing strain counts. Allows the simulation to reach a equilibrium.
+            time_to_equilibrium = 5,
         )
 
         # update the pars based on the kwargs
@@ -413,9 +417,9 @@ class Rota(ss.Module):
         )
 
         # Set filenames
-        name_suffix = '%r_%r_%r_%r_%r_%r_%r_%r' % (
+        name_suffix = '%r_%r_%r_%r_%r_%r_%r_%r_%r_%r' % (
         self.pars.immunity_hypothesis, self.pars.reassortment_rate, self.pars.fitness_hypothesis, self.pars.vaccine_hypothesis,
-        self.pars.waning_hypothesis, self.pars.initial_immunity, self.pars.ve_i_to_ve_s_ratio, self.pars.experiment_number)
+        self.pars.waning_hypothesis, self.pars.initial_immunity, self.pars.ve_i_to_ve_s_ratio, self.pars.vaccination_single_dose_waning_rate, self.pars.contact_rate, self.pars.experiment_number)
         self.files = sc.objdict()
         self.files.outputfilename = './results/rota_strain_count_%s.csv' % (name_suffix)
         self.files.vaccinations_outputfilename = './results/rota_vaccinecount_%s.csv' % (name_suffix)
@@ -527,9 +531,7 @@ class Rota(ss.Module):
         if self.sim.pars.verbose > 0: print("Vaccination - first dose rate: %s, second dose rate %s" % (
         self.vaccine_first_dose_rate, self.vaccine_second_dose_rate))
 
-        self.total_strain_counts_vaccine = {}
-
-
+        self.total_strain_counts_vaccine = defaultdict(int)
 
         rnd.shuffle(self.pars.segment_combinations)
         number_all_strains = len(self.pars.segment_combinations)
@@ -608,13 +610,6 @@ class Rota(ss.Module):
         self.last_data_colllected = 0
         self.data_collection_rate = 0.1
 
-        for strain, count in self.strain_count.items():
-            if strain[:self.pars.numAgSegments] in self.total_strain_counts_vaccine:
-                self.total_strain_counts_vaccine[strain[:self.pars.numAgSegments]] += count
-            else:
-                self.total_strain_counts_vaccine[strain[:self.pars.numAgSegments]] = count
-
-
     # Initialize all the output files
     def initialize_files(self):
         if self.sim.pars.verbose > 0: print('Initializing files')
@@ -646,6 +641,8 @@ class Rota(ss.Module):
             write.writerow(["time"] + list(age_labels))
 
         if self.sim.pars.verbose > 0: print('Files initialized')
+
+        self.vaccinated_strain = None
 
 
     def step(self):
@@ -698,14 +695,15 @@ class Rota(ss.Module):
         self.waning_vaccinations_second_dose(vaccine_dose_2_wanings)
 
         # Collect the total counts of strains at each time step to determine the most prevalent strain for vaccination
-        if not self.done_vaccinated:
+        # We will skip time_to_equilibrium years to allow the simulation to reach an equillibrium state
+        if self.t.abstvec[self.ti] > self.pars.time_to_equilibrium and not self.done_vaccinated:
             for strain, count in self.strain_count.items():
                 self.total_strain_counts_vaccine[strain[:self.pars.numAgSegments]] += count
 
         # Administer the first dose of the vaccine
-        # Vaccination strain is the most prevalent strain in the population before the vaccination starts
-        vaccinated_strain = sorted(list(self.total_strain_counts_vaccine.keys()), key=lambda x: self.total_strain_counts_vaccine[x])[-1]
         if (self.pars.vaccine_hypothesis != 0) and (not self.done_vaccinated) and (self.t.abstvec[self.ti] >= self.pars.vaccination_time):
+            # Vaccination strain is the most prevalent strain in the population before the vaccination starts
+            self.vaccinated_strain = sorted(list(self.total_strain_counts_vaccine.keys()), key=lambda x: self.total_strain_counts_vaccine[x])[-1]
             # Select hosts under 6.5 weeks and over 4.55 weeks of age for vaccinate
             upperlimit_uids = (self.sim.people.age <= 0.13).uids
             lowerlimit_uids = upperlimit_uids[(self.sim.people.age[upperlimit_uids] >= 0.09)]
@@ -715,31 +713,34 @@ class Rota(ss.Module):
             # Use the vaccination rate to determine the number of hosts to vaccinate
             vaccination_count = int(len(child_host_uids) * self.vaccine_first_dose_rate)
             sample_population_uids = rnd.sample(child_host_uids.tolist(), vaccination_count)
-            if self.sim.pars.verbose > 0: print("Vaccinating with strain: ", vaccinated_strain, vaccination_count)
+            if self.sim.pars.verbose > 0: print("Vaccinating with strain: ", self.vaccinated_strain, vaccination_count)
             if self.sim.pars.verbose > 0: print(
                 "Number of people vaccinated: {} Number of people under 6 weeks: {}".format(len(sample_population_uids),
                                                                                             len(child_host_uids)))
             for uid in sample_population_uids:
-                self.vaccinate(uid, vaccinated_strain)
+                self.vaccinate(uid, self.vaccinated_strain)
                 self.single_dose_vaccinated_uids.append(uid)
             self.done_vaccinated = True
-
         elif self.done_vaccinated:
+            # Ensure vaccinated_strain is not None
+            assert self.vaccinated_strain is not None, "vaccinated_strain must not be None if done_vaccinated"
             for child_uid in self.to_be_vaccinated_uids:
                 if self.sim.people.age[child_uid] >= 0.11:
-                    self.vaccinate(child_uid, vaccinated_strain)
+                    self.vaccinate(child_uid, self.vaccinated_strain)
                     self.to_be_vaccinated_uids.remove(child_uid)
                     self.single_dose_vaccinated_uids.append(child_uid)
 
         # Administer the second dose of the vaccine if first dose has already been administered.
         # The second dose is administered 6 weeks after the first dose with probability vaccine_second_dose_rate
         if self.done_vaccinated:
+            assert self.vaccinated_strain is not None, "vaccinated_strain must not be None if done_vaccinated"
+
             for child_uid in self.single_dose_vaccinated_uids[:]:
                 # If the first dose of the vaccine is older than 6 weeks then administer the second dose
                 if (self.vaccine[child_uid] is not None) and (self.t.abstvec[self.ti] - self.vaccine[child_uid].time >= 0.11):
                     self.single_dose_vaccinated_uids.remove(child_uid)
                     if self.vx_second_dose.rvs(1):
-                        self.vaccinate(child_uid, vaccinated_strain)
+                        self.vaccinate(child_uid, self.vaccinated_strain)
                         self.double_dose_vaccinated_uids.append(child_uid)
 
         f = self.files
