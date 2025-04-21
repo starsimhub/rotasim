@@ -47,15 +47,13 @@ class RotaPathogen(sc.quickobj):
         if strainIn[:numAgSegments] == self.strain[:numAgSegments]:
             return PathogenMatch.HOMOTYPIC
 
-        strains_match = False
         for i in range(numAgSegments):
             if strainIn[i] == self.strain[i]:
-                strains_match = True
+                return PathogenMatch.PARTIAL_HETERO
 
-        if strains_match:
-            return PathogenMatch.PARTIAL_HETERO
-        else:
-            return PathogenMatch.COMPLETE_HETERO
+        # if we get here, no matches
+        return PathogenMatch.COMPLETE_HETERO
+
 
     def get_fitness(self):
         """ Get the fitness based on the fitness hypothesis and the two strains """
@@ -583,7 +581,7 @@ class Rota(ss.Module):
             if self.pars.initial_immunity:
                 for j in range(int(self.sim.pars.n_agents * self.pars.initial_immunity_rate)):
                     h_uid = rnd.choice(self.sim.people.uid)
-                    self.immunity[h_uid][initial_strain] = self.t.abstvec[self.ti]
+                    self.immunity[h_uid][initial_strain[:self.pars.numAgSegments]] = self.t.abstvec[self.ti]
                     self.immunity_counts += 1
                     self.is_immune_flag[h_uid] = True
 
@@ -606,11 +604,13 @@ class Rota(ss.Module):
         self.last_data_colllected = 0
         self.data_collection_rate = 0.1
 
+        numAgSegments = self.pars.numAgSegments
         for strain, count in self.strain_count.items():
-            if strain[:self.pars.numAgSegments] in self.total_strain_counts_vaccine:
-                self.total_strain_counts_vaccine[strain[:self.pars.numAgSegments]] += count
+            agStrain = strain[:numAgSegments]
+            if agStrain in self.total_strain_counts_vaccine:
+                self.total_strain_counts_vaccine[agStrain] += count
             else:
-                self.total_strain_counts_vaccine[strain[:self.pars.numAgSegments]] = count
+                self.total_strain_counts_vaccine[agStrain] = count
 
 
     # Initialize all the output files
@@ -870,8 +870,8 @@ class Rota(ss.Module):
         weights = weights / total_w
 
         recovering_hosts_uids = np.random.choice(infected_uids, p=weights, size=num_recovered, replace=False)
-        not_immune = recovering_hosts_uids[self.is_immune_flag[ss.uids(recovering_hosts_uids)] == False]
-        self.immunity_counts += len(not_immune)
+        not_already_immune = recovering_hosts_uids[self.is_immune_flag[ss.uids(recovering_hosts_uids)] == False]
+        self.immunity_counts += len(not_already_immune)
 
         self.recover(recovering_hosts_uids)
         for recovering_host_uid in recovering_hosts_uids:
@@ -1074,6 +1074,7 @@ class Rota(ss.Module):
 
     def recover(self, uids):
         # We will use the pathogen creation time to count the number of infections
+        numAgSegments = self.pars.numAgSegments
         for uid in uids:
             creation_times = set()
             for path in self.infecting_pathogen[uid]:
@@ -1081,7 +1082,7 @@ class Rota(ss.Module):
                 if not path.is_reassortant:
                     self.strain_count[strain] -= 1
                     creation_times.add(path.creation_time)
-                    self.immunity[uid][strain] = self.t.abstvec[self.ti]
+                    self.immunity[uid][strain[:numAgSegments]] = self.t.abstvec[self.ti]
                     self.is_immune_flag[uid] = True
                     if np.isnan(self.oldest_infection[uid]):
                         self.oldest_infection[uid] = self.t.abstvec[self.ti]
@@ -1112,22 +1113,25 @@ class Rota(ss.Module):
 
         if vaccine_hypothesis == 0:
             return False
+
+        numAgSegments = self.pars.numAgSegments
+        infecting_strain_agseg = infecting_strain[:numAgSegments]
         if vaccine_hypothesis == 1:
-            if infecting_strain[:self.pars.numAgSegments] in vaccine_strain:
+            if infecting_strain_agseg in vaccine_strain:
                 if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
                     return True
                 else:
                     return False
         elif vaccine_hypothesis == 2:
-            if infecting_strain[:self.pars.numAgSegments] in vaccine_strain:
+            if infecting_strain_agseg in vaccine_strain:
                 if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
                     return True
                 else:
                     return False
             strains_match = False
-            for i in range(self.pars.numAgSegments):
+            for i in range(numAgSegments):
                 immune_genotypes = [strain[i] for strain in vaccine_strain]
-                if infecting_strain[i] in immune_genotypes:
+                if infecting_strain_agseg[i] in immune_genotypes:
                     strains_match = True
             if strains_match:
                 if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
@@ -1136,7 +1140,7 @@ class Rota(ss.Module):
                 return False
         # used below hypothesis for the analysis in the report
         elif vaccine_hypothesis == 3:
-            if infecting_strain[:self.pars.numAgSegments] in vaccine_strain:
+            if infecting_strain_agseg in vaccine_strain:
                 if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
                     return True
                 else:
@@ -1144,7 +1148,7 @@ class Rota(ss.Module):
             strains_match = False
             for i in range(self.pars.numAgSegments):
                 immune_genotypes = [strain[i] for strain in vaccine_strain]
-                if infecting_strain[i] in immune_genotypes:
+                if infecting_strain_agseg[i] in immune_genotypes:
                     strains_match = True
             if strains_match:
                 if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
@@ -1288,8 +1292,8 @@ class Rota(ss.Module):
 
     def can_variant_infect_host(self, uid, infecting_strain):
         current_infections = self.infecting_pathogen[uid]
-        numAgSegments = self.pars.numAgSegments
-        immunity_hypothesis = self.pars.immunity_hypothesis
+        numAgSegments = self.pars['numAgSegments']
+        immunity_hypothesis = self.pars['immunity_hypothesis']
         partial_cross_immunity_rate = self.partial_cross_immunity_rate
         complete_heterotypic_immunity_rate = self.complete_heterotypic_immunity_rate
         homotypic_immunity_rate = self.homotypic_immunity_rate
@@ -1301,35 +1305,35 @@ class Rota(ss.Module):
         if infecting_strain[:numAgSegments] in current_infecting_strains:
             return False
 
-        def is_completely_immune():
-            immune_strains = {s[:numAgSegments] for s in self.immunity[uid].keys()}
-            return infecting_strain[:numAgSegments] in immune_strains
-
-        def has_shared_genotype():
-            for i in range(numAgSegments):
-                immune_genotypes = {strain[i] for strain in self.immunity[uid].keys()}
-                if infecting_strain[i] in immune_genotypes:
-                    return True
-            return False
-
+        infecting_strain_agSegments = infecting_strain[:numAgSegments]
 
         if immunity_hypothesis == 1:
-            return not is_completely_immune()
+            return not infecting_strain_agSegments in self.immunity[uid]
 
         elif immunity_hypothesis == 2:
-            if has_shared_genotype():
-                return False
-            return True
+            has_shared_genotype=False
+            for i in range(numAgSegments):
+                immune_genotypes = {strain[i] for strain in self.immunity[uid]}
+                if infecting_strain[i] in immune_genotypes:
+                    has_shared_genotype= True
+                    break
+            return not has_shared_genotype
 
         elif immunity_hypothesis in [3, 4, 7, 8, 9, 10]:
-            if is_completely_immune():
+            if infecting_strain_agSegments in self.immunity[uid]:
                 if immunity_hypothesis in [7, 8, 9, 10]:
                     if rnd.random() < homotypic_immunity_rate:
                         return False
                 else:
                     return False
 
-            if has_shared_genotype():
+            has_shared_genotype = False
+            for i in range(numAgSegments):
+                immune_genotypes = {strain[i] for strain in self.immunity[uid]}
+                if infecting_strain[i] in immune_genotypes:
+                    has_shared_genotype = True
+                    break
+            if has_shared_genotype:
                 if rnd.random() < partial_cross_immunity_rate:
                     return False
             elif immunity_hypothesis in [4, 7, 8, 9, 10]:
@@ -1338,11 +1342,11 @@ class Rota(ss.Module):
             return True
 
         elif immunity_hypothesis == 5:
-            immune_ptypes = {strain[1] for strain in self.immunity[uid].keys()}
+            immune_ptypes = {strain[1] for strain in self.immunity[uid]}
             return infecting_strain[1] not in immune_ptypes
 
         elif immunity_hypothesis == 6:
-            immune_ptypes = {strain[0] for strain in self.immunity[uid].keys()}
+            immune_ptypes = {strain[0] for strain in self.immunity[uid]}
             return infecting_strain[0] not in immune_ptypes
 
         else:
