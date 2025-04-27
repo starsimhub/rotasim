@@ -41,7 +41,6 @@ def test_alt(make=False):
     filename = 'test_events_alt.json'
 
     rota_inputs = dict(
-        immunity_hypothesis = 2,
         reassortment_rate = 0.2,
         fitness_hypothesis = 2,
         vaccine_hypothesis = 2,
