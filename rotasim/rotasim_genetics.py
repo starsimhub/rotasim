@@ -382,10 +382,12 @@ class Rota(ss.Module):
                 PathogenMatch.PARTIAL_HETERO: 0.65,
                 PathogenMatch.COMPLETE_HETERO: 0.35,
             },
-
-            vaccination_first_dose_waning_rate = 365 / 273,  # 365/1273
-            vaccination_second_dose_waning_rate = 365 / 546,  # 365/2600
-            # vaccination_waning_lower_bound = 20 * 7 / 365.0,
+            
+            # Vaccine induced immunity wanes over time. 
+            # In the model, following parameters represent the average duration of vaccine derived immunity.
+            # Vaccination waning rate depends on this duration
+            vaccination_first_dose_waning_rate = 365 / 273,  # 39 weeks
+            vaccination_second_dose_waning_rate = 365 / 546,  # 78 weeks
 
             # Tau leap parameters
             tau = 1 / 365.0,
@@ -514,13 +516,16 @@ class Rota(ss.Module):
         if self.sim.pars.verbose > 0: print("VE_i: ", self.vaccine_efficacy_i_d1)
         if self.sim.pars.verbose > 0: print("VE_s: ", self.vaccine_efficacy_s_d1)
 
-        # Vaccination rates are derived based on the following formula
-        self.vx_second_dose.set(p=self.pars.vaccine_second_dose_coverage)
-        self.vaccine_first_dose_rate = math.sqrt(self.pars.vaccine_second_dose_coverage)
-        self.vx_first_dose.set(p=self.vaccine_first_dose_rate)
+        # Vaccination coverage is derived based on the following formula
+        # we are going to set a target vaccine second dose coverage (e.g 80%) and use that value to decide how much of the population needs to get the first dose. 
+        # we assume that the same proportion of people who get the first dose will get the second dose (0.89 * 0.89 = 0.8). 
+        # Therefore we set the first dose coverage to the square root of second dose coverage
+        self.vaccine_first_dose_coverage = math.sqrt(self.pars.vaccine_second_dose_coverage)
+        self.vx_first_dose.set(p=self.vaccine_first_dose_coverage)
+        self.vx_second_dose.set(p=self.vaccine_first_dose_coverage)
 
-        if self.sim.pars.verbose > 0: print("Vaccination - first dose rate: %s, second dose rate %s" % (
-        self.vaccine_first_dose_rate, self.pars.vaccine_second_dose_coverage))
+        if self.sim.pars.verbose > 0: print("Vaccination - first dose coverage: %s, second dose coverage %s" % 
+                                            (self.vaccine_first_dose_coverage, self.pars.vaccine_second_dose_coverage))
 
         self.total_strain_counts_vaccine = defaultdict(int)
 
