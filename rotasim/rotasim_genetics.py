@@ -342,7 +342,7 @@ class Rota(ss.Module):
     Pathogen dynamics
     """
 
-    def __init__(self, to_csv=True, **kwargs):
+    def __init__(self, to_csv=False, **kwargs):
         super().__init__()
         self.T = sc.timer()
         self.vx_first_dose = ss.bernoulli()
