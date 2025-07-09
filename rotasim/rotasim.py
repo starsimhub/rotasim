@@ -19,8 +19,7 @@ import starsim as ss
 from . import rotasim_genetics as rg
 
 
-
-__all__ = ['Sim']
+__all__ = ["Sim"]
 
 
 ### Sim class
@@ -29,18 +28,19 @@ class Sim(ss.Sim):
     Run the simulation
     """
 
-    def __init__(self,
-            n_agents = 10_000,
-            timelimit = 10,
-            start = 2000,
-            unit = 'year',
-            dt = 1/365,
-            verbose = 0,
-            to_csv = True,
-            rand_seed = 1,
-            rota_kwargs = {},
-            **kwargs,
-        ):
+    def __init__(
+        self,
+        n_agents=10_000,
+        timelimit=10,
+        start=2000,
+        unit="year",
+        dt=1 / 365,
+        verbose=0,
+        to_csv=False,
+        rand_seed=1,
+        rota_kwargs={},
+        **kwargs,
+    ):
         """
         Create the simulation.
 
@@ -57,23 +57,34 @@ class Sim(ss.Sim):
             kwargs (dict): additional Sim keyword arguments,
         """
         # N is the old name for n_agents, replace it with the new key if it's present
-        if 'N' in kwargs:
-            n_agents = kwargs.pop('N')
+        if "N" in kwargs:
+            n_agents = kwargs.pop("N")
 
         # If the Rota module isn't provided, create it
-        if 'connectors' not in kwargs:
-            kwargs['connectors'] = rg.Rota(to_csv=to_csv, **rota_kwargs)
+        if "connectors" not in kwargs:
+            kwargs["connectors"] = rg.Rota(to_csv=to_csv, **rota_kwargs)
 
-        super().__init__(n_agents=n_agents, start=start, stop=start+timelimit, unit=unit, dt=dt, verbose=verbose, rand_seed=rand_seed, use_aging=True, **kwargs)
+        super().__init__(
+            n_agents=n_agents,
+            start=start,
+            stop=start + timelimit,
+            unit=unit,
+            dt=dt,
+            verbose=verbose,
+            rand_seed=rand_seed,
+            use_aging=True,
+            **kwargs,
+        )
 
         if verbose:
-            print(f'Creating simulation with n_agents={n_agents}, timelimit={timelimit} and parameters:')
+            print(
+                f"Creating simulation with n_agents={n_agents}, timelimit={timelimit} and parameters:"
+            )
 
         return
 
-
     def to_df(self):
-        """ Convert results to a dataframe """
+        """Convert results to a dataframe"""
         cols = self.results.columns
         res = self.results.infected_all
         df = sc.dataframe(data=res, columns=cols)
@@ -81,9 +92,7 @@ class Sim(ss.Sim):
         return df
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     sim = Sim(n_agents=10_000, timelimit=10)
     sim.run()
     print("done!")
-

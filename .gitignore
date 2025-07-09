@@ -139,3 +139,7 @@ dmypy.json
 
 # Node.js and NPM
 node_modules
+*.csv
+*.html
+*.jpg
+*.pkl
