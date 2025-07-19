@@ -64,6 +64,10 @@ class RotaPathogen(sc.quickobj):
         self.is_reassortant = is_reassortant
         self.strain = strain
         self.is_severe = is_severe
+        self.g = strain[0]  # Genotype
+        self.p = strain[1]  # Phylogroup
+        self.a = strain[2]
+        self.b = strain[3]
 
         return
 
@@ -1575,80 +1579,97 @@ class Rota(ss.Module):
             self.infecting_pathogen[uid] = []
             self.possibleCombinations[uid] = []
 
-    def vaccinate(self, uid, vaccinated_strain):
-        if len(self.prior_vaccinations[uid]) == 0:
-            self.prior_vaccinations[uid].append(vaccinated_strain)
-            self.vaccine[uid] = Vaccine(
-                [vaccinated_strain], self.sim.t.abstvec[self.ti], 1
-            )
-        else:
-            self.prior_vaccinations[uid].append(vaccinated_strain)
-            self.vaccine[uid] = Vaccine(
-                [vaccinated_strain], self.sim.t.abstvec[self.ti], 2
-            )
+    # def vaccinate(self, uid, vaccinated_strain):
+    #     if len(self.prior_vaccinations[uid]) == 0:
+    #         self.prior_vaccinations[uid].append(vaccinated_strain)
+    #         self.vaccine[uid] = Vaccine(
+    #             [vaccinated_strain], self.sim.t.abstvec[self.ti], 1
+    #         )
+    #     else:
+    #         self.prior_vaccinations[uid].append(vaccinated_strain)
+    #         self.vaccine[uid] = Vaccine(
+    #             [vaccinated_strain], self.sim.t.abstvec[self.ti], 2
+    #         )
 
     def is_vaccine_immune(self, uid, infecting_strain):
-        if self.vaccine[uid].is_waned:
-            return False
+        # if self.vaccine[uid].is_waned:
+        #     return False
 
         # Effectiveness of the vaccination depends on the number of doses
-        if self.vaccine[uid].dose == 1:
+        # if self.vaccine[uid].dose == 1:
+        #     ve_i_rates = self.vaccine_efficacy_i_d1
+        # elif self.vaccine[uid].dose == 2:
+        #     ve_i_rates = self.vaccine_efficacy_i_d2
+        # else:
+        #     raise NotImplementedError(
+        #         f"Unsupported vaccine dose: {self.vaccine[uid].dose}"
+        #     )
+        try:
+            vx_intv = self.sim.interventions.rotavaxprog
+        except:
+            raise RuntimeError(
+                "RotaVaxProg intervention is not set up correctly in the simulation."
+            )
+        if vx_intv.n_doses[uid] == 0:
+            return False
+        elif vx_intv.n_doses[uid] == 1:
             ve_i_rates = self.vaccine_efficacy_i_d1
-        elif self.vaccine[uid].dose == 2:
+        elif vx_intv.n_doses[uid] == 2:
             ve_i_rates = self.vaccine_efficacy_i_d2
         else:
             raise NotImplementedError(
-                f"Unsupported vaccine dose: {self.vaccine[uid].dose}"
+                f"Unsupported vaccine dose: {self.sim.interventions.rotavaxprog.n_doses[uid]}"
             )
 
+        segments = vx_intv.product.segments[: self.pars.numAgSegments]
+
         # Vaccine strain only contains the antigenic parts
-        vaccine_strain = self.vaccine[uid].strain
+        # vaccine_strain = self.vaccine[uid].strain
+
         vaccine_hypothesis = self.pars.vaccine_hypothesis
+
+        matches = [False] * self.pars.numAgSegments
+        for index, segment in enumerate(segments):
+            vx_segment_strains = getattr(vx_intv.product, segment)
+            infecting_segment_strain = infecting_strain[index]
+            if infecting_segment_strain in vx_segment_strains:
+                matches[index] = True
+                continue
+
+        if np.all(matches):
+            strain_match = PathogenMatch.HOMOTYPIC
+        elif any(matches):
+            strain_match = PathogenMatch.PARTIAL_HETERO
+        else:
+            strain_match = PathogenMatch.COMPLETE_HETERO
+
 
         if vaccine_hypothesis == 0:
             return False
         if vaccine_hypothesis == 1:
-            if infecting_strain[: self.pars.numAgSegments] in vaccine_strain:
-                if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
-                    return True
-                else:
-                    return False
+            if strain_match == PathogenMatch.HOMOTYPIC:
+                return rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]
+
         elif vaccine_hypothesis == 2:
-            if infecting_strain[: self.pars.numAgSegments] in vaccine_strain:
-                if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
-                    return True
-                else:
-                    return False
-            strains_match = False
-            for i in range(self.pars.numAgSegments):
-                immune_genotypes = [strain[i] for strain in vaccine_strain]
-                if infecting_strain[i] in immune_genotypes:
-                    strains_match = True
-            if strains_match:
-                if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
-                    return True
+            if strain_match == PathogenMatch.HOMOTYPIC:
+                return rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]
+
+            if strain_match == PathogenMatch.PARTIAL_HETERO:
+                return rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]
+
             else:
                 return False
+
         # used below hypothesis for the analysis in the report
         elif vaccine_hypothesis == 3:
-            if infecting_strain[: self.pars.numAgSegments] in vaccine_strain:
-                if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
-                    return True
-                else:
-                    return False
-            strains_match = False
-            for i in range(self.pars.numAgSegments):
-                immune_genotypes = [strain[i] for strain in vaccine_strain]
-                if infecting_strain[i] in immune_genotypes:
-                    strains_match = True
-            if strains_match:
-                if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
-                    return True
+            if strain_match == PathogenMatch.HOMOTYPIC:
+                return rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]
+
+            if strain_match == PathogenMatch.PARTIAL_HETERO:
+                return rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]
             else:
-                if rnd.random() < ve_i_rates[PathogenMatch.COMPLETE_HETERO]:
-                    return True
-                else:
-                    return False
+                return rnd.random() < ve_i_rates[PathogenMatch.COMPLETE_HETERO]
+
         else:
             raise NotImplementedError("Unsupported vaccine hypothesis")
 
@@ -1840,7 +1861,7 @@ class Rota(ss.Module):
         complete_heterotypic_immunity_rate = self.complete_heterotypic_immunity_rate
         homotypic_immunity_rate = self.homotypic_immunity_rate
 
-        if self.vaccine[uid] is not None and self.is_vaccine_immune(
+        if self.is_vaccine_immune(
             uid, infecting_strain
         ):
             return False
