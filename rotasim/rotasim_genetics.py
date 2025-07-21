@@ -366,7 +366,6 @@ class Rota(ss.Module):
             num_initial_infected_per_strain=100,  # number of initial infected per strain
             reassortment_rate=0.1,
             fitness_hypothesis=2,
-            vaccine_hypothesis=1,
             initial_immunity=False,
             initial_immunity_rate=0.1,
             ve_i_to_ve_s_ratio=0.5,
@@ -505,10 +504,12 @@ class Rota(ss.Module):
             vaccination_time=15,  # vaccinations begin at this year in the sim
             # Efficacy of the vaccine first dose
             vaccine_efficacy_d1_ratio=0.8,  # second dose is 40% more effective than the first dose
+            # vaccine_efficacy_d2 determines the immunity provided by the vaccines.
+            # To simulate scenarios with different vaccine behaviors such as a vaccine that only mounts immunity against homotypic strains, set the efficacy of the other two types to zero.
             vaccine_efficacy_d2={
-                PathogenMatch.HOMOTYPIC: 0.65,  # 0.95,  # 0.8,
-                PathogenMatch.PARTIAL_HETERO: 0.45,  # 0.9,  # 0.65,
-                PathogenMatch.COMPLETE_HETERO: 0.25,  # 0.75,  # 0.35,
+                PathogenMatch.HOMOTYPIC: 0.65,  # 0.65,  # 0.95,  # 0.8,
+                PathogenMatch.PARTIAL_HETERO: 0.45,  # 0.45,  # 0.9,  # 0.65,
+                PathogenMatch.COMPLETE_HETERO: 0.25,  # 0.25,  # 0.75,  # 0.35,
             },
             # Vaccine induced immunity wanes over time.
             # In the model, following parameters represent the average duration of vaccine derived immunity.
@@ -583,7 +584,6 @@ class Rota(ss.Module):
                 f"{self.pars.complete_heterotypic_immunity_rate}_"
                 f"{self.pars.reassortment_rate}_"
                 f"{self.pars.fitness_hypothesis}_"
-                f"{self.pars.vaccine_hypothesis}_"
                 f"{self.pars.omega}_"
                 f"{self.pars.initial_immunity}_"
                 f"{self.pars.ve_i_to_ve_s_ratio}_"
@@ -693,7 +693,7 @@ class Rota(ss.Module):
             (
                 "vaccinations",
                 files.vaccinations_output_filename,
-                ["id", "VaccineStrain", "CollectionTime", "Age", "Dose"],
+                ["id", "VaccineStrain", "CollectionTime", "Age", "VaccinationTime"],
             ),
             (
                 "vaccine_efficacy",
@@ -1086,7 +1086,7 @@ class Rota(ss.Module):
         )
 
         # Collect the total counts of strains at each time step to determine the most prevalent strain for vaccination
-        # We will skip time_to_equilibrium years to allow the simulation to reach an equillibrium state
+        # We will skip time_to_equilibrium years to allow the simulation to reach an equilibrium state
         if (
             self.t.abstvec[self.ti] > self.pars.time_to_equilibrium
             and not self.vaccine_campaign_started
@@ -1097,10 +1097,8 @@ class Rota(ss.Module):
                 )
 
         # Administer the first dose of the vaccine
-        if (
-            (self.pars.vaccine_hypothesis != 0)
-            and (not self.vaccine_campaign_started)
-            and (self.t.abstvec[self.ti] >= self.pars.vaccination_time)
+        if (not self.vaccine_campaign_started) and (
+            self.t.abstvec[self.ti] >= self.pars.vaccination_time
         ):
             # Vaccination strain is the most prevalent strain in the population before the vaccination starts
             self.vaccinated_strain = sorted(
@@ -1324,7 +1322,7 @@ class Rota(ss.Module):
         new_uids = self.sim.people.grow(birth_count)  # add more people!
         self.sim.people.age[new_uids] = 0
 
-        if self.pars.vaccine_hypothesis != 0 and self.vaccine_campaign_started:
+        if self.vaccine_campaign_started:
             vax_uids = self.vx_first_dose.filter(uids=new_uids)
             self.to_be_vaccinated_uids.extend(vax_uids)
 
@@ -1603,54 +1601,25 @@ class Rota(ss.Module):
 
         # Vaccine strain only contains the antigenic parts
         vaccine_strain = self.vaccine[uid].strain
-        vaccine_hypothesis = self.pars.vaccine_hypothesis
 
-        if vaccine_hypothesis == 0:
-            return False
-        if vaccine_hypothesis == 1:
-            if infecting_strain[: self.pars.numAgSegments] in vaccine_strain:
-                if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
-                    return True
-                else:
-                    return False
-        elif vaccine_hypothesis == 2:
-            if infecting_strain[: self.pars.numAgSegments] in vaccine_strain:
-                if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
-                    return True
-                else:
-                    return False
-            strains_match = False
-            for i in range(self.pars.numAgSegments):
-                immune_genotypes = [strain[i] for strain in vaccine_strain]
-                if infecting_strain[i] in immune_genotypes:
-                    strains_match = True
-            if strains_match:
-                if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
-                    return True
+        if infecting_strain[: self.pars.numAgSegments] in vaccine_strain:
+            if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
+                return True
             else:
                 return False
-        # used below hypothesis for the analysis in the report
-        elif vaccine_hypothesis == 3:
-            if infecting_strain[: self.pars.numAgSegments] in vaccine_strain:
-                if rnd.random() < ve_i_rates[PathogenMatch.HOMOTYPIC]:
-                    return True
-                else:
-                    return False
-            strains_match = False
-            for i in range(self.pars.numAgSegments):
-                immune_genotypes = [strain[i] for strain in vaccine_strain]
-                if infecting_strain[i] in immune_genotypes:
-                    strains_match = True
-            if strains_match:
-                if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
-                    return True
-            else:
-                if rnd.random() < ve_i_rates[PathogenMatch.COMPLETE_HETERO]:
-                    return True
-                else:
-                    return False
+        strains_match = False
+        for i in range(self.pars.numAgSegments):
+            immune_genotypes = [strain[i] for strain in vaccine_strain]
+            if infecting_strain[i] in immune_genotypes:
+                strains_match = True
+        if strains_match:
+            if rnd.random() < ve_i_rates[PathogenMatch.PARTIAL_HETERO]:
+                return True
         else:
-            raise NotImplementedError("Unsupported vaccine hypothesis")
+            if rnd.random() < ve_i_rates[PathogenMatch.COMPLETE_HETERO]:
+                return True
+            else:
+                return False
 
     def collect_and_write_data(self, output_filename, sample=False, sample_size=1000):
         """
