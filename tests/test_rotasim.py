@@ -45,7 +45,6 @@ def test_alt(make=False):
     rota_inputs = dict(
         reassortment_rate=0.2,
         fitness_hypothesis=2,
-        vaccine_hypothesis=2,
         omega=365 / 50,
         initial_immunity=True,
         ve_i_to_ve_s_ratio=0.5,
