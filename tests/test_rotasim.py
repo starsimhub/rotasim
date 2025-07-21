@@ -6,6 +6,7 @@ NB: the two tests could be combined into one, but are left separate for clarity.
 
 import sciris as sc
 import rotasim as rs
+import starsim as ss
 
 N = 2_000
 timelimit = 10
@@ -87,9 +88,14 @@ def test_alt(make=False):
 
     return
 
+def test_vx_intervention():
+    interventions = [rs.RotaVaxProg(product=rs.RotaVax(vx_types=['G1', 'P1', 'G2', 'P2']), pars={'waning_delay':ss.dur(1, unit="days")},),]
+    rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose, interventions=interventions)
+    rota.run()
 
 if __name__ == "__main__":
     make = False  # Set to True to regenerate results
     benchmark = False  # Set to True to redo the performance results
     test_default(make=make)
     test_alt(make=make)
+    test_vx_intervention()
