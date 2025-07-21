@@ -1,9 +1,16 @@
+from collections import defaultdict
+
+
+import math
+
 import numpy as np
+import rotasim.rotasim_genetics as rsg
 import sciris as sc
 import starsim as ss
 
 
 __all__ = ['RotaVax', 'RotaVaxProg']
+
 
 class RotaVax(ss.Vx):
     """
@@ -14,37 +21,128 @@ class RotaVax(ss.Vx):
 
         **kwargs: Additional keyword arguments.
     """
-    def __init__(self, vx_types=None, fixed_protection=0, mean_dur_protection=[ss.dur(39, 'weeks'), ss.dur(78, 'weeks')], **kwargs):
+    def __init__(self, vx_types=None, fixed_protection=0, mean_dur_protection=[ss.dur(39, 'weeks'), ss.dur(78, 'weeks')],
+                    waning_delay=ss.dur(0, unit='week'), **kwargs):
         super().__init__(**kwargs)
         self.segments='gpab'
         self.g = []
         self.p = []
 
-        self.fixed_protection = fixed_protection
-        self.mean_dur_protection = mean_dur_protection
+        self.define_pars(
+            fixed_protection=fixed_protection,
+            mean_dur_protection=mean_dur_protection,  # Mean duration of protection for each dose
+            waning_delay = waning_delay, # Delay before waning starts
+            ve_i_to_ve_s_ratio = 0.5,
+            vaccine_efficacy_dose_factor=[0.8, 1],  # Efficacy factor per dose of the vaccine [e.g. 0.8 for first dose, 1 for second dose means the first dose provides 80% of the efficacy of the second dose]
+            # vaccine_efficacy_d2 determines the immunity provided by the vaccines.
+            # To simulate scenarios with different vaccine behaviors such as a vaccine that only mounts immunity against homotypic strains, set the efficacy of the other two types to zero.
+            vaccine_efficacy_match_factor={
+                rsg.PathogenMatch.HOMOTYPIC: 0.65,  # 0.65,  # 0.95,  # 0.8,
+                rsg.PathogenMatch.PARTIAL_HETERO: 0.45,  # 0.45,  # 0.9,  # 0.65,
+                rsg.PathogenMatch.COMPLETE_HETERO: 0.25,  # 0.25,  # 0.75,  # 0.35,
+            },
+        )
+
+
+
+        self.define_states(
+            ss.FloatArr('waning_rate', default=0, label='Rate of waning immunity'),
+            # ss.FloatArr('vaccine_efficacy_factor', default=1.0, label='Vaccine efficacy factor'),
+        )
 
         vx_types = sc.promotetolist(vx_types)  # Ensure vx_types is a list
-        self.vx_types = vx_types
+        # self.vx_types = vx_types
 
-        self.g = [vx_type[1] for vx_type in vx_types if vx_type[0].upper() == 'G' ]
-        self.p = [vx_type[1] for vx_type in vx_types if vx_type[0].upper() == 'P' ]
+        self.g = [int(vx_type[1]) for vx_type in vx_types if vx_type[0].upper() == 'G' ]
+        self.p = [int(vx_type[1]) for vx_type in vx_types if vx_type[0].upper() == 'P' ]
+
+
+        self.vaccine_efficacy_i = {}
+        self.vaccine_efficacy_s = {}
 
         return
 
+    def init_post(self):
+        super().init_post()
 
-    def administer(self, people, inds):
-        """
-        Administer the RotaVax vaccination to eligible individuals.
+        for dose, dose_factor in enumerate(self.pars.vaccine_efficacy_dose_factor):
+            self.vaccine_efficacy_i[dose+1] = {}
+            self.vaccine_efficacy_s[dose+1] = {}
+            for match, match_factor in self.pars.vaccine_efficacy_match_factor.items():
+                (ve_i, ve_s) = self.breakdown_vaccine_efficacy(
+                    match_factor*dose_factor, self.pars.ve_i_to_ve_s_ratio
+                )
+                self.vaccine_efficacy_i[dose+1][match] = ve_i
+                self.vaccine_efficacy_s[dose+1][match] = ve_s
 
-        Args:
-            people (People): The population to administer the vaccine to.
-            inds (array-like): Indices of individuals to vaccinate.
+        if self.sim.pars.verbose > 0:
+            print("VE_i d1: ", self.vaccine_efficacy_i[1])
+            print("VE_s d1: ", self.vaccine_efficacy_s[1])
+            print("VE_i d2: ", self.vaccine_efficacy_i[2])
+            print("VE_s d2: ", self.vaccine_efficacy_s[2])
 
-        Returns:
-            None
-        """
-        # Adjust immunity and severe rates based on number of doses received
-        return
+    def breakdown_vaccine_efficacy(self, ve, x):
+        (r1, r2) = self.solve_quadratic(x, -(1 + x), ve)
+        if self.sim.pars.verbose > 0:
+            print(r1, r2)
+        if r1 >= 0 and r1 <= 1:
+            ve_s = r1
+        elif r2 >= 0 and r2 <= 1:
+            ve_s = r2
+        else:
+            raise RuntimeError(
+                "No valid solution to the equation: x: %d, ve: %d. Solutions: %f %f"
+                % (x, ve, r1, r2)
+            )
+        ve_i = x * ve_s
+        return (ve_i, ve_s)
+
+
+    @staticmethod
+    def solve_quadratic(a, b, c):
+        discriminant = b**2 - 4 * a * c
+        if discriminant >= 0:
+            root1 = (-b + discriminant**0.5) / (2 * a)
+            root2 = (-b - discriminant**0.5) / (2 * a)
+            return tuple(sorted([root1, root2]))
+        else:
+            return "No real roots"
+
+    def is_match(self, infecting_strain):
+        numAgSegments = self.sim.connectors.rota.pars.numAgSegments
+        segments = self.segments[:numAgSegments]
+
+        matches = [False] * numAgSegments
+        for index, segment in enumerate(segments):
+            vx_segment_strains = getattr(self, segment)
+            infecting_segment_strain = infecting_strain[index]
+            if infecting_segment_strain in vx_segment_strains:
+                matches[index] = True
+                continue
+
+        if np.all(matches):
+            return rsg.PathogenMatch.HOMOTYPIC
+        elif np.any(matches):
+            return rsg.PathogenMatch.PARTIAL_HETERO
+        else:
+            return rsg.PathogenMatch.COMPLETE_HETERO
+
+
+    #
+    # def administer(self, people, inds):
+    #     """
+    #     Administer the RotaVax vaccination to eligible individuals.
+    #
+    #     Args:
+    #         people (People): The population to administer the vaccine to.
+    #         inds (array-like): Indices of individuals to vaccinate.
+    #
+    #     Returns:
+    #         None
+    #     """
+    #     # Adjust waning rate based on the number of doses
+    #
+    #     return
 
 
 
@@ -64,6 +162,10 @@ class RotaVaxProg(ss.routine_vx):
         if eligibility is None:
             eligibility = self.eligible  # Define eligibility function
         if prob is None:
+            # Vaccination coverage is derived based on the following formula
+            # we are going to set a target vaccine second dose coverage (e.g 80%) and use that value to decide how much of the population needs to get the first dose.
+            # we assume that the same proportion of people who get the first dose will get the second dose (0.89 * 0.89 = 0.8).
+            # Therefore we set the first dose coverage to the square root of second dose coverage
             prob = 0.89  # Default probability of vaccination
 
 
@@ -72,10 +174,8 @@ class RotaVaxProg(ss.routine_vx):
             vx_age_min=ss.dur(4.55, 'week'),
             vx_age_max=ss.dur(6.5, 'week'),
             vx_spacing=ss.dur(6, unit='week'),  # Spacing between doses
-            waning_rate = [ss.dur(2, unit='week'),  # Rate of waning for the first dose
-                           ss.dur(78, unit='week')],  # Rate of waning for subsequent doses
-            waning_delay = ss.dur(0, unit='week'), #, parent_dt = self.t.dt, parent_unit=self.t.unit), # Delay before waning starts
             max_doses=2,
+
         )
 
 
@@ -83,11 +183,14 @@ class RotaVaxProg(ss.routine_vx):
 
         self.define_states(
             ss.FloatArr('n_doses', default=0, label='Number of doses received'),
+            ss.FloatArr('waned_effectiveness', default=1.0, label='current base waned effectiveness'),
             ss.FloatArr('vx_e_i', default=0, label='Vaccine efficacy against infection'),
             ss.FloatArr('vx_e_s', default=0, label='Vaccine efficacy against severe disease'),
             ss.FloatArr('waning_rate', default=0, label='Rate of waning immunity'),
         )
         return
+
+
 
     def eligible(self, sim):
         """ Determine which agents are eligible for vaccination """
@@ -99,31 +202,54 @@ class RotaVaxProg(ss.routine_vx):
         return eligible.uids
 
     def step(self):
+        if self.sim.ti in self.timepoints and self.sim.ti == self.timepoints[0]:
+            # if there is no strain associated with the product, select the most prevalent strain
+            if not hasattr(self.product, 'strain'):
+                total_strain_counts = defaultdict(int)
+                for strain, count in self.sim.connectors.rota.strain_count.items():
+                    total_strain_counts[strain[: self.sim.connectors.rota.pars.numAgSegments]] += (
+                        count
+                    )
+
+                strain = sorted(
+                    list(total_strain_counts.keys()),
+                    key=lambda x: total_strain_counts[x],
+                )[-1]
+
+                self.product.g = strain[0]
+                self.product.p = strain[1]
+
         vx_uids = super().step()
-        self.waning_rate[vx_uids] = [self.pars.waning_rate[int(self.n_doses[vx_uid]) - 1].values for vx_uid in vx_uids]
+
+        # update the waning rate for all new vaccinations based on the total number of doses
+        self.product.waning_rate[vx_uids] = [self.product.pars.mean_dur_protection[int(self.n_doses[vx_uid]) - 1].values for vx_uid in vx_uids]
+        # update the vaccine efficacy for the new vaccinated individuals
+
+        for vx_uid in vx_uids:
+            n_doses = int(self.n_doses[vx_uid])
+
+        # self.vx_e_i[vx_uids] = [self.product.vaccine_efficacy_i_d1[self.product.vx_types[int(self.n_doses[vx_uid]) - 1]] for vx_uid in vx_uids]
+        # self.vx_e_s[vx_uids] = [self.product.vaccine_efficacy_s_d1[self.product.vx_types[int(self.n_doses[vx_uid]) - 1]] for vx_uid in vx_uids]
+
         self.update_immunity()
 
     def update_immunity(self):
-        """
-        Update the immunity of vaccinated individuals.
-
-        Args:
-            people (People): The population to update.
-            inds (array-like): Indices of individuals whose immunity is updated.
-
-        Returns:
-            None
-        """
         # Update immunity based on the vaccine's fixed protection and mean duration
         vxed = self.n_doses > 0  # Vaccinated individuals
         vxuids = vxed.uids
 
-        waning_started = ((self.ti - self.ti_vaccinated[vxed] - self.pars.waning_delay.values) > 0)
+        waning_started = ((self.ti - self.ti_vaccinated[vxed] - self.product.pars.waning_delay.values) > 0)
         waning_uids = vxuids[waning_started]
         nonwaning_uids = vxuids[~waning_started]
 
         # waning not yet started:
-        self.vx_e_i[nonwaning_uids] = 1
-        self.vx_e_i[waning_uids] = np.exp( (-1/self.waning_rate[waning_uids]) * (self.ti - (np.round(self.pars.waning_delay) + self.ti_vaccinated[waning_uids])))
+        self.waned_effectiveness[nonwaning_uids] = 1
+        self.waned_effectiveness[waning_uids] = np.exp( (-1/self.product.waning_rate[waning_uids]) *
+                                           (self.ti - (np.round(self.product.pars.waning_delay) + self.ti_vaccinated[waning_uids])))
+
+        # update relative susceptibility
+        # self.sim.connectors.rota.rel_sus[vxuids] *= (1 - self.vx_e_i[vxuids])
+        #
+        # self.sim.connectors.rota.rel_sev[vxuids] *= (1 - self.vx_e_s[vxuids])
 
         return
