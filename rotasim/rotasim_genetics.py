@@ -1310,13 +1310,13 @@ class Rota(ss.Module):
             raise RuntimeError(
                 "RotaVaxProg intervention is not set up correctly in the simulation."
             )
-
-
-        strain_match = vx_intv.product.is_match(infecting_strain)
         n_doses = vx_intv.n_doses[uid]
 
         if n_doses == 0:
             return False
+
+        strain_match = vx_intv.product.is_match(infecting_strain)
+
 
         # get the vaccine efficacy for the given strain match and number of doses and scale it by waned effectiveness
         return rnd.random() < (vx_intv.product.vaccine_efficacy_i[n_doses][strain_match] * vx_intv.waned_effectiveness[uid])
