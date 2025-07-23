@@ -1162,17 +1162,17 @@ class Rota(ss.Module):
             infecting_probability *= rel_beta # Scale by this calibration parameter
 
             h1_pathogens = self.infecting_pathogen[h1_uid]
-            if len(h1_pathogens) > 1:
-                # small chance to transmit all pathogens, otherwise choose one based on fitness
-                if rnd.random() >= 0.02:
-
-                    h1_pathogens.sort(
-                        key=lambda path: (path.get_fitness(), rnd.random()), reverse=True
-                    )
-                    h1_pathogens = h1_pathogens[0]  # Take the most fit pathogen
+            transmit_all = False
+            if rnd.random() < 0.02:
+                # small chance to transmit all pathogens
+                transmit_all = True
+            else:
+                h1_pathogens.sort(
+                    key=lambda path: (path.get_fitness(), rnd.random()), reverse=True
+                )
 
             for h1_pathogen in h1_pathogens:
-                variant_infecting_probability = infecting_probability * self.prob_variant_infect_host(h2_uid, h1_pathogen.strain)
+                variant_infecting_probability = infecting_probability * self.prob_variant_infect_host(h2_uid, h1_pathogen)
 
                 if rnd_num < variant_infecting_probability:
                     self.infect_with_pathogen(
@@ -1503,16 +1503,17 @@ class Rota(ss.Module):
                 return age_labels[i]
         return age_labels[-1]
 
-    def prob_variant_infect_host(self, uid, infecting_strain):
+    def prob_variant_infect_host(self, uid, infecting_pathogen):
         current_infections = self.infecting_pathogen[uid]
         numAgSegments = self.pars.numAgSegments
         partial_heterotypic_immunity_rate = self.partial_heterotypic_immunity_rate
         complete_heterotypic_immunity_rate = self.complete_heterotypic_immunity_rate
         homotypic_immunity_rate = self.homotypic_immunity_rate
+        infecting_strain = infecting_pathogen.strain
 
         # If the host is vaccinated, draw for vaccine immunity first
         if self.is_vaccine_immune(
-            uid, infecting_strain
+            uid, infecting_pathogen
         ):
             return 0
 
@@ -1537,21 +1538,23 @@ class Rota(ss.Module):
             return False
 
         if is_complete_antigenic_match():
-            return homotypic_immunity_rate
+            fitness = homotypic_immunity_rate
 
-        if has_shared_antigenic_genotype():
-            return partial_heterotypic_immunity_rate
+        elif has_shared_antigenic_genotype():
+            fitness = partial_heterotypic_immunity_rate
 
-        # If the strain is complete heterotypic
-        return complete_heterotypic_immunity_rate
+        else:
+            # If the strain is complete heterotypic
+            fitness = complete_heterotypic_immunity_rate
+
+        fitness *= infecting_pathogen.get_fitness()
+
+        return fitness
+
 
     def infect_with_pathogen(self, uid, pathogen_in):
         """This function returns a fitness value to a strain based on the hypothesis"""
-        fitness = pathogen_in.get_fitness()
 
-        # e.g. fitness = 0.8 (there's a 80% chance the virus infecting a host)
-        if rnd.random() > fitness:
-            return False
 
         # Probability of getting a severe decease depends on the number of previous infections and vaccination status of the host
         vx = self.sim.interventions.rotavaxprog
