@@ -136,7 +136,7 @@ class RotaVaxProg(ss.routine_vx):
         **kwargs: Additional keyword arguments.
     """
 
-    def __init__(self, pars=None, product=None, prob=None, eligibility=None, **kwargs):
+    def __init__(self, pars=None, product=None, prob=None, eligibility=None, start_year=None, **kwargs):
         if product is None:
             # product = RotaVax(pars=pars, **kwargs)
             raise ValueError("A product must be specified for RotaVaxProg.")
@@ -162,7 +162,7 @@ class RotaVaxProg(ss.routine_vx):
         )
 
 
-        super().__init__(pars=pars, product=product, prob=prob, eligibility=eligibility, annual_prob=False, **kwargs)
+        super().__init__(pars=pars, product=product, prob=prob, eligibility=eligibility, annual_prob=False, start_year=start_year, **kwargs)
         self.define_pars(
             vx_age_min=ss.dur(4.55, 'week'),
             vx_age_max=ss.dur(6.5, 'week'),
