@@ -1513,6 +1513,12 @@ class Rota(ss.Module):
         complete_heterotypic_immunity_rate = self.complete_heterotypic_immunity_rate
         homotypic_immunity_rate = self.homotypic_immunity_rate
 
+        # If the host is vaccinated, draw for vaccine immunity first
+        if self.is_vaccine_immune(
+            uid, infecting_strain
+        ):
+            return 0
+
         # If the host is infected with the same strain, cannot reinfect with exact same strain
         current_infecting_strains = (
             i.strain[:numAgSegments] for i in current_infections
@@ -1520,11 +1526,7 @@ class Rota(ss.Module):
         if infecting_strain[:numAgSegments] in current_infecting_strains:
             return 0
 
-        # If the host is vaccinated, draw for vaccine immunity first
-        if self.is_vaccine_immune(
-            uid, infecting_strain
-        ):
-            return 0
+
 
         def is_complete_antigenic_match():
             immune_strains = (s[:numAgSegments] for s in self.immunity[uid].keys())
