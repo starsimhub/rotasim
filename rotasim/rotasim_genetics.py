@@ -1513,7 +1513,7 @@ class Rota(ss.Module):
 
         # If the host is vaccinated, draw for vaccine immunity first
         if self.is_vaccine_immune(
-            uid, infecting_pathogen
+            uid, infecting_strain
         ):
             return 0
 
