@@ -1144,6 +1144,7 @@ class Rota(ss.Module):
             3: 0.33,
         }
 
+        rel_beta = self.pars.rel_beta
         for h1_uid, h2_uid, rnd_num in zip(h1_uids, h2_uids, rnd_nums):
 
             # If the contact is the same as the infected host, pick another host at random
@@ -1158,9 +1159,7 @@ class Rota(ss.Module):
             if self.isInfected(h2_uid):
                 infecting_probability = 0
 
-            infecting_probability *= (
-                self.pars.rel_beta
-            )  # Scale by this calibration parameter
+            infecting_probability *= rel_beta # Scale by this calibration parameter
 
             h1_pathogens = self.infecting_pathogen[h1_uid]
             if len(h1_pathogens) > 1:
@@ -1170,7 +1169,7 @@ class Rota(ss.Module):
                     h1_pathogens.sort(
                         key=lambda path: (path.get_fitness(), rnd.random()), reverse=True
                     )
-                    h1_pathogens = h1_pathogens[:1]  # Take the most fit pathogen
+                    h1_pathogens = h1_pathogens[0]  # Take the most fit pathogen
 
             for h1_pathogen in h1_pathogens:
                 variant_infecting_probability = infecting_probability * self.prob_variant_infect_host(h2_uid, h1_pathogen.strain)
