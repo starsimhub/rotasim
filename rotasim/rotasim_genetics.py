@@ -1162,8 +1162,6 @@ class Rota(ss.Module):
                 self.pars.rel_beta
             )  # Scale by this calibration parameter
 
-            # infecting_probability *= self.rel_sus[h2_uid]  # Scale by relative susceptibility
-
             h1_pathogens = self.infecting_pathogen[h1_uid]
             if len(h1_pathogens) > 1:
                 # small chance to transmit all pathogens, otherwise choose one based on fitness
@@ -1175,9 +1173,9 @@ class Rota(ss.Module):
                     h1_pathogens = h1_pathogens[:1]  # Take the most fit pathogen
 
             for h1_pathogen in h1_pathogens:
-                infecting_probability *= self.prob_variant_infect_host(h2_uid, h1_pathogen.strain)
+                variant_infecting_probability = infecting_probability * self.prob_variant_infect_host(h2_uid, h1_pathogen.strain)
 
-                if rnd_num < infecting_probability:
+                if rnd_num < variant_infecting_probability:
                     self.infect_with_pathogen(
                         h2_uid, self.infecting_pathogen[h1_uid][0]
                     )
