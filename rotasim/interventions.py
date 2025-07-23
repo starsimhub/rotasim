@@ -47,15 +47,12 @@ class RotaVax(ss.Vx):
 
         self.define_states(
             ss.FloatArr('waning_rate', default=0, label='Rate of waning immunity'),
-            # ss.FloatArr('vaccine_efficacy_factor', default=1.0, label='Vaccine efficacy factor'),
         )
 
         vx_types = sc.promotetolist(vx_types)  # Ensure vx_types is a list
-        # self.vx_types = vx_types
 
         self.g = [int(vx_type[1]) for vx_type in vx_types if vx_type[0].upper() == 'G' ]
         self.p = [int(vx_type[1]) for vx_type in vx_types if vx_type[0].upper() == 'P' ]
-
 
         self.vaccine_efficacy_i = {}
         self.vaccine_efficacy_s = {}
@@ -109,16 +106,17 @@ class RotaVax(ss.Vx):
             return "No real roots"
 
     def is_match(self, infecting_strain):
-        numAgSegments = self.sim.connectors.rota.pars.numAgSegments
-        segments = self.segments[:numAgSegments]
+        # numAgSegments = self.sim.connectors.rota.pars.numAgSegments
+        # segments = self.segments[:numAgSegments]
 
-        matches = [False] * numAgSegments
-        for index, segment in enumerate(segments):
-            vx_segment_strains = getattr(self, segment)
-            infecting_segment_strain = infecting_strain[index]
-            if infecting_segment_strain in vx_segment_strains:
-                matches[index] = True
-                continue
+        # check only antigenic segments (e.g. G and P)
+
+
+        matches = [False, False]
+        if infecting_strain[0] in self.g:
+            matches[0] = True
+        if infecting_strain[1] in self.p:
+            matches[1] = True
 
         if np.all(matches):
             return rsg.PathogenMatch.HOMOTYPIC
@@ -126,23 +124,6 @@ class RotaVax(ss.Vx):
             return rsg.PathogenMatch.PARTIAL_HETERO
         else:
             return rsg.PathogenMatch.COMPLETE_HETERO
-
-
-    #
-    # def administer(self, people, inds):
-    #     """
-    #     Administer the RotaVax vaccination to eligible individuals.
-    #
-    #     Args:
-    #         people (People): The population to administer the vaccine to.
-    #         inds (array-like): Indices of individuals to vaccinate.
-    #
-    #     Returns:
-    #         None
-    #     """
-    #     # Adjust waning rate based on the number of doses
-    #
-    #     return
 
 
 
@@ -169,69 +150,91 @@ class RotaVaxProg(ss.routine_vx):
             prob = 0.89  # Default probability of vaccination
 
 
-        super().__init__(pars=pars, product=product, prob=prob, eligibility=eligibility,  **kwargs)
+
+
+        self.define_states(
+            ss.FloatArr('n_doses', default=0, label='Number of doses received'),
+            ss.FloatArr('waned_effectiveness', default=1.0, label='current base waned effectiveness'),
+            # ss.FloatArr('vx_e_i', default=0, label='Vaccine efficacy against infection'),
+            # ss.FloatArr('vx_e_s', default=0, label='Vaccine efficacy against severe disease'),
+            ss.FloatArr('waning_rate', default=0, label='Rate of waning immunity'),
+            ss.BoolArr("to_vx", default=False, label="Vaccination flag, if true the person is eligible for vaccination"),
+        )
+
+
+        super().__init__(pars=pars, product=product, prob=prob, eligibility=eligibility, annual_prob=False, **kwargs)
         self.define_pars(
             vx_age_min=ss.dur(4.55, 'week'),
             vx_age_max=ss.dur(6.5, 'week'),
             vx_spacing=ss.dur(6, unit='week'),  # Spacing between doses
             max_doses=2,
-
         )
 
 
         self.update_pars(pars=pars, **kwargs)
 
-        self.define_states(
-            ss.FloatArr('n_doses', default=0, label='Number of doses received'),
-            ss.FloatArr('waned_effectiveness', default=1.0, label='current base waned effectiveness'),
-            ss.FloatArr('vx_e_i', default=0, label='Vaccine efficacy against infection'),
-            ss.FloatArr('vx_e_s', default=0, label='Vaccine efficacy against severe disease'),
-            ss.FloatArr('waning_rate', default=0, label='Rate of waning immunity'),
-        )
         return
 
+    def init_results(self):
+        super().init_results()
+        self.define_results(ss.Result('new_vaccinated_first_dose', dtype=int, label='Number of people vaccinated with first dose'),
+                            ss.Result('new_vaccinated_second_dose', dtype=int, label='Number of people vaccinated with second dose'),)
 
 
     def eligible(self, sim):
         """ Determine which agents are eligible for vaccination """
-        ppl = sim.people
-        eligible = ((ppl.age >= self.pars.vx_age_min) &
-                    (ppl.age < self.pars.vx_age_max) &
-                    (self.n_doses == 0 | ((self.n_doses < self.pars.max_doses) & (self.ti - self.ti_vaccinated >= self.pars.vx_spacing )))
-                    )
+        # ppl = sim.people
+        eligible = self.to_vx == True
         return eligible.uids
 
     def step(self):
-        if self.sim.ti in self.timepoints and self.sim.ti == self.timepoints[0]:
-            # if there is no strain associated with the product, select the most prevalent strain
-            if not hasattr(self.product, 'strain'):
-                total_strain_counts = defaultdict(int)
-                for strain, count in self.sim.connectors.rota.strain_count.items():
-                    total_strain_counts[strain[: self.sim.connectors.rota.pars.numAgSegments]] += (
-                        count
-                    )
+        ppl = self.sim.people
+        if self.sim.ti in self.timepoints:
+            if self.sim.ti == self.timepoints[0]:
+                # if there is no strain associated with the product, select the most prevalent strain
+                if self.product.g == [] and self.product.p == []:
+                    total_strain_counts = defaultdict(int)
+                    for strain, count in self.sim.connectors.rota.strain_count.items():
+                        total_strain_counts[strain[: self.sim.connectors.rota.pars.numAgSegments]] += (
+                            count
+                        )
 
-                strain = sorted(
-                    list(total_strain_counts.keys()),
-                    key=lambda x: total_strain_counts[x],
-                )[-1]
+                    strain = sorted(
+                        list(total_strain_counts.keys()),
+                        key=lambda x: total_strain_counts[x],
+                    )[-1]
 
-                self.product.g = strain[0]
-                self.product.p = strain[1]
+                    self.product.g = [strain[0]]
+                    self.product.p = [strain[1]]
+
+                # this is the first time step, so all still need an opportunity to get vaccinated
+
+                to_vx = (ppl.age >= self.pars.vx_age_min) & (ppl.age < self.pars.vx_age_max)
+                self.to_vx[to_vx] = True
+            else:
+                # if this is not the first time step, we only vaccinate those who are eligible:
+                #   * those who have aged into the vaccination age range
+                #   * those ready for their next dose
+
+                to_vx_age = (ppl.age >= self.pars.vx_age_min) & (ppl.age < (self.pars.vx_age_min + self.t.dt_year))
+                to_vx_next_dose = (self.n_doses < self.pars.max_doses) & \
+                                  (self.ti - self.ti_vaccinated >= self.pars.vx_spacing.values) & \
+                                  (self.ti - self.ti_vaccinated < self.pars.vx_spacing.values + 1)  # Ensure they have been vaccinated before
+                self.to_vx[to_vx_age] = True
+                self.to_vx[to_vx_next_dose] = True
 
         vx_uids = super().step()
 
+        self.results.new_vaccinated_first_dose[self.ti] = np.count_nonzero(self.n_doses[vx_uids] == 1)
+        self.results.new_vaccinated_second_dose[self.ti] = np.count_nonzero(self.n_doses[vx_uids] == 2)
+
         # update the waning rate for all new vaccinations based on the total number of doses
         self.product.waning_rate[vx_uids] = [self.product.pars.mean_dur_protection[int(self.n_doses[vx_uid]) - 1].values for vx_uid in vx_uids]
-        # update the vaccine efficacy for the new vaccinated individuals
-
-        for vx_uid in vx_uids:
-            n_doses = int(self.n_doses[vx_uid])
-
-        # self.vx_e_i[vx_uids] = [self.product.vaccine_efficacy_i_d1[self.product.vx_types[int(self.n_doses[vx_uid]) - 1]] for vx_uid in vx_uids]
-        # self.vx_e_s[vx_uids] = [self.product.vaccine_efficacy_s_d1[self.product.vx_types[int(self.n_doses[vx_uid]) - 1]] for vx_uid in vx_uids]
 
         self.update_immunity()
+
+        self.to_vx[:] = False # Reset the vaccination flag for all individuals after processing
+
 
     def update_immunity(self):
         # Update immunity based on the vaccine's fixed protection and mean duration
@@ -246,10 +249,5 @@ class RotaVaxProg(ss.routine_vx):
         self.waned_effectiveness[nonwaning_uids] = 1
         self.waned_effectiveness[waning_uids] = np.exp( (-1/self.product.waning_rate[waning_uids]) *
                                            (self.ti - (np.round(self.product.pars.waning_delay) + self.ti_vaccinated[waning_uids])))
-
-        # update relative susceptibility
-        # self.sim.connectors.rota.rel_sus[vxuids] *= (1 - self.vx_e_i[vxuids])
-        #
-        # self.sim.connectors.rota.rel_sev[vxuids] *= (1 - self.vx_e_s[vxuids])
 
         return

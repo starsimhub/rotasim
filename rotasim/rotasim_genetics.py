@@ -335,8 +335,6 @@ class Rota(ss.Module):
     def __init__(self, to_csv=False, **kwargs):
         super().__init__()
         self.T = sc.timer()
-        self.vx_first_dose = ss.bernoulli()
-        self.vx_second_dose = ss.bernoulli()
 
         numSegments = 4
         numNoneAgSegments = 2
@@ -836,10 +834,6 @@ class Rota(ss.Module):
         # for each strain track the number of hosts infected with it at current time: strain_count
         self.strain_count = {}
 
-        self.to_be_vaccinated_uids = []
-        self.first_dose_vaccinated_uids = []
-        self.second_dose_vaccinated_uids = []
-
         # Store these for later
         self.infected_uids = infected_uids
         self.pathogens_uids = pathogens_uids
@@ -980,20 +974,6 @@ class Rota(ss.Module):
         self.recovery_event(recoveries, self.infected_uids)
         self.waning_event(wanings)
 
-        #
-        # # Collect the total counts of strains at each time step to determine the most prevalent strain for vaccination
-        # # We will skip time_to_equilibrium years to allow the simulation to reach an equilibrium state
-        # if (
-        #     self.t.abstvec[self.ti] > self.pars.time_to_equilibrium
-        #     and not self.vaccine_campaign_started
-        # ):
-        #     for strain, count in self.strain_count.items():
-        #         self.total_strain_counts_vaccine[strain[: self.pars.numAgSegments]] += (
-        #             count
-        #         )
-
-
-
         if self.pars.to_csv:
             f = self.files
             if self.t.abstvec[self.ti] >= self.last_data_collected:
@@ -1002,6 +982,9 @@ class Rota(ss.Module):
                     f.infected_all_output_filename, sample=False
                 )
                 self.last_data_collected += self.data_collection_rate
+
+
+            vx_results = self.sim.interventions.rotavaxprog.results
 
             self._write_to_csv_buffer(
                 "event_counts",
@@ -1013,10 +996,8 @@ class Rota(ss.Module):
                     contacts,
                     wanings,
                     reassortments,
-                    # vaccine_dose_1_wanings,
-                    # vaccine_dose_2_wanings,
-                    # len(vaccine_first_dose_uids),
-                    # len(vaccine_second_dose_uids),
+                    vx_results.new_vaccinated_first_dose[self.ti],
+                    vx_results.new_vaccinated_second_dose[self.ti],
                 ],
             )
 
@@ -1033,29 +1014,12 @@ class Rota(ss.Module):
             self.T.toc()
         return
 
-    # # compares two strains
-    # # if they both have the same antigenic segments we return homotypic
-    # def match(self, strainIn):
-    #     numAgSegments = self.pars.numAgSegments
-    #     if strainIn[:numAgSegments] == self.strain[:numAgSegments]:
-    #         return PathogenMatch.HOMOTYPIC
-    #
-    #     strains_match = False
-    #     for i in range(numAgSegments):
-    #         if strainIn[i] == self.strain[i]:
-    #             strains_match = True
-    #
-    #     if strains_match:
-    #         return PathogenMatch.PARTIAL_HETERO
-    #     else:
-    #         return PathogenMatch.COMPLETE_HETERO
-
     def get_strain_name(self):
         G, P, A, B = [str(self.strain[i]) for i in range(4)]
         return f"G{G}P{P}A{A}B{B}"
 
     def get_probability_of_severe(
-        self, pathogen_in, vaccine, immunity_count
+        self, immunity_count, pathogen_in=None, vaccine=None, n_doses=0,
     ):  # TEMP: refactor and include above
         if immunity_count >= 3:
             severity_probability = 0.18
@@ -1066,16 +1030,11 @@ class Rota(ss.Module):
         elif immunity_count == 0:
             severity_probability = 0.17
 
-        if vaccine is not None and not vaccine.is_waned:
+        if vaccine is not None and n_doses > 0:
             # Probability of severity also depends on the strain (homotypic/heterotypic/etc.)
-            pathogen_strain_type = pathogen_in.match(vaccine.strain[0])
+            pathogen_match = vaccine.product.is_match(pathogen_in)
             # Effectiveness of the vaccination depends on the number of doses
-            if vaccine.dose == 1:
-                ve_s = self.vaccine_efficacy_s_d1[pathogen_strain_type]
-            elif vaccine.dose == 2:
-                ve_s = self.vaccine_efficacy_s_d2[pathogen_strain_type]
-            else:
-                raise NotImplementedError(f"Unsupported vaccine dose: {vaccine.dose}")
+            ve_s = vaccine.product.vaccine_efficacy_s[n_doses][pathogen_match]
             return severity_probability * (1 - ve_s)
         else:
             return severity_probability
@@ -1089,8 +1048,6 @@ class Rota(ss.Module):
         R,
         tau,
         RR_GP,
-        # first_dose_count,
-        # second_dose_count,
     ):
         births = np.random.poisson(size=1, lam=tau * N * self.pars.birth_rate)[0]
         deaths = np.random.poisson(size=1, lam=tau * N * self.pars.mu)[0]
@@ -1104,14 +1061,7 @@ class Rota(ss.Module):
         reassortments = np.random.poisson(size=1, lam=tau * RR_GP * co_infected_count)[
             0
         ]
-        # vaccination_wanings_one_dose = np.random.poisson(
-        #     size=1,
-        #     lam=tau * self.pars.vaccination_first_dose_waning_rate * first_dose_count,
-        # )[0]
-        # vaccination_wanings_two_dose = np.random.poisson(
-        #     size=1,
-        #     lam=tau * self.pars.vaccination_second_dose_waning_rate * second_dose_count,
-        # )[0]
+
         return (
             births,
             deaths,
@@ -1119,27 +1069,8 @@ class Rota(ss.Module):
             contacts,
             wanings,
             reassortments,
-            # vaccination_wanings_one_dose,
-            # vaccination_wanings_two_dose,
         )
 
-    # def coInfected_contacts(self, h1_uid, h2_uid):
-    #     random_number = rnd.random()
-    #     if random_number < 0.02:  # giving all the possible strains
-    #         for path in self.infecting_pathogen[h1_uid]:
-    #             if self.can_variant_infect_host(h2_uid, path.strain):
-    #                 self.infect_with_pathogen(h2_uid, path)
-    #     else:  # give only one strain depending on fitness
-    #         host1paths = list(self.infecting_pathogen[h1_uid])
-    #         # Sort by fitness first and randomize the ones with the same fitness
-    #         host1paths.sort(
-    #             key=lambda path: (path.get_fitness(), rnd.random()), reverse=True
-    #         )
-    #         for path in host1paths:
-    #             if self.can_variant_infect_host(h2_uid, path.strain):
-    #                 infected = self.infect_with_pathogen(h2_uid, path)
-    #                 if infected:
-    #                     break
 
     def isInfected(self, uid):
         return len(self.infecting_pathogen[uid]) != 0
@@ -1153,10 +1084,6 @@ class Rota(ss.Module):
     def birth_events(self, birth_count):
         new_uids = self.sim.people.grow(birth_count)  # add more people!
         self.sim.people.age[new_uids] = 0
-
-        # if self.vaccine_campaign_started:
-        #     vax_uids = self.vx_first_dose.filter(uids=new_uids)
-        #     self.to_be_vaccinated_uids.extend(vax_uids)
 
     def death_event(self, num_deaths, infected_uids):
         # host_list = np.arange(len(self.host_pop))
@@ -1218,8 +1145,6 @@ class Rota(ss.Module):
         }
 
         for h1_uid, h2_uid, rnd_num in zip(h1_uids, h2_uids, rnd_nums):
-            # h1 = infected_pop[h1_ind]
-            # h2 = self.host_pop[h2_ind]
 
             # If the contact is the same as the infected host, pick another host at random
             while h1_uid == h2_uid:
@@ -1261,6 +1186,7 @@ class Rota(ss.Module):
             # in this case h2 was not infected before but is infected now
             if not h2_previously_infected and self.isInfected(h2_uid):
                 infected_uids.append(h2_uid)
+
         return # counter
 
     def reassortment_event(self, coinfectedhosts, reassortment_count):
@@ -1629,13 +1555,14 @@ class Rota(ss.Module):
             return False
 
         # Probability of getting a severe decease depends on the number of previous infections and vaccination status of the host
-        # severity_probability = self.get_probability_of_severe(
-        #     pathogen_in, self.vaccine[uid], self.prior_infections[uid]
-        # )
-        # if rnd.random() < severity_probability:
-        #     severe = True
-        # else:
-        #     severe = False
+        vx = self.sim.interventions.rotavaxprog
+        severity_probability = self.get_probability_of_severe(
+           self.prior_infections[uid], pathogen_in.strain, vx, vx.n_doses[uid]
+        )
+        if rnd.random() < severity_probability:
+            severe = True
+        else:
+            severe = False
 
         if pathogen_in.is_reassortant:
             self.reassortment_count += 1
@@ -1646,7 +1573,7 @@ class Rota(ss.Module):
             creation_time=self.t.abstvec[self.ti],
             host_uid=uid,
             strain=pathogen_in.strain,
-            # is_severe=severe,
+            is_severe=severe,
         )
         self.infecting_pathogen[uid].append(new_p)
         self.record_infection(new_p)
