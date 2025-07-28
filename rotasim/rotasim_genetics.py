@@ -751,6 +751,13 @@ class Rota(ss.Module):
     def init_post(self):
         super().init_post()
 
+        try:
+            self.vx = self.sim.interventions.rotavaxprog
+        except AttributeError:
+            raise AttributeError(
+                "Rota module requires the 'rotavaxprog' intervention to be defined in the simulation."
+            )
+
         # Reset the seed
         rnd.seed(self.sim.pars.rand_seed)
         np.random.seed(self.sim.pars.rand_seed)
@@ -984,7 +991,7 @@ class Rota(ss.Module):
                 self.last_data_collected += self.data_collection_rate
 
 
-            vx_results = self.sim.interventions.rotavaxprog.results
+            vx_results = self.vx.results
 
             self._write_to_csv_buffer(
                 "event_counts",
@@ -1151,33 +1158,36 @@ class Rota(ss.Module):
             while h1_uid == h2_uid:
                 h2_uid = rnd.choice(self.sim.people.alive.uids)
 
-            h2_previously_infected = self.isInfected(uid=h2_uid)
-
             infecting_probability = infecting_probability_map.get(
                 self.prior_infections[h2_uid], 0
             )
-            if self.isInfected(h2_uid):
-                infecting_probability = 0
 
             infecting_probability *= rel_beta # Scale by this calibration parameter
 
+            if rnd_num > infecting_probability:
+                continue
+
+
+            h2_previously_infected = self.isInfected(uid=h2_uid)
+
             h1_pathogens = self.infecting_pathogen[h1_uid]
             transmit_all = False
-            if rnd.random() < 0.02:
+            if len(h1_pathogens) > 1:
                 # small chance to transmit all pathogens
-                transmit_all = True
+                transmit_all = rnd.random() < 0.02
             else:
                 h1_pathogens.sort(
                     key=lambda path: (path.get_fitness(), rnd.random()), reverse=True
                 )
 
             for h1_pathogen in h1_pathogens:
-                variant_infecting_probability = infecting_probability * self.prob_variant_infect_host(h2_uid, h1_pathogen)
-
-                if rnd_num < variant_infecting_probability:
-                    self.infect_with_pathogen(
+                if self.can_variant_infect_host(h2_uid, h1_pathogen):
+                    infected = self.infect_with_pathogen(
                         h2_uid, self.infecting_pathogen[h1_uid][0]
-                    )
+                        )
+
+                    if infected and not transmit_all:
+                        break
 
 
             # in this case h2 was not infected before but is infected now
@@ -1303,13 +1313,8 @@ class Rota(ss.Module):
 
 
     def is_vaccine_immune(self, uid, infecting_strain):
+        vx_intv = self.vx
 
-        try:
-            vx_intv = self.sim.interventions.rotavaxprog
-        except:
-            raise RuntimeError(
-                "RotaVaxProg intervention is not set up correctly in the simulation."
-            )
         n_doses = vx_intv.n_doses[uid]
 
         if n_doses == 0:
@@ -1503,7 +1508,7 @@ class Rota(ss.Module):
                 return age_labels[i]
         return age_labels[-1]
 
-    def prob_variant_infect_host(self, uid, infecting_pathogen):
+    def can_variant_infect_host(self, uid, infecting_pathogen):
         current_infections = self.infecting_pathogen[uid]
         numAgSegments = self.pars.numAgSegments
         partial_heterotypic_immunity_rate = self.partial_heterotypic_immunity_rate
@@ -1515,14 +1520,14 @@ class Rota(ss.Module):
         if self.is_vaccine_immune(
             uid, infecting_strain
         ):
-            return 0
+            return False
 
         # If the host is infected with the same strain, cannot reinfect with exact same strain
         current_infecting_strains = (
             i.strain[:numAgSegments] for i in current_infections
         )
         if infecting_strain[:numAgSegments] in current_infecting_strains:
-            return 0
+            return False
 
 
 
@@ -1538,26 +1543,25 @@ class Rota(ss.Module):
             return False
 
         if is_complete_antigenic_match():
-            fitness = homotypic_immunity_rate
+            return rnd.random() > homotypic_immunity_rate
 
-        elif has_shared_antigenic_genotype():
-            fitness = partial_heterotypic_immunity_rate
+        if has_shared_antigenic_genotype():
+            return rnd.random() > partial_heterotypic_immunity_rate
 
-        else:
-            # If the strain is complete heterotypic
-            fitness = complete_heterotypic_immunity_rate
-
-        fitness *= infecting_pathogen.get_fitness()
-
-        return fitness
+        # If the strain is complete heterotypic
+        return rnd.random() > complete_heterotypic_immunity_rate
 
 
     def infect_with_pathogen(self, uid, pathogen_in):
         """This function returns a fitness value to a strain based on the hypothesis"""
+        fitness = pathogen_in.get_fitness()
 
+        # e.g. fitness = 0.8 (there's a 80% chance the virus infecting a host)
+        if rnd.random() > fitness:
+            return False
 
-        # Probability of getting a severe decease depends on the number of previous infections and vaccination status of the host
-        vx = self.sim.interventions.rotavaxprog
+        # Probability of getting a severe disease depends on the number of previous infections and vaccination status of the host
+        vx = self.vx
         severity_probability = self.get_probability_of_severe(
            self.prior_infections[uid], pathogen_in.strain, vx, vx.n_doses[uid]
         )
