@@ -125,6 +125,11 @@ class StrainStats(ss.Analyzer):
         """Convert results to dataframe - matches v1 format exactly"""
         df = self.results.to_df()
         
+        # Handle case where results.to_df() returns None
+        if df is None:
+            print("Warning: StrainStats results.to_df() returned None - no data collected")
+            return None
+        
         # Remove duplicate timevec columns (same logic as v1)
         indexes_to_drop = df.columns.get_indexer_for(['timevec'])
         if len(indexes_to_drop) > 1:

@@ -76,12 +76,8 @@ class Rotasim(ss.Sim):
         
         # Set reasonable defaults for rotavirus simulations if not provided  
         rotasim_defaults = {
-            'n_agents': 10_000,
-            'start': 2020,  # Start year 
-            'stop': 2030,   # 10 years later
             'unit': 'day',
             'dt': 1,  # Daily timesteps
-            'networks': 'random',
         }
         
         # Apply defaults only if not explicitly provided
@@ -89,7 +85,7 @@ class Rotasim(ss.Sim):
             if key not in kwargs:
                 kwargs[key] = default_value
         
-        print(f"  Simulation: {kwargs['n_agents']} agents, {kwargs['start']}-{kwargs['stop']}, dt={kwargs['dt']}")
+        print(f"  Time units: {kwargs.get('unit', 'day')}, dt={kwargs.get('dt', 1)}")
         print(f"  Total diseases: {len(diseases)} ({len(initial_strains)} active + {len(diseases)-len(initial_strains)} dormant)")
         
         # Initialize parent Sim class
