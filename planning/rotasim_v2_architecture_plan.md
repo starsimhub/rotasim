@@ -31,18 +31,38 @@ Refactor current monolithic Rotasim implementation to follow traditional Starsim
 
 #### Example Usage
 ```python
-# Create individual strain instances with G,P as first-class parameters
-rota_g1p8 = Rotavirus(G=1, P=8, backbone=(1,1))    # Auto-named "G1P8_11"
-rota_g2p4 = Rotavirus(G=2, P=4, backbone=(1,1))    # Auto-named "G2P4_11" 
-rota_g3p6 = Rotavirus(G=3, P=6, backbone=(2,2))    # Auto-named "G3P6_22"
+# Define initial G,P strain combinations (backbone removed for performance)
+initial_strains = [(1,8), (2,4), (3,6)]
+
+# Auto-generate ALL possible G,P reassortments at simulation start
+# (Required: Starsim cannot add new diseases mid-simulation)
+all_gp_pairs = generate_gp_reassortments(initial_strains)  # ~20-70 combinations
+
+# Create Rotavirus instances for all possible G,P combinations
+base_beta = 0.1  # Global transmission scaling
+diseases = []
+for G, P in all_gp_pairs:
+    # Most reassortants start with zero prevalence
+    init_prev = 0.01 if (G,P) in initial_strains else 0.0
+    diseases.append(Rotavirus(G=G, P=P, init_prev=init_prev))
+
+# Strain-specific fitness multipliers for easy parameter tuning
+x_beta_lookup = {
+    (1,8): 1.0,   # G1P8 baseline fitness
+    (2,4): 0.8,   # G2P4 reduced fitness  
+    (3,6): 1.2,   # G3P6 enhanced fitness
+}
+for disease in diseases:
+    x_beta = x_beta_lookup.get((disease.G, disease.P), 1.0)
+    disease.pars.beta = base_beta * x_beta
 
 # Connectors auto-detect Rotavirus instances - no manual listing needed
 immunity = RotaImmunityConnector()  # Finds all Rotavirus diseases automatically
-reassortment = RotaReassortment()   # Finds all Rotavirus diseases automatically
+reassortment = RotaReassortment()   # Uses set_prognoses() for co-infected hosts
 
 # Standard Starsim simulation - no custom Sim class needed
 sim = ss.Sim(
-    diseases=[rota_g1p8, rota_g2p4, rota_g3p6],
+    diseases=diseases,  # All possible G,P combinations
     connectors=[immunity, reassortment],
     networks='random',
     n_agents=10000
@@ -53,27 +73,24 @@ sim = ss.Sim(
 
 ### Phase 1.1: Core Rotavirus Disease Class
 
-**Rotavirus(ss.Infection) Design:**
+**Rotavirus(ss.Infection) Design (Simplified for Performance):**
 ```python
 class Rotavirus(ss.Infection):
-    def __init__(self, G, P, backbone=(1, 1), name=None, **kwargs):
+    def __init__(self, G, P, name=None, **kwargs):
         # G, P: first-class antigenic genotypes (required)
-        # backbone: flexible tuple for non-antigenic segments (A, B, ...)
         # name: auto-generated if not provided
         
         if name is None:
-            backbone_str = ''.join([f'{seg}' for seg in backbone])
-            name = f"G{G}P{P}_{backbone_str}"  # e.g., "G1P8_11" or "G2P4_22"
+            name = f"G{G}P{P}"  # e.g., "G1P8", "G2P4"
         
         super().__init__(name=name, **kwargs)
         self.G = G
         self.P = P
-        self.backbone = backbone
         
     @property
     def strain(self):
-        """Complete strain tuple (G, P, *backbone) for compatibility"""
-        return (self.G, self.P) + self.backbone
+        """Strain tuple for compatibility with existing code"""
+        return (self.G, self.P)
         
     @property
     def antigenic_segments(self):
@@ -96,11 +113,16 @@ class Rotavirus(ss.Infection):
 ```
 
 **Key Features:**
-- **G and P as first-class parameters**: `Rotavirus(G=1, P=8)` is biologically intuitive
-- **Flexible backbone**: `backbone=(1,1)` for A1B1, extensible for future segments
-- **Auto-naming**: "G1P8_11" clearly shows antigenic type and genetic background
-- **Strain fitness**: Handled through different `beta` values per instance
-- **Backward compatibility**: `.strain` property returns full tuple for existing code
+- **G,P only for initial implementation**: Massive performance improvement (16x fewer disease instances)
+- **Biologically meaningful**: G,P drive all immunity and transmission dynamics
+- **Simple naming**: "G1P8" clearly identifies antigenic type
+- **Strain fitness**: Handled through `base_beta * x_beta_lookup[(G,P)]` multipliers
+- **Future extensible**: Can add backbone parameter later once core architecture is validated
+
+**Performance Benefits:**
+- **Reduced complexity**: ~70 G,P combinations vs. 1,000+ with backbone
+- **Faster simulation**: Fewer disease instances for Starsim to manage
+- **Easier debugging**: Simpler architecture to validate and optimize
 
 ### Phase 1.2: Cross-Strain Immunity Connector
 
@@ -240,33 +262,88 @@ class RotaImmunityConnector(ss.Connector):
 
 ### Phase 1.3: Reassortment Connector
 
-**Key Question for Starsim Core Team:**
-> **CRITICAL DESIGN QUESTION**: Can new disease instances be dynamically added to a running simulation, or must we start with all possible strain combinations pre-defined?
-> 
-> This affects whether reassortment can create truly novel strains during simulation or if we need to pre-populate all theoretically possible G/P/A/B combinations at initialization.
+**Key Insight from Starsim Limitations:**
+> **CRITICAL**: Starsim cannot add new disease instances mid-simulation. All possible reassortant G,P combinations must be created at initialization.
 
-**RotaReassortment Design Concept:**
+**RotaReassortment Design:**
 ```python
 class RotaReassortment(ss.Connector):
     def init_post(self, sim):
-        """Auto-detect all Rotavirus disease instances"""
+        """Auto-detect all Rotavirus disease instances and create lookup"""
         super().init_post(sim)
-        self.rota_diseases = []
-        for disease in sim.diseases.values():
-            if isinstance(disease, Rotavirus):
-                self.rota_diseases.append(disease)
-    
+        self.rota_diseases = [d for d in sim.diseases.values() 
+                            if isinstance(d, Rotavirus)]
+        
+        # Create fast lookup: (G,P) -> disease instance
+        self.strain_lookup = {(d.G, d.P): d for d in self.rota_diseases}
+        
     def step(self):
-        # Identify hosts infected with multiple strains
-        # Generate new strain combinations (G/P/A/B reassortment)
-        # Either:
-        #   A) Dynamically create new Rotavirus instances (if Starsim supports)
-        #   B) Activate pre-existing dormant strain instances
+        # 1. Identify hosts infected with multiple Rotavirus strains
+        co_infected_hosts = self._find_co_infected_hosts()
+        
+        # 2. Generate reassortment events (Poisson process)
+        n_reassortments = np.random.poisson(self.pars.reassortment_rate * len(co_infected_hosts))
+        
+        # 3. For each reassortment event:
+        for host_uid in np.random.choice(co_infected_hosts, n_reassortments):
+            # Get current strain infections
+            current_strains = self._get_host_infections(host_uid)
+            
+            # Generate novel G,P combination from parents
+            new_gp = self._reassort_genotypes(current_strains)
+            
+            # Use set_prognoses() to infect with pre-existing disease instance
+            reassortant_disease = self.strain_lookup[new_gp]
+            reassortant_disease.set_prognoses([host_uid])
+            
+    def _find_co_infected_hosts(self):
+        """Find hosts infected with 2+ different Rotavirus strains"""
+        infection_counts = np.zeros(self.sim.n_agents)
+        for disease in self.rota_diseases:
+            infection_counts += disease.infected.astype(int)
+        return np.where(infection_counts >= 2)[0]
 ```
 
-**Implementation Options:**
-1. **Dynamic Creation**: Create new Rotavirus instances during simulation (preferred)
-2. **Pre-population**: Start with all possible combinations, activate as needed
+**Implementation Requirements:**
+1. **Pre-populate all G,P combinations**: Generate all possible reassortants at sim start
+2. **Most start dormant**: `init_prev=0.0` for reassortant strains  
+3. **Use set_prognoses()**: Activate dormant strains via existing Starsim mechanism
+
+### Phase 1.4: Performance Optimization for Many Diseases
+
+**Challenge**: 50-100 disease instances with mostly zero prevalence
+**Key Insight**: Most reassortant strains remain dormant (`infected.sum() == 0`)
+
+**Optimization Strategies:**
+```python
+# In disease transmission loops
+for disease in sim.diseases.values():
+    if isinstance(disease, Rotavirus) and not disease.infected.any():
+        continue  # Skip dormant strains
+    
+    # Only process active diseases
+    disease.step_transmission()
+
+# In immunity connector
+def _update_cross_immunity(self):
+    # Only update rel_sus for diseases with potential exposure
+    active_diseases = [d for d in self.rota_diseases if d.infected.any()]
+    for disease in active_diseases:
+        # Vectorized immunity calculation
+        ...
+
+# In analyzers  
+def step(self):
+    # Batch operations for strain families
+    active_strains = {d.strain: d.infected.sum() 
+                     for d in self.rota_diseases if d.infected.any()}
+```
+
+**Expected Performance Impact:**
+- **Dormant strain overhead**: Minimal with proper `infected.any()` checks
+- **Active strain processing**: Same as current system
+- **Memory usage**: Moderate increase (50-100 disease instances vs. 1)
+- **Network transmission**: Only active diseases participate
 
 ## Benefits of New Architecture
 
