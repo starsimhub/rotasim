@@ -8,33 +8,33 @@ Implement core infrastructure for strain-specific Rotavirus disease instances wi
 
 ---
 
-## TASK 1: Core Rotavirus Disease Class
+## TASK 1: Core Rotavirus Disease Class (Simplified - G,P Only)
 **File**: `rotasim/diseases/rotavirus.py` (new file)
-**Estimated Time**: 2-3 hours
+**Estimated Time**: 1-2 hours
 
 ### 1.1 Basic Class Structure
 ```python
 class Rotavirus(ss.Infection):
-    def __init__(self, G, P, backbone=(1, 1), name=None, **kwargs):
-        # Auto-generate name: "G1P8_11"
-        # Store G, P, backbone attributes
+    def __init__(self, G, P, name=None, **kwargs):
+        # Auto-generate name: "G1P8"
+        # Store G, P attributes only (no backbone for performance)
         # Call super().__init__()
 ```
 
 ### 1.2 Required Properties
-- `@property def strain(self)`: Return `(self.G, self.P) + self.backbone` for compatibility
+- `@property def strain(self)`: Return `(self.G, self.P)` for compatibility
 - `@property def antigenic_segments(self)`: Return `(self.G, self.P)`
 - `def match_strain(self, other)`: Return HOMOTYPIC/PARTIAL_HETERO/COMPLETE_HETERO
 
 ### 1.3 Parameters to Define
-- `beta`: Strain-specific transmission rate
-- `init_prev`: Initial prevalence for this strain
+- `beta`: Set via `base_beta * x_beta_lookup[(G,P)]` for fitness
+- `init_prev`: 0.01 for initial strains, 0.0 for reassortants
 - Standard `ss.Infection` parameters
 
 ### 1.4 Testing
 - Create simple test: single Rotavirus instance transmits correctly
-- Verify name auto-generation works
-- Test strain matching logic
+- Verify name auto-generation: "G1P8", "G2P4"
+- Test strain matching logic with G,P only
 
 ---
 
@@ -76,20 +76,24 @@ class RotaImmunityConnector(ss.Connector):
 
 ---
 
-## TASK 3: Multi-Strain Simulation Integration
+## TASK 3: Multi-Strain System with Reassortment Pre-population
 **File**: `rotasim/rotasim.py` (update existing)
-**Estimated Time**: 2 hours
+**Estimated Time**: 3-4 hours
 
-### 3.1 Update Sim Class
-- Modify to accept list of Rotavirus instances
-- Add RotaImmunityConnector to connectors
-- Update example usage patterns
+### 3.1 Generate All Possible G,P Combinations
+- Create `generate_gp_reassortments(initial_strains)` function
+- Pre-populate ALL possible reassortants at sim start (Starsim constraint)
+- Most start dormant: `init_prev=0.0` for reassortants
 
-### 3.2 Integration Testing
-- Create 2-3 strain system: G1P8, G2P4, G3P6
-- Verify independent transmission
-- Test cross-immunity protection
-- Compare results with current monolithic model
+### 3.2 Strain-Specific Parameter System
+- Implement `base_beta * x_beta_lookup[(G,P)]` fitness system
+- Handle 50-100 disease instances efficiently
+- Add performance optimizations: skip `disease.infected.any() == False`
+
+### 3.3 Integration Testing
+- Test system with ~20-70 G,P combinations
+- Verify dormant strains stay inactive until reassortment
+- Compare active strain behavior with current model
 
 ---
 
