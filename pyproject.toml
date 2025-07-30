@@ -22,6 +22,18 @@ dependencies = [
     "starsim",
 ]
 
+[dependency-groups]
+dev = [
+    "jupyter",
+    "ipykernel", 
+    "seaborn",           # Enhanced plotting for notebooks
+    "pytest",            # Testing framework
+    "pytest-cov",        # Coverage reports
+    "black",             # Code formatting
+    "ruff",              # Linting
+    "pre-commit",        # Git hooks
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["rotasim*"]
@@ -32,3 +44,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]
 version = {attr = "rotasim.version.__version__"}
+
+[tool.uv.sources]
+starsim = { path = "../starsim", editable = true }

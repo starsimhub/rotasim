@@ -33,19 +33,19 @@ class RotaReassortmentConnector(ss.Connector):
     4. Activate dormant diseases using set_prognoses
     """
     
-    def __init__(self, reassortment_rate=0.1, **kwargs):
+    def __init__(self, reassortment_prob=0.1, **kwargs):
         """
         Initialize reassortment connector
         
         Args:
-            reassortment_rate: Daily probability of reassortment per co-infected host (default: 0.1)
+            reassortment_prob: Daily probability of reassortment per co-infected host (default: 0.1)
             **kwargs: Additional arguments passed to ss.Connector
         """
         super().__init__(**kwargs)
         
         # Define parameters
         self.define_pars(
-            reassortment_rate = ss.rate_prob(reassortment_rate),  # Convert to daily probability
+            reassortment_prob = ss.bernoulli(p=reassortment_prob),  # Bernoulli for filtering
         )
         
         # Will be populated during initialization
@@ -81,7 +81,7 @@ class RotaReassortmentConnector(ss.Connector):
         else:
             print(f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}")
         
-        print(f"  Reassortment rate: {self.pars.reassortment_rate} per day per co-infected host")
+        print(f"  Reassortment rate: {self.pars.reassortment_prob} per day per co-infected host")
         
     def step(self):
         """
@@ -102,8 +102,7 @@ class RotaReassortmentConnector(ss.Connector):
             return  # No co-infections, no reassortment possible
         
         # Step 2: Per-host Bernoulli draws for reassortment events
-        reassortment_events = ss.bernoulli(self.pars.reassortment_rate, len(co_infected_uids))
-        reassorting_uids = co_infected_uids[reassortment_events]
+        reassorting_uids = self.pars.reassortment_prob.filter(co_infected_uids)
         
         if len(reassorting_uids) == 0:
             return  # No reassortment events this timestep
@@ -183,9 +182,9 @@ class RotaReassortmentConnector(ss.Connector):
             reassortant_disease = self._gp_to_disease.get((G, P))
             if reassortant_disease is not None:
                 # Check if already infected with this reassortant
-                if not reassortant_disease.infected[uid]:
-                    # Activate infection using Starsim method
-                    reassortant_disease.set_prognoses(uid, 'infected', value=True)
+                if uid not in reassortant_disease.infected.uids:
+                    # Activate infection using Starsim method - use ss.uids()
+                    reassortant_disease.set_prognoses(ss.uids([uid]))
                     new_infections += 1
                     
         return new_infections

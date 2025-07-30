@@ -3,6 +3,7 @@ Utility functions for multi-strain Rotavirus simulations
 Provides convenient functions for generating strain combinations and fitness scenarios
 """
 import itertools
+import starsim as ss
 from .rotavirus import Rotavirus
 
 
@@ -96,7 +97,42 @@ def get_fitness_multiplier(G, P, scenario):
     return scenario.get((G, P), 1.0)
 
 
-def create_strain_diseases(initial_strains, fitness_scenario='baseline', base_beta=0.1):
+def _parse_init_prev_parameter(init_prev, initial_strains):
+    """
+    Parse init_prev parameter into a standardized dict format
+    
+    Args:
+        init_prev: Float or dict specifying initial prevalence
+        initial_strains: List of (G,P) tuples for validation
+        
+    Returns:
+        Dict mapping (G,P) tuples to prevalence values
+        
+    Raises:
+        ValueError: If format is invalid or values are out of range
+    """
+    if isinstance(init_prev, (int, float)):
+        # Float format: same prevalence for all initial strains
+        if init_prev < 0 or init_prev > 1:
+            raise ValueError(f"init_prev must be between 0 and 1, got {init_prev}")
+        return {strain: float(init_prev) for strain in initial_strains}
+    
+    elif isinstance(init_prev, dict):
+        # Dict format: {(G,P): prevalence}
+        result = {}
+        for strain, prev in init_prev.items():
+            if not isinstance(strain, (tuple, list)) or len(strain) != 2:
+                raise ValueError(f"Dict keys must be (G,P) tuples, got {strain}")
+            if not isinstance(prev, (int, float)) or prev < 0 or prev > 1:
+                raise ValueError(f"Prevalence values must be between 0 and 1, got {prev} for strain {strain}")
+            result[tuple(strain)] = float(prev)
+        return result
+    
+    else:
+        raise ValueError(f"init_prev must be float or dict, got {type(init_prev)}")
+
+
+def create_strain_diseases(initial_strains, fitness_scenario='baseline', base_beta=0.1, init_prev=0.01):
     """
     Create all Rotavirus disease instances for multi-strain simulation
     
@@ -108,21 +144,26 @@ def create_strain_diseases(initial_strains, fitness_scenario='baseline', base_be
         initial_strains: List of (G,P) tuples, e.g. [(1,8), (2,4)]
         fitness_scenario: Dict of fitness multipliers or string name ('baseline', 'high_diversity', 'low_diversity')
         base_beta: Base transmission rate before fitness adjustment
+        init_prev: Initial prevalence for active strains. Can be:
+                   - Float: Same prevalence for all initial strains (default: 0.01)
+                   - Dict: {(G,P): prevalence} for strain-specific values
         
     Returns:
         List of Rotavirus disease instances for all possible reassortants
         
-    Example:
-        >>> diseases = create_strain_diseases([(1,8), (2,4)], 'baseline', 0.1)
-        >>> len(diseases)  # 4 combinations: (1,8), (1,4), (2,8), (2,4)
-        4
-        >>> diseases[0].name
-        'G1P8'
-        >>> diseases[0].pars.beta  # base_beta * fitness_multiplier
-        0.1  # 0.1 * 1.0 for G1P8 in baseline scenario
+    Examples:
+        >>> # Uniform initial prevalence
+        >>> diseases = create_strain_diseases([(1,8), (2,4)], init_prev=0.02)
+        
+        >>> # Strain-specific prevalence
+        >>> diseases = create_strain_diseases([(1,8), (2,4)], 
+        ...                                  init_prev={(1,8): 0.02, (2,4): 0.005})
     """
     if not initial_strains:
         raise ValueError("initial_strains cannot be empty")
+        
+    # Parse init_prev parameter into a dict format
+    init_prev_dict = _parse_init_prev_parameter(init_prev, initial_strains)
         
     # Generate all possible G,P combinations
     gp_combinations = generate_gp_reassortments(initial_strains)
@@ -137,20 +178,22 @@ def create_strain_diseases(initial_strains, fitness_scenario='baseline', base_be
     dormant_count = 0
     
     for G, P in gp_combinations:
-        # Initial strains have prevalence, reassortants start dormant
-        init_prev = 0.01 if (G, P) in initial_strains else 0.0
+        # Get initial prevalence for this strain (0.0 for dormant reassortants)
+        strain_init_prev = init_prev_dict.get((G, P), 0.0)
         
         # Apply fitness multiplier to base beta
         fitness_mult = get_fitness_multiplier(G, P, fitness_scenario)
         adjusted_beta = base_beta * fitness_mult
         
-        # Create disease instance
-        disease = Rotavirus(G=G, P=P, init_prev=init_prev, beta=adjusted_beta)
+        # Create disease instance with proper Starsim parameter format
+        disease = Rotavirus(G=G, P=P, 
+                          init_prev=ss.bernoulli(p=strain_init_prev), 
+                          beta=ss.rate_prob(adjusted_beta))
         diseases.append(disease)
         
-        if init_prev > 0:
+        if strain_init_prev > 0:
             active_count += 1
-            print(f"    {disease.name}: beta={adjusted_beta:.3f} (x{fitness_mult:.2f}), init_prev={init_prev} [ACTIVE]")
+            print(f"    {disease.name}: beta={adjusted_beta:.3f} (x{fitness_mult:.2f}), init_prev={strain_init_prev} [ACTIVE]")
         else:
             dormant_count += 1
             

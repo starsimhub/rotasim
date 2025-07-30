@@ -21,10 +21,15 @@ class Rotasim(ss.Sim):
         sim = Rotasim(initial_strains=[(1,8), (2,4)])
         sim.run()
         
-        # Custom fitness scenario
+        # Custom fitness scenario and prevalence
         sim = Rotasim(initial_strains=[(1,8), (2,4)], 
                       fitness_scenario='high_diversity',
-                      base_beta=0.15)
+                      base_beta=0.15,
+                      init_prev=0.02)
+        
+        # Strain-specific initial prevalence
+        sim = Rotasim(initial_strains=[(1,8), (2,4)],
+                      init_prev={(1,8): 0.02, (2,4): 0.005})
         
         # Custom connectors and analyzers
         sim = Rotasim(initial_strains=[(1,8), (2,4)], 
@@ -32,7 +37,7 @@ class Rotasim(ss.Sim):
                       analyzers=[MyAnalyzer()])
     """
     
-    def __init__(self, initial_strains, fitness_scenario='baseline', base_beta=0.1, **kwargs):
+    def __init__(self, initial_strains, fitness_scenario='baseline', base_beta=0.1, init_prev=0.01, **kwargs):
         """
         Initialize Rotasim simulation
         
@@ -40,6 +45,9 @@ class Rotasim(ss.Sim):
             initial_strains: List of (G,P) tuples representing starting strains, e.g. [(1,8), (2,4)]
             fitness_scenario: String name of built-in scenario or dict of custom fitness multipliers
             base_beta: Base transmission rate before fitness adjustment (default: 0.1)
+            init_prev: Initial prevalence for active strains. Can be:
+                       - Float: Same prevalence for all initial strains (default: 0.01)
+                       - Dict: {(G,P): prevalence} for strain-specific values
             **kwargs: Additional arguments passed to ss.Sim (n_agents, start, stop, connectors, analyzers, etc.)
             
         Raises:
@@ -52,6 +60,7 @@ class Rotasim(ss.Sim):
         self._initial_strains = initial_strains
         self._fitness_scenario = fitness_scenario  
         self._base_beta = base_beta
+        self._init_prev = init_prev
         
         print("Rotasim: Setting up multi-strain simulation")
         print(f"  Initial strains: {initial_strains}")
@@ -59,7 +68,7 @@ class Rotasim(ss.Sim):
         print(f"  Base beta: {base_beta}")
         
         # Generate all strain diseases using utility function
-        diseases = create_strain_diseases(initial_strains, fitness_scenario, base_beta)
+        diseases = create_strain_diseases(initial_strains, fitness_scenario, base_beta, init_prev)
         
         # Add default connectors if none provided
         if 'connectors' not in kwargs:
@@ -105,6 +114,11 @@ class Rotasim(ss.Sim):
     def base_beta(self):
         """Get the base beta parameter used"""
         return self._base_beta
+        
+    @property
+    def init_prev(self):
+        """Get the initial prevalence parameter used"""
+        return self._init_prev
         
     def get_strain_summary(self):
         """
