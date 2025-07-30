@@ -15,8 +15,15 @@ def test_rotasim_creation():
     """Test basic Rotasim instance creation"""
     print("Testing Rotasim creation...")
     
-    # Test basic creation
-    sim = Rotasim(initial_strains=[(1, 8), (2, 4)])
+    # Test basic creation (now need to provide people and time parameters)
+    import starsim as ss
+    sim = Rotasim(
+        initial_strains=[(1, 8), (2, 4)],
+        people=ss.People(100),
+        networks=ss.RandomNet(),
+        start=2020,
+        stop=2021
+    )
     
     # Check that it's a proper Sim instance
     assert hasattr(sim, 'pars')
@@ -27,10 +34,9 @@ def test_rotasim_creation():
     assert sim.fitness_scenario == 'baseline'
     assert sim.base_beta == 0.1
     
-    # Check basic parameters were set
-    assert sim.pars.n_agents == 10000  # Default
-    assert sim.pars.start == 2020  # Default start year
-    assert sim.pars.stop == 2030   # Default stop year
+    # Check time parameters were set (but not population/time defaults)
+    assert sim.pars.unit == 'day'  # Default time unit
+    assert sim.pars.dt == 1  # Default timestep
     
     print("✓ Rotasim creation tests passed")
 
