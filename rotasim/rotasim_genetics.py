@@ -754,9 +754,10 @@ class Rota(ss.Module):
         try:
             self.vx = self.sim.interventions.rotavaxprog
         except AttributeError:
-            raise AttributeError(
-                "Rota module requires the 'rotavaxprog' intervention to be defined in the simulation."
-            )
+            print("Rota module requires the 'rotavaxprog' intervention to be defined in the simulation. Creating default intervention.")
+            from .interventions import RotaVaxProg
+            self.sim.interventions.rotavaxprog = RotavaxProg()
+
 
         # Reset the seed
         rnd.seed(self.sim.pars.rand_seed)
@@ -959,6 +960,9 @@ class Rota(ss.Module):
             wanings,
             reassortments,
         ) = events
+
+        if len(self.infected_uids)  < recoveries:
+            print("error: more recoveries than infected hosts after event counts")
 
         # Log the event counts if verbosity is enabled
         if self.sim.pars.verbose > 0:

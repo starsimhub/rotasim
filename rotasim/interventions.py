@@ -21,7 +21,7 @@ class RotaVax(ss.Vx):
 
         **kwargs: Additional keyword arguments.
     """
-    def __init__(self, vx_types=None, fixed_protection=0, mean_dur_protection=[ss.dur(39, 'weeks'), ss.dur(78, 'weeks')],
+    def __init__(self, vx_strains=None, mean_dur_protection=[ss.dur(39, 'weeks'), ss.dur(78, 'weeks')],
                     waning_delay=ss.dur(0, unit='week'), **kwargs):
         super().__init__(**kwargs)
         self.segments='gpab'
@@ -29,7 +29,6 @@ class RotaVax(ss.Vx):
         self.p = []
 
         self.define_pars(
-            fixed_protection=fixed_protection,
             mean_dur_protection=mean_dur_protection,  # Mean duration of protection for each dose
             waning_delay = waning_delay, # Delay before waning starts
             ve_i_to_ve_s_ratio = 0.5,
@@ -49,10 +48,10 @@ class RotaVax(ss.Vx):
             ss.FloatArr('waning_rate', default=0, label='Rate of waning immunity'),
         )
 
-        vx_types = sc.promotetolist(vx_types)  # Ensure vx_types is a list
+        vx_strains = sc.promotetolist(vx_strains)  # Ensure vx_types is a list
 
-        self.g = [int(vx_type[1]) for vx_type in vx_types if vx_type[0].upper() == 'G' ]
-        self.p = [int(vx_type[1]) for vx_type in vx_types if vx_type[0].upper() == 'P' ]
+        self.g = [int(vx_type[1]) for vx_type in vx_strains if vx_type[0].upper() == 'G' ]
+        self.p = [int(vx_type[1]) for vx_type in vx_strains if vx_type[0].upper() == 'P' ]
 
         self.vaccine_efficacy_i = {}
         self.vaccine_efficacy_s = {}
@@ -136,10 +135,26 @@ class RotaVaxProg(ss.routine_vx):
         **kwargs: Additional keyword arguments.
     """
 
-    def __init__(self, pars=None, product=None, prob=None, eligibility=None, start_year=None, **kwargs):
-        if product is None:
-            # product = RotaVax(pars=pars, **kwargs)
-            raise ValueError("A product must be specified for RotaVaxProg.")
+    def __init__(self, pars=None, vx_strains=None, prob=None, eligibility=None, start_year=None, end_year=None, years=None, mean_dur_protection=[ss.dur(39, 'weeks'), ss.dur(78, 'weeks')],
+                 waning_delay=ss.dur(0, unit='week'), **kwargs):
+
+        # combine the parameters and kwargs into a single dictionary
+        combined_pars = sc.mergedicts(dict(
+                            prob=prob,
+                            eligibility=eligibility,
+                            start_year=start_year,
+                            end_year=end_year,
+                            years=years,
+                            vx_strains=vx_strains,
+                            mean_dur_protection=mean_dur_protection,
+                            waning_delay=waning_delay),
+                            pars, **kwargs)
+
+        # Separate out the product parameters:
+        product_pars = dict(vx_strains=combined_pars.pop('vx_strains'), mean_dur_protection=combined_pars.pop('mean_dur_protection'), waning_delay=combined_pars.pop('waning_delay'),)
+        product = RotaVax(**product_pars)
+
+
         if eligibility is None:
             eligibility = self.eligible  # Define eligibility function
         if prob is None:
@@ -150,19 +165,15 @@ class RotaVaxProg(ss.routine_vx):
             prob = 0.89  # Default probability of vaccination
 
 
-
-
         self.define_states(
             ss.FloatArr('n_doses', default=0, label='Number of doses received'),
             ss.FloatArr('waned_effectiveness', default=1.0, label='current base waned effectiveness'),
-            # ss.FloatArr('vx_e_i', default=0, label='Vaccine efficacy against infection'),
-            # ss.FloatArr('vx_e_s', default=0, label='Vaccine efficacy against severe disease'),
             ss.FloatArr('waning_rate', default=0, label='Rate of waning immunity'),
             ss.BoolArr("to_vx", default=False, label="Vaccination flag, if true the person is eligible for vaccination"),
         )
 
 
-        super().__init__(pars=pars, product=product, prob=prob, eligibility=eligibility, annual_prob=False, start_year=start_year, **kwargs)
+        super().__init__(pars=pars, product=product, prob=prob, eligibility=eligibility, annual_prob=False, start_year=start_year, end_year=end_year, years=years, **kwargs)
         self.define_pars(
             vx_age_min=ss.dur(4.55, 'week'),
             vx_age_max=ss.dur(6.5, 'week'),

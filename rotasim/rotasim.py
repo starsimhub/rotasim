@@ -17,7 +17,7 @@ TODO:
 import sciris as sc
 import starsim as ss
 from . import rotasim_genetics as rg
-
+from .interventions import RotaVaxProg
 
 __all__ = ["Sim"]
 
@@ -80,6 +80,18 @@ class Sim(ss.Sim):
             print(
                 f"Creating simulation with n_agents={n_agents}, timelimit={timelimit} and parameters:"
             )
+
+        rotavax_present = False
+        self.pars.interventions = sc.promotetolist(self.pars.interventions)
+
+        if self.pars.interventions is not None:
+            for intervention in self.pars.interventions:
+                if isinstance(intervention, RotaVaxProg):
+                    rotavax_present = True
+                    break
+
+        if not rotavax_present:
+            self.pars.interventions.append(RotaVaxProg())
 
         return
 

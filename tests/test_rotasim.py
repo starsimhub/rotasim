@@ -12,82 +12,113 @@ N = 2_000
 timelimit = 10
 verbose = False
 
-#
-# def test_default(make=False):
-#     sc.heading("Testing default parameters")
-#     filename = "test_events_default.json"
-#
-#     # Generate new baseline
-#     if make:
-#         with sc.timer() as T:
-#             rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose)
-#             rota.run()
-#             events = rota.connectors["rota"].event_dict
-#         sc.savejson(filename, events)
-#
-#     # Check old baseline
-#     else:
-#         with sc.timer() as T:
-#             rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose)
-#             rota.run()
-#             events = rota.connectors["rota"].event_dict
-#         saved = sc.objdict(sc.loadjson(filename))
-#         assert events == saved, "Events do not match for default simulation"
-#         print(f"Defaults matched:\n{events}")
-#
-#     return
-#
-#
-# def test_alt(make=False):
-#     sc.heading("Testing alternate parameters")
-#     filename = "test_events_alt.json"
-#
-#     rota_inputs = dict(
-#         reassortment_rate=0.2,
-#         fitness_hypothesis=2,
-#         omega=365 / 50,
-#         initial_immunity=True,
-#         ve_i_to_ve_s_ratio=0.5,
-#         experiment_number=2,
-#     )
-#
-#     # Generate new baseline
-#     if make:
-#         rota = rs.Rota(**rota_inputs)
-#         sim = rs.Sim(
-#             n_agents=N,
-#             to_csv=False,
-#             timelimit=timelimit,
-#             connectors=rota,
-#             rand_seed=rota_inputs["experiment_number"],
-#             verbose=verbose,
-#         )
-#         sim.run()
-#         events = sim.connectors["rota"].event_dict
-#         sc.savejson(filename, events)
-#
-#     # Check old baseline
-#     else:
-#         rota = rs.Rota(**rota_inputs)
-#         sim = rs.Sim(
-#             n_agents=N,
-#             to_csv=False,
-#             timelimit=timelimit,
-#             connectors=rota,
-#             rand_seed=rota_inputs["experiment_number"],
-#             verbose=verbose,
-#         )
-#         sim.run()
-#         events = sim.connectors["rota"].event_dict
-#         saved = sc.objdict(sc.loadjson(filename))
-#         assert events == saved, (
-#             "Events do not match for alternate parameters simulation"
-#         )
-#         print(f"Alternate parameters matched:\n{events}")
-#
-#     return
+
+def test_default(make=False):
+    sc.heading("Testing default parameters")
+    filename = "test_events_default.json"
+
+    # Generate new baseline
+    if make:
+        with sc.timer() as T:
+            rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose)
+            rota.run()
+            events = rota.connectors["rota"].event_dict
+        sc.savejson(filename, events)
+
+    # Check old baseline
+    else:
+        with sc.timer() as T:
+            rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose)
+            rota.run()
+            events = rota.connectors["rota"].event_dict
+        saved = sc.objdict(sc.loadjson(filename))
+        assert events == saved, "Events do not match for default simulation"
+        print(f"Defaults matched:\n{events}")
+
+    return
+
+
+def test_alt(make=False):
+    sc.heading("Testing alternate parameters")
+    filename = "test_events_alt.json"
+
+    rota_inputs = dict(
+        reassortment_rate=0.2,
+        fitness_hypothesis=2,
+        omega=365 / 50,
+        initial_immunity=True,
+        ve_i_to_ve_s_ratio=0.5,
+        experiment_number=2,
+    )
+
+    # Generate new baseline
+    if make:
+        rota = rs.Rota(**rota_inputs)
+        sim = rs.Sim(
+            n_agents=N,
+            to_csv=False,
+            timelimit=timelimit,
+            connectors=rota,
+            rand_seed=rota_inputs["experiment_number"],
+            verbose=verbose,
+        )
+        sim.run()
+        events = sim.connectors["rota"].event_dict
+        sc.savejson(filename, events)
+
+    # Check old baseline
+    else:
+        rota = rs.Rota(**rota_inputs)
+        sim = rs.Sim(
+            n_agents=N,
+            to_csv=False,
+            timelimit=timelimit,
+            connectors=rota,
+            rand_seed=rota_inputs["experiment_number"],
+            verbose=verbose,
+        )
+        sim.run()
+        events = sim.connectors["rota"].event_dict
+        saved = sc.objdict(sc.loadjson(filename))
+        assert events == saved, (
+            "Events do not match for alternate parameters simulation"
+        )
+        print(f"Alternate parameters matched:\n{events}")
+
+    return
 
 def test_vx_intervention():
+    """
+    Test the RotaVax intervention with default parameters.
+    * Should run without errors.
+    * Vx strain should be whatever the dominant strain is at start of vx campaign
+    """
+    interventions = []
+    rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose, interventions=interventions)
+    rota.run()
+
+def test_vx_scheduling():
+    """
+    Test the timing of the RotaVax intervention. Only run it on a specific year
+    """
+    interventions = [rs.RotaVaxProg(years=2001)]
+    rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose, interventions=interventions)
+    rota.run(until=2001)
+    print("stop")
+
+
+def test_vx_multivalent():
+    """
+    Test multi-strain vaccine.
+    """
+    interventions = [rs.RotaVaxProg(product=rs.RotaVax(vx_types=['G1', 'P1', 'G2', 'P2'], waning_delay=ss.dur(1, unit="days")) ,),]
+    rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose, interventions=interventions)
+    rota.run()
+
+def test_vx_waning():
+    """
+    Test waning and waning delay of the RotaVax intervention.
+    """
     interventions = [rs.RotaVaxProg(product=rs.RotaVax(vx_types=['G1', 'P1', 'G2', 'P2'], waning_delay=ss.dur(1, unit="days")) ,),]
     rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose, interventions=interventions)
     rota.run()
