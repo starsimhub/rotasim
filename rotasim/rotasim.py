@@ -64,6 +64,19 @@ class Sim(ss.Sim):
         if "connectors" not in kwargs:
             kwargs["connectors"] = rg.Rota(to_csv=to_csv, **rota_kwargs)
 
+        vx_intv_found = False
+        if "interventions" not in kwargs:
+            kwargs["interventions"] = None
+
+        kwargs["interventions"] = sc.promotetolist(kwargs["interventions"])
+        for intervention in kwargs["interventions"]:
+            if isinstance(intervention, RotaVaxProg):
+                vx_intv_found = True
+                break
+
+        if not vx_intv_found:
+            kwargs["interventions"].append(RotaVaxProg())
+
         super().__init__(
             n_agents=n_agents,
             start=start,
@@ -80,18 +93,6 @@ class Sim(ss.Sim):
             print(
                 f"Creating simulation with n_agents={n_agents}, timelimit={timelimit} and parameters:"
             )
-
-        rotavax_present = False
-        self.pars.interventions = sc.promotetolist(self.pars.interventions)
-
-        if self.pars.interventions is not None:
-            for intervention in self.pars.interventions:
-                if isinstance(intervention, RotaVaxProg):
-                    rotavax_present = True
-                    break
-
-        if not rotavax_present:
-            self.pars.interventions.append(RotaVaxProg())
 
         return
 

@@ -962,7 +962,8 @@ class Rota(ss.Module):
         ) = events
 
         if len(self.infected_uids)  < recoveries:
-            print("error: more recoveries than infected hosts after event counts")
+            print("error: more recoveries than infected hosts after event counts. Setting recoveries to infected count.")
+            recoveries = len(self.infected_uids)
 
         # Log the event counts if verbosity is enabled
         if self.sim.pars.verbose > 0:
