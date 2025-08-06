@@ -47,17 +47,22 @@ def test_alt(make=False):
         fitness_hypothesis=2,
         omega=365 / 50,
         initial_immunity=True,
-        ve_i_to_ve_s_ratio=0.5,
         experiment_number=2,
+    )
+
+    intervention_inputs = dict(
+        ve_i_to_ve_s_ratio=0.5,
     )
 
     # Generate new baseline
     if make:
         rota = rs.Rota(**rota_inputs)
+        rotaVaxProg = rs.RotaVaxProg(**intervention_inputs)
         sim = rs.Sim(
             n_agents=N,
             to_csv=False,
             timelimit=timelimit,
+            interventions=rotaVaxProg,
             connectors=rota,
             rand_seed=rota_inputs["experiment_number"],
             verbose=verbose,
@@ -69,10 +74,12 @@ def test_alt(make=False):
     # Check old baseline
     else:
         rota = rs.Rota(**rota_inputs)
+        rotaVaxProg = rs.RotaVaxProg(**intervention_inputs)
         sim = rs.Sim(
             n_agents=N,
             to_csv=False,
             timelimit=timelimit,
+            interventions=rotaVaxProg,
             connectors=rota,
             rand_seed=rota_inputs["experiment_number"],
             verbose=verbose,

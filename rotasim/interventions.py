@@ -24,7 +24,15 @@ class RotaVax(ss.Vx):
         **kwargs: Additional keyword arguments.
     """
     def __init__(self, vx_strains=None, mean_dur_protection=[ss.dur(39, 'weeks'), ss.dur(78, 'weeks')],
-                    waning_delay=ss.dur(0, unit='week'), **kwargs):
+                    waning_delay=ss.dur(0, unit='week'), ve_i_to_ve_s_ratio=0.5,
+                    vaccine_efficacy_dose_factor=[0.8, 1],
+                    vaccine_efficacy_match_factor={
+                        rsg.PathogenMatch.HOMOTYPIC: 0.65,  # 0.65,  # 0.95,  # 0.8,
+                        rsg.PathogenMatch.PARTIAL_HETERO: 0.45,  # 0.45,  # 0.9,  # 0.65,
+                        rsg.PathogenMatch.COMPLETE_HETERO: 0.25,  # 0.25,  # 0.75,  # 0.35,
+                    },
+
+                 **kwargs):
         super().__init__(**kwargs)
         self.segments='gpab'
         self.g = []
@@ -33,15 +41,11 @@ class RotaVax(ss.Vx):
         self.define_pars(
             mean_dur_protection=mean_dur_protection,  # Mean duration of protection for each dose
             waning_delay = waning_delay, # Delay before waning starts
-            ve_i_to_ve_s_ratio = 0.5,
-            vaccine_efficacy_dose_factor=[0.8, 1],  # Efficacy factor per dose of the vaccine [e.g. 0.8 for first dose, 1 for second dose means the first dose provides 80% of the efficacy of the second dose]
+            ve_i_to_ve_s_ratio = ve_i_to_ve_s_ratio,
+            vaccine_efficacy_dose_factor=vaccine_efficacy_dose_factor,  # Efficacy factor per dose of the vaccine [e.g. 0.8 for first dose, 1 for second dose means the first dose provides 80% of the efficacy of the second dose]
             # vaccine_efficacy_d2 determines the immunity provided by the vaccines.
             # To simulate scenarios with different vaccine behaviors such as a vaccine that only mounts immunity against homotypic strains, set the efficacy of the other two types to zero.
-            vaccine_efficacy_match_factor={
-                rsg.PathogenMatch.HOMOTYPIC: 0.65,  # 0.65,  # 0.95,  # 0.8,
-                rsg.PathogenMatch.PARTIAL_HETERO: 0.45,  # 0.45,  # 0.9,  # 0.65,
-                rsg.PathogenMatch.COMPLETE_HETERO: 0.25,  # 0.25,  # 0.75,  # 0.35,
-            },
+            vaccine_efficacy_match_factor=vaccine_efficacy_match_factor,
         )
 
         self.define_states(
@@ -145,15 +149,28 @@ class RotaVaxProg(ss.BaseVaccination):
         vx_strains (list): List of vaccine strains to be used in the program, e.g. ['G1', 'P2'].
         mean_dur_protection (list): List of mean durations of protection for each dose, e.g. [39 weeks, 78 weeks].
         waning_delay (int | dur): Delay before waning starts. If an int, it is interpreted as timesteps, if a dur, it is interpreted as a starsim duration.
+        ve_i_to_ve_s_ratio (float): Ratio of vaccine efficacy against infection to vaccine efficacy against severe disease.
+        vaccine_efficacy_dose_factor (list): List of vaccine efficacy factors for each dose
+            e.g. [0.8, 1] means the first dose provides 80% of the efficacy of the second dose.
+        vaccine_efficacy_match_factor (dict): Dictionary mapping pathogen match types to vaccine efficacy factors.
+            e.g. {rsg.PathogenMatch.HOMOTYPIC: 0.65, rsg.PathogenMatch.PARTIAL_HETERO: 0.45, rsg.PathogenMatch.COMPLETE_HETERO: 0.25}.
 
         **kwargs: Additional keyword arguments.
     """
 
     def __init__(self, pars=None, prob=None, eligibility=None, start_date=None, end_date=None, vx_strains=None, mean_dur_protection=[ss.dur(39, 'weeks'), ss.dur(78, 'weeks')],
-                 waning_delay=ss.dur(0, unit='week'), **kwargs):
+                 waning_delay=ss.dur(0, unit='week'), ve_i_to_ve_s_ratio=0.5,
+                    vaccine_efficacy_dose_factor=[0.8, 1],
+                    vaccine_efficacy_match_factor={
+                        rsg.PathogenMatch.HOMOTYPIC: 0.65,  # 0.65,  # 0.95,  # 0.8,
+                        rsg.PathogenMatch.PARTIAL_HETERO: 0.45,  # 0.45,  # 0.9,  # 0.65,
+                        rsg.PathogenMatch.COMPLETE_HETERO: 0.25,  # 0.25,  # 0.75,  # 0.35,
+                    }, **kwargs):
 
         # Separate out the product parameters:
-        product_pars = dict(vx_strains=vx_strains, mean_dur_protection=mean_dur_protection, waning_delay=waning_delay,)
+        product_pars = dict(vx_strains=vx_strains, mean_dur_protection=mean_dur_protection, waning_delay=waning_delay,
+                            ve_i_to_ve_s_ratio=ve_i_to_ve_s_ratio, vaccine_efficacy_dose_factor=vaccine_efficacy_dose_factor,
+                            vaccine_efficacy_match_factor=vaccine_efficacy_match_factor)
         product = RotaVax(**product_pars)
 
         self.start_date = start_date
