@@ -186,8 +186,8 @@ class RotaVaxProg(ss.BaseVaccination):
 
         pars = sc.mergedicts(pars, **kwargs)
         product_pars = dict()
-        for key in pars.items():
-            if key in product_par_keys:
+        for key in product_par_keys:
+            if key in pars.keys():
                 value = pars.pop(key)
                 if value is not None:
                     product_pars[key] = value
