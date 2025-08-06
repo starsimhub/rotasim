@@ -22,9 +22,10 @@ def test_small_simulation_run():
         initial_strains=[(1, 8), (2, 4)], 
         analyzers=[analyzer],
         n_agents=200,
-        start=2020,
-        stop=2021,  # 1 year
-        dt=7,       # Weekly timesteps
+        start='2020-01-01',
+        stop='2021-01-01',  # 1 year
+        unit='day',
+        dt=1,       # Daily timesteps
     )
     
     print(f"Running simulation: {sim.pars.n_agents} agents, {sim.pars.start}-{sim.pars.stop}")
@@ -97,9 +98,10 @@ def test_csv_export_compatibility():
         initial_strains=[(1, 8), (2, 4)], 
         analyzers=[analyzer],
         n_agents=100,
-        start=2020,
-        stop=2021,
-        dt=30  # Monthly
+        start='2020-01-01',
+        stop='2021-01-01',
+        unit='day',
+        dt=1  # Daily timesteps
     )
     
     sim.run()
@@ -169,9 +171,10 @@ def test_strain_summary_feature():
         initial_strains=[(1, 8), (2, 4)], 
         analyzers=[analyzer],
         n_agents=500,
-        start=2020,
-        stop=2021,
-        dt=7,
+        start='2020-01-01',
+        stop='2021-01-01',
+        unit='day',
+        dt=1,
         connectors=[]  # No connectors for simpler testing
     )
     
@@ -222,9 +225,10 @@ def test_multiple_strain_scenarios():
             initial_strains=strains,
             analyzers=[analyzer],
             n_agents=200,
-            start=2020,
-            stop=2021,
-            dt=30
+            start='2020-01-01',
+            stop='2021-01-01',
+            unit='day',
+            dt=1
         )
         
         sim.run()

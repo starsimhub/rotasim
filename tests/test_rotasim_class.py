@@ -21,8 +21,8 @@ def test_rotasim_creation():
         initial_strains=[(1, 8), (2, 4)],
         people=ss.People(100),
         networks=ss.RandomNet(),
-        start=2020,
-        stop=2021
+        start='2020-01-01',
+        stop='2021-01-01'
     )
     
     # Check that it's a proper Sim instance
@@ -52,8 +52,8 @@ def test_custom_parameters():
         fitness_scenario=custom_fitness,
         base_beta=0.15,
         n_agents=5000,
-        start=2015,
-        stop=2025
+        start='2015-01-01',
+        stop='2025-01-01'
     )
     
     # Check properties

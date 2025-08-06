@@ -54,9 +54,10 @@ def main():
     sim5 = Rotasim(
         initial_strains=[(1, 8), (2, 4)],
         n_agents=5000,
-        start=2025,  # Start year
-        stop=2030,   # End year  
-        dt=7  # Weekly timesteps (7 days)
+        start='2025-01-01',  # Start year
+        stop='2030-01-01',   # End year  
+        unit='day',
+        dt=1  # Daily timesteps
     )
     print(f"   Created simulation: {sim5.pars.n_agents} agents, {sim5.pars.start}-{sim5.pars.stop}")
     print()

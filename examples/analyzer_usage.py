@@ -32,9 +32,10 @@ def analyzer_usage_example():
         networks=net,
         initial_strains=[(1, 8), (2, 4)],  # Two initial strains 
         analyzers=[strain_analyzer, event_analyzer, age_analyzer],
-        start=2020, 
-        stop=2020.2,  # Short simulation for demo
-        dt=7          # Weekly timesteps
+        start='2020-01-01', 
+        stop='2020-03-01',  # Short simulation for demo
+        unit='day',
+        dt=1          # Daily timesteps
     )
 
     print("✓ Simulation created successfully")

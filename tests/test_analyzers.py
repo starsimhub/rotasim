@@ -64,9 +64,10 @@ def test_v1_format_compatibility():
         initial_strains=[(1, 8), (2, 4)], 
         analyzers=[analyzer],
         n_agents=100,
-        start=2020,
-        stop=2021,  # Just 1 year for testing
-        dt=30  # Monthly timesteps for faster testing
+        start='2020-01-01',
+        stop='2021-01-01',  # Just 1 year for testing
+        unit='day',
+        dt=1  # Daily timesteps
     )
     
     print("1. Testing column name format:")

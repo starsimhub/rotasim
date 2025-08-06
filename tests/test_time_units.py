@@ -41,8 +41,8 @@ def test_time_units():
     
     # Show conversion from v1 units
     print("Conversion from v1 units:")
-    print("  v1: unit='year', dt=1/365, start=2000, stop=2010, dur_inf=7/365")
-    print("  v2: unit='day', dt=1, start=2020, stop=2030, dur_inf=7")
+    print("  v1: unit='year', dt=1/365, start='2000-01-01', stop='2010-01-01', dur_inf=7/365")
+    print("  v2: unit='day', dt=1, start='2020-01-01', stop='2030-01-01', dur_inf=7")
     print("  Same total time: 10 years ✓")
     print("  Same infection duration: 7/365 years = 7 days ✓") 
     print("  Same timestep resolution: daily ✓")

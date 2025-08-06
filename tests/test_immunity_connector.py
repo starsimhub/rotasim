@@ -77,9 +77,10 @@ def test_connector_auto_detection():
         connectors=[connector],
         networks='random',
         n_agents=1000,
-        start=2020,
-        stop=2020.1,  # Very short sim just for initialization testing
-        dt=1/12,
+        start='2020-01-01',
+        stop='2020-01-08',  # Very short sim just for initialization testing
+        unit='day',
+        dt=1,
         verbose=0
     )
     

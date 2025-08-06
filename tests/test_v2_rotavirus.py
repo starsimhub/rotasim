@@ -46,9 +46,10 @@ def test_single_strain_simulation():
         diseases=[rota],
         networks='random',
         n_agents=1000,
-        start=2020,
-        stop=2021,
-        dt=1/12,  # Monthly timestep
+        start='2020-01-01',
+        stop='2021-01-01',
+        unit='day',
+        dt=1,  # Daily timestep
         verbose=0
     )
     
@@ -88,9 +89,10 @@ def test_multi_strain_basic():
         diseases=[rota1, rota2, rota3],
         networks='random',
         n_agents=2000,
-        start=2020,
-        stop=2021,
-        dt=1/12,
+        start='2020-01-01',
+        stop='2021-01-01',
+        unit='day',
+        dt=1,
         verbose=0
     )
     
