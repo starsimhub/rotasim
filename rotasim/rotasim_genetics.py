@@ -962,7 +962,8 @@ class Rota(ss.Module):
         ) = events
 
         if len(self.infected_uids)  < recoveries:
-            print("error: more recoveries than infected hosts after event counts. Setting recoveries to infected count.")
+            if self.sim.verbose:
+                print("[Warning]: more recoveries than infected hosts after event counts. Setting recoveries to infected count.")
             recoveries = len(self.infected_uids)
 
         # Log the event counts if verbosity is enabled
@@ -1139,7 +1140,7 @@ class Rota(ss.Module):
             infected_uids.remove(recovering_host_uid)
 
     def contact_event(self, contacts, infected_uids):
-        if len(infected_uids) == 0:
+        if len(infected_uids) == 0 and self.sim.verbose:
             print("[Warning] No infected hosts in a contact event. Skipping")
             return
 
