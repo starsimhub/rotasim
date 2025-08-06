@@ -156,6 +156,20 @@ def test_vx_waning():
     assert np.sum(rota.people.rotavaxprog.waned_effectiveness[vaccinated]) < np.sum(vaccinated), "No vaccine waning detected after 1 year"
 
 
+def test_vx_product():
+    """
+    Test the RotaVax product creation.
+    """
+    vx_strains = ['G1', 'P1', 'G2', 'P2']
+    manual_product_int = [rs.RotaVaxProg(start_date="2001-01-01", product=rs.RotaVax(vx_strains=vx_strains)) ,]
+
+    rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose, interventions=manual_product_int)
+    rota.init()
+    assert rota.interventions.rotavaxprog.product.pars.vx_strains == vx_strains, "Manual product does not match expected multi-strain vaccine"
+
+
+
+
 if __name__ == "__main__":
     make = False  # Set to True to regenerate results
     benchmark = False  # Set to True to redo the performance results
@@ -165,3 +179,4 @@ if __name__ == "__main__":
     test_vx_scheduling()
     test_vx_multivalent()
     test_vx_waning()
+    test_vx_product()

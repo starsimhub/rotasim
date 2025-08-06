@@ -164,6 +164,7 @@ class RotaVaxProg(ss.BaseVaccination):
         eligibility (function): Function that returns a list of uids of agents eligible for vaccination.
         start_date (int | date): Start date of the vaccination program.
         end_date (int | date): End date of the vaccination program.
+        product (RotaVax): The vaccine product to be used in the program. If provided, must not pass in any of the parameters below.
         vx_strains (list): List of vaccine strains to be used in the program, e.g. ['G1', 'P2'].
         mean_dur_protection (list): List of mean durations of protection for each dose, e.g. [39 weeks, 78 weeks].
         waning_delay (int | dur): Delay before waning starts. If an int, it is interpreted as timesteps, if a dur, it is interpreted as a starsim duration.
@@ -178,23 +179,25 @@ class RotaVaxProg(ss.BaseVaccination):
 
     def __init__(self, pars=None, **kwargs):
 
+        if 'product' in kwargs:
+            product = kwargs.pop('product')
+        elif pars is not None and 'product' in pars:
+            product = pars.pop('product')
+        else:
+            product_par_keys = ['vx_strains', 'mean_dur_protection', 'waning_delay',
+                                've_i_to_ve_s_ratio', 'vaccine_efficacy_dose_factor',
+                                'vaccine_efficacy_match_factor']
 
+            pars = sc.mergedicts(pars, **kwargs)
+            product_pars = dict()
+            for key in product_par_keys:
+                if key in pars.keys():
+                    value = pars.pop(key)
+                    if value is not None:
+                        product_pars[key] = value
 
-        product_par_keys = ['vx_strains', 'mean_dur_protection', 'waning_delay',
-                            've_i_to_ve_s_ratio', 'vaccine_efficacy_dose_factor',
-                            'vaccine_efficacy_match_factor']
+            product = RotaVax(**product_pars)
 
-        pars = sc.mergedicts(pars, **kwargs)
-        product_pars = dict()
-        for key in product_par_keys:
-            if key in pars.keys():
-                value = pars.pop(key)
-                if value is not None:
-                    product_pars[key] = value
-
-        product = RotaVax(**product_pars)
-
-        # super().__init__(product=product, prob=self.pars.prob, eligibility=self.pars.eligibility)
         super().__init__(product=product)
 
         self.define_pars(
