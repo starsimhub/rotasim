@@ -18,6 +18,8 @@ class RotaVax(ss.Vx):
 
     Args:
         vx_types (string/list): a list of vaccine G and P types, e.g. ['G1', 'G2', 'P1']
+        mean_dur_protection (list): List of mean durations of protection for each dose, e.g. [39 weeks, 78 weeks].
+        waning_delay (int | dur): Delay before waning starts. If an int, it is interpreted as timesteps, if a dur, it is interpreted as a starsim duration.
 
         **kwargs: Additional keyword arguments.
     """
@@ -42,8 +44,6 @@ class RotaVax(ss.Vx):
             },
         )
 
-
-
         self.define_states(
             ss.FloatArr('waning_rate', default=0, label='Rate of waning immunity'),
         )
@@ -57,6 +57,7 @@ class RotaVax(ss.Vx):
         self.vaccine_efficacy_s = {}
 
         return
+
 
     def init_post(self):
         super().init_post()
@@ -77,7 +78,11 @@ class RotaVax(ss.Vx):
             print("VE_i d2: ", self.vaccine_efficacy_i[2])
             print("VE_s d2: ", self.vaccine_efficacy_s[2])
 
+
     def breakdown_vaccine_efficacy(self, ve, x):
+        """
+        Break down the vaccine efficacy into its components
+        """
         (r1, r2) = self.solve_quadratic(x, -(1 + x), ve)
         if self.sim.pars.verbose > 0:
             print(r1, r2)
@@ -104,13 +109,15 @@ class RotaVax(ss.Vx):
         else:
             return "No real roots"
 
+
     def is_match(self, infecting_strain):
-        # numAgSegments = self.sim.connectors.rota.pars.numAgSegments
-        # segments = self.segments[:numAgSegments]
-
+        """ Check if the infecting strain matches the vaccine strains.
+        Args:
+            infecting_strain (string|tuple): An strain having at least the first two (antigenic) types representing the infecting strain.
+        Returns:
+            rsg.PathogenMatch: The type of match between the infecting strain and the vaccine strains.
+        """
         # check only antigenic segments (e.g. G and P)
-
-
         matches = [False, False]
         if infecting_strain[0] in self.g:
             matches[0] = True
@@ -126,44 +133,41 @@ class RotaVax(ss.Vx):
 
 
 
-class RotaVaxProg(ss.routine_vx):
+class RotaVaxProg(ss.BaseVaccination):
     """
     RotaVaxProg is a vaccination program for Rota virus.
 
     Args:
-        pars (dict): Parameters for the vaccination program.
+        prob (float): Probability of vaccination. Assumes single test per agent, so .8 means 80% chance an eligible agent will be vaccinated.
+        eligibility (function): Function that returns a list of uids of agents eligible for vaccination.
+        start_date (int | date): Start date of the vaccination program.
+        end_date (int | date): End date of the vaccination program.
+        vx_strains (list): List of vaccine strains to be used in the program, e.g. ['G1', 'P2'].
+        mean_dur_protection (list): List of mean durations of protection for each dose, e.g. [39 weeks, 78 weeks].
+        waning_delay (int | dur): Delay before waning starts. If an int, it is interpreted as timesteps, if a dur, it is interpreted as a starsim duration.
+
         **kwargs: Additional keyword arguments.
     """
 
-    def __init__(self, pars=None, vx_strains=None, prob=None, eligibility=None, start_year=None, end_year=None, years=None, mean_dur_protection=[ss.dur(39, 'weeks'), ss.dur(78, 'weeks')],
+    def __init__(self, pars=None, prob=None, eligibility=None, start_date=None, end_date=None, vx_strains=None, mean_dur_protection=[ss.dur(39, 'weeks'), ss.dur(78, 'weeks')],
                  waning_delay=ss.dur(0, unit='week'), **kwargs):
 
-        # combine the parameters and kwargs into a single dictionary
-        combined_pars = sc.mergedicts(dict(
-                            prob=prob,
-                            eligibility=eligibility,
-                            start_year=start_year,
-                            end_year=end_year,
-                            years=years,
-                            vx_strains=vx_strains,
-                            mean_dur_protection=mean_dur_protection,
-                            waning_delay=waning_delay),
-                            pars, **kwargs)
-
         # Separate out the product parameters:
-        product_pars = dict(vx_strains=combined_pars.pop('vx_strains'), mean_dur_protection=combined_pars.pop('mean_dur_protection'), waning_delay=combined_pars.pop('waning_delay'),)
+        product_pars = dict(vx_strains=vx_strains, mean_dur_protection=mean_dur_protection, waning_delay=waning_delay,)
         product = RotaVax(**product_pars)
 
+        self.start_date = start_date
+        self.end_date = end_date
 
         if eligibility is None:
             eligibility = self.eligible  # Define eligibility function
+
         if prob is None:
             # Vaccination coverage is derived based on the following formula
             # we are going to set a target vaccine second dose coverage (e.g 80%) and use that value to decide how much of the population needs to get the first dose.
             # we assume that the same proportion of people who get the first dose will get the second dose (0.89 * 0.89 = 0.8).
             # Therefore we set the first dose coverage to the square root of second dose coverage
             prob = 0.89  # Default probability of vaccination
-
 
         self.define_states(
             ss.FloatArr('n_doses', default=0, label='Number of doses received'),
@@ -172,8 +176,7 @@ class RotaVaxProg(ss.routine_vx):
             ss.BoolArr("to_vx", default=False, label="Vaccination flag, if true the person is eligible for vaccination"),
         )
 
-
-        super().__init__(pars=pars, product=product, prob=prob, eligibility=eligibility, annual_prob=False, start_year=start_year, end_year=end_year, years=years, **kwargs)
+        super().__init__(product=product, prob=prob, eligibility=eligibility)
         self.define_pars(
             vx_age_min=ss.dur(4.55, 'week'),
             vx_age_max=ss.dur(6.5, 'week'),
@@ -181,10 +184,33 @@ class RotaVaxProg(ss.routine_vx):
             max_doses=2,
         )
 
-
         self.update_pars(pars=pars, **kwargs)
 
         return
+
+
+    def init_pre(self, sim):
+        super().init_pre(sim)
+
+        # convert the start and end dates to date objects if they are not already
+        if self.start_date is None:
+            self.start_date = ss.date(sim.t.timevec[0])
+        if self.end_date is None:
+            self.end_date = ss.date(sim.t.timevec[-1])
+
+        if not isinstance(self.start_date, ss.date):
+            self.start_date = ss.date(self.start_date)
+        if not isinstance(self.end_date, ss.date):
+            self.end_date = ss.date(self.end_date)
+
+        start_year = self.start_date.to_year()
+        end_year = self.end_date.to_year()
+
+        self.timepoints = [index for index, tval in enumerate(sim.t.timevec) if tval >= start_year and tval < end_year]
+        if isinstance(self.prob, (int, float)) or len(self.prob) == 1:
+            probs = [self.prob] * len(self.timepoints)
+            self.prob = probs  # Assign the probability to the timepoints
+
 
     def init_results(self):
         super().init_results()
@@ -197,6 +223,7 @@ class RotaVaxProg(ss.routine_vx):
         # ppl = sim.people
         eligible = self.to_vx == True
         return eligible.uids
+
 
     def step(self):
         ppl = self.sim.people
@@ -248,7 +275,7 @@ class RotaVaxProg(ss.routine_vx):
 
 
     def update_immunity(self):
-        # Update immunity based on the vaccine's fixed protection and mean duration
+        # Update immunity based on the vaccine's waning delay and mean duration
         vxed = self.n_doses > 0  # Vaccinated individuals
         vxuids = vxed.uids
 

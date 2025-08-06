@@ -3,7 +3,7 @@ Check results against baseline values.
 
 NB: the two tests could be combined into one, but are left separate for clarity.
 """
-
+import numpy as np
 import sciris as sc
 import rotasim as rs
 import starsim as ss
@@ -97,31 +97,57 @@ def test_vx_intervention():
     rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose, interventions=interventions)
     rota.run()
 
+    # verify that a RotaVaxProg intervention was created
+    assert len(rota.pars.interventions) > 0, "No interventions were created"
+    assert isinstance(rota.pars.interventions[0], rs.RotaVaxProg), "First intervention is not a RotaVaxProg"
+
+
 def test_vx_scheduling():
     """
     Test the timing of the RotaVax intervention. Only run it on a specific year
     """
-    interventions = [rs.RotaVaxProg(years=2001)]
+    interventions = [rs.RotaVaxProg(start_date="2001-1-1", end_date="2001-12-31")]
     rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose, interventions=interventions)
-    rota.run(until=2001)
-    print("stop")
+    rota.run(until=2002)
+
+    # there should be no vaccinations in 2000 and 2002
+    assert np.sum(rota.results.rotavaxprog['new_vaccinated_first_dose'][0:365]) == 0, "Unexpected vaccinations in 2000"
+    assert np.sum(rota.results.rotavaxprog['new_vaccinated_first_dose'][365*2:]) == 0, "Unexpected vaccinations in 2002"
+
+    # there should be vaccinations in 2001
+    assert np.sum(rota.results.rotavaxprog['new_vaccinated_first_dose'][365:365*2]) > 0, "No vaccinations in 2001"
 
 
 def test_vx_multivalent():
     """
     Test multi-strain vaccine.
     """
-    interventions = [rs.RotaVaxProg(product=rs.RotaVax(vx_types=['G1', 'P1', 'G2', 'P2'], waning_delay=ss.dur(1, unit="days")) ,),]
+    interventions = [rs.RotaVaxProg(start_date="2001-01-01", end_date="2002-01-01", vx_types=['G1', 'P1', 'G2', 'P2'])]
     rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose, interventions=interventions)
-    rota.run()
+    rota.run(until=2002)
+
+    # Check that the vaccine was administered for all strains
+    assert rota.interventions.rotavaxprog.product.is_match("11"), "Vaccine product does not match expected multi-strain vaccine"
+    assert rota.interventions.rotavaxprog.product.is_match("12"), "Vaccine product does not match expected multi-strain vaccine"
+    assert rota.interventions.rotavaxprog.product.is_match("21"), "Vaccine product does not match expected multi-strain vaccine"
+    assert rota.interventions.rotavaxprog.product.is_match("22"), "Vaccine product does not match expected multi-strain vaccine"
+
 
 def test_vx_waning():
     """
     Test waning and waning delay of the RotaVax intervention.
     """
-    interventions = [rs.RotaVaxProg(product=rs.RotaVax(vx_types=['G1', 'P1', 'G2', 'P2'], waning_delay=ss.dur(1, unit="days")) ,),]
+    interventions = [rs.RotaVaxProg(start_date="2001-01-01", waning_delay=ss.dur(100, unit="days")) ,]
     rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose, interventions=interventions)
-    rota.run()
+    rota.run(until=2001.25)
+
+    # All vaccinations so for should not have waned yet
+    assert np.all(rota.people.rotavaxprog.waned_effectiveness[rota.people.rotavaxprog.vaccinated] ), "Not all vaccinated have waned effectiveness of 1"
+
+    rota.run(until=2002)
+    vaccinated = rota.people.rotavaxprog.vaccinated
+    assert np.sum(rota.people.rotavaxprog.waned_effectiveness[vaccinated]) < np.sum(vaccinated), "No vaccine waning detected after 1 year"
+
 
 if __name__ == "__main__":
     make = False  # Set to True to regenerate results
@@ -129,3 +155,6 @@ if __name__ == "__main__":
     test_default(make=make)
     test_alt(make=make)
     test_vx_intervention()
+    test_vx_scheduling()
+    test_vx_multivalent()
+    test_vx_waning()
