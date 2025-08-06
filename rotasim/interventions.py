@@ -23,36 +23,34 @@ class RotaVax(ss.Vx):
 
         **kwargs: Additional keyword arguments.
     """
-    def __init__(self, vx_strains=None, mean_dur_protection=[ss.dur(39, 'weeks'), ss.dur(78, 'weeks')],
-                    waning_delay=ss.dur(0, unit='week'), ve_i_to_ve_s_ratio=0.5,
-                    vaccine_efficacy_dose_factor=[0.8, 1],
-                    vaccine_efficacy_match_factor={
+    def __init__(self, pars=None,  **kwargs):
+        super().__init__()
+        self.segments = 'gpab'
+
+        self.define_pars(
+            vx_strains = None,
+            mean_dur_protection = [ss.dur(39, 'weeks'), ss.dur(78, 'weeks')],  # Mean duration of protection for each dose
+            waning_delay = ss.dur(0, unit='week'), # Delay before waning starts
+            ve_i_to_ve_s_ratio = 0.5,
+            vaccine_efficacy_dose_factor=[0.8, 1],  # Efficacy factor per dose of the vaccine [e.g. 0.8 for first dose, 1 for second dose means the first dose provides 80% of the efficacy of the second dose]
+            # vaccine_efficacy_d2 determines the immunity provided by the vaccines.
+            # To simulate scenarios with different vaccine behaviors such as a vaccine that only mounts immunity against homotypic strains, set the efficacy of the other two types to zero.
+            vaccine_efficacy_match_factor={
                         rsg.PathogenMatch.HOMOTYPIC: 0.65,  # 0.65,  # 0.95,  # 0.8,
                         rsg.PathogenMatch.PARTIAL_HETERO: 0.45,  # 0.45,  # 0.9,  # 0.65,
                         rsg.PathogenMatch.COMPLETE_HETERO: 0.25,  # 0.25,  # 0.75,  # 0.35,
                     },
-
-                 **kwargs):
-        super().__init__(**kwargs)
-        self.segments='gpab'
-        self.g = []
-        self.p = []
-
-        self.define_pars(
-            mean_dur_protection=mean_dur_protection,  # Mean duration of protection for each dose
-            waning_delay = waning_delay, # Delay before waning starts
-            ve_i_to_ve_s_ratio = ve_i_to_ve_s_ratio,
-            vaccine_efficacy_dose_factor=vaccine_efficacy_dose_factor,  # Efficacy factor per dose of the vaccine [e.g. 0.8 for first dose, 1 for second dose means the first dose provides 80% of the efficacy of the second dose]
-            # vaccine_efficacy_d2 determines the immunity provided by the vaccines.
-            # To simulate scenarios with different vaccine behaviors such as a vaccine that only mounts immunity against homotypic strains, set the efficacy of the other two types to zero.
-            vaccine_efficacy_match_factor=vaccine_efficacy_match_factor,
         )
+
+        self.update_pars(pars, **kwargs)
+
+        self.validate_pars()
 
         self.define_states(
             ss.FloatArr('waning_rate', default=0, label='Rate of waning immunity'),
         )
 
-        vx_strains = sc.promotetolist(vx_strains)  # Ensure vx_types is a list
+        vx_strains = sc.promotetolist(self.pars.vx_strains)  # Ensure vx_types is a list
 
         self.g = [int(vx_type[1]) for vx_type in vx_strains if vx_type[0].upper() == 'G' ]
         self.p = [int(vx_type[1]) for vx_type in vx_strains if vx_type[0].upper() == 'P' ]
@@ -61,6 +59,22 @@ class RotaVax(ss.Vx):
         self.vaccine_efficacy_s = {}
 
         return
+
+
+    def validate_pars(self):
+        """
+        Validate the parameters of the vaccine.
+        """
+        if (not isinstance(self.pars.vaccine_efficacy_dose_factor, list) or
+                len(self.pars.vaccine_efficacy_dose_factor) != 2 or
+                not all(0 <= ve <= 1 for ve in self.pars.vaccine_efficacy_dose_factor)):
+            raise ValueError("vaccine_efficacy_dose_factor must be a list of two elements between 0 and 1.")
+
+        if not isinstance(self.pars.vaccine_efficacy_match_factor, dict):
+            raise ValueError("vaccine_efficacy_match_factor must be a dictionary.")
+
+        if not all(isinstance(v, (int, float)) for v in self.pars.vaccine_efficacy_match_factor.values()):
+            raise ValueError("Values of vaccine_efficacy_match_factor must be numeric.")
 
 
     def init_post(self):
@@ -142,6 +156,10 @@ class RotaVaxProg(ss.BaseVaccination):
     RotaVaxProg is a vaccination program for Rota virus.
 
     Args:
+        vx_age_min (ss.dur): Minimum age for vaccination, e.g. 4.55 weeks.
+        vx_age_max (ss.dur): Maximum age for vaccination, e.g. 6.5 weeks.
+        vx_spacing (ss.dur): Spacing between doses, e.g. 6 weeks.
+        max_doses (int): Maximum number of doses, e.g. 2.
         prob (float): Probability of vaccination. Assumes single test per agent, so .8 means 80% chance an eligible agent will be vaccinated.
         eligibility (function): Function that returns a list of uids of agents eligible for vaccination.
         start_date (int | date): Start date of the vaccination program.
@@ -158,33 +176,51 @@ class RotaVaxProg(ss.BaseVaccination):
         **kwargs: Additional keyword arguments.
     """
 
-    def __init__(self, pars=None, prob=None, eligibility=None, start_date=None, end_date=None, vx_strains=None, mean_dur_protection=[ss.dur(39, 'weeks'), ss.dur(78, 'weeks')],
-                 waning_delay=ss.dur(0, unit='week'), ve_i_to_ve_s_ratio=0.5,
-                    vaccine_efficacy_dose_factor=[0.8, 1],
-                    vaccine_efficacy_match_factor={
-                        rsg.PathogenMatch.HOMOTYPIC: 0.65,  # 0.65,  # 0.95,  # 0.8,
-                        rsg.PathogenMatch.PARTIAL_HETERO: 0.45,  # 0.45,  # 0.9,  # 0.65,
-                        rsg.PathogenMatch.COMPLETE_HETERO: 0.25,  # 0.25,  # 0.75,  # 0.35,
-                    }, **kwargs):
+    def __init__(self, pars=None, **kwargs):
 
-        # Separate out the product parameters:
-        product_pars = dict(vx_strains=vx_strains, mean_dur_protection=mean_dur_protection, waning_delay=waning_delay,
-                            ve_i_to_ve_s_ratio=ve_i_to_ve_s_ratio, vaccine_efficacy_dose_factor=vaccine_efficacy_dose_factor,
-                            vaccine_efficacy_match_factor=vaccine_efficacy_match_factor)
+
+
+        product_par_keys = ['vx_strains', 'mean_dur_protection', 'waning_delay',
+                            've_i_to_ve_s_ratio', 'vaccine_efficacy_dose_factor',
+                            'vaccine_efficacy_match_factor']
+
+        pars = sc.mergedicts(pars, **kwargs)
+        product_pars = dict()
+        for key in pars.items():
+            if key in product_par_keys:
+                value = pars.pop(key)
+                if value is not None:
+                    product_pars[key] = value
+
         product = RotaVax(**product_pars)
 
-        self.start_date = start_date
-        self.end_date = end_date
+        # super().__init__(product=product, prob=self.pars.prob, eligibility=self.pars.eligibility)
+        super().__init__(product=product)
 
-        if eligibility is None:
-            eligibility = self.eligible  # Define eligibility function
+        self.define_pars(
+            vx_age_min=ss.dur(4.55, 'week'),
+            vx_age_max=ss.dur(6.5, 'week'),
+            vx_spacing=ss.dur(6, unit='week'),  # Spacing between doses
+            max_doses=2,
 
-        if prob is None:
             # Vaccination coverage is derived based on the following formula
             # we are going to set a target vaccine second dose coverage (e.g 80%) and use that value to decide how much of the population needs to get the first dose.
             # we assume that the same proportion of people who get the first dose will get the second dose (0.89 * 0.89 = 0.8).
             # Therefore we set the first dose coverage to the square root of second dose coverage
-            prob = 0.89  # Default probability of vaccination
+            prob=0.89,  # Default probability of vaccination
+
+            start_date=None,  # Start date of the vaccination program
+            end_date=None,  # End date of the vaccination program
+            eligibility=self.eligible,
+        )
+        self.update_pars(pars)
+
+        self.start_date = self.pars.start_date
+        self.end_date = self.pars.end_date
+        #
+        self.eligibility = self.pars.eligibility
+
+        self.prob = self.pars.prob
 
         self.define_states(
             ss.FloatArr('n_doses', default=0, label='Number of doses received'),
@@ -192,16 +228,6 @@ class RotaVaxProg(ss.BaseVaccination):
             ss.FloatArr('waning_rate', default=0, label='Rate of waning immunity'),
             ss.BoolArr("to_vx", default=False, label="Vaccination flag, if true the person is eligible for vaccination"),
         )
-
-        super().__init__(product=product, prob=prob, eligibility=eligibility)
-        self.define_pars(
-            vx_age_min=ss.dur(4.55, 'week'),
-            vx_age_max=ss.dur(6.5, 'week'),
-            vx_spacing=ss.dur(6, unit='week'),  # Spacing between doses
-            max_doses=2,
-        )
-
-        self.update_pars(pars=pars, **kwargs)
 
         return
 
