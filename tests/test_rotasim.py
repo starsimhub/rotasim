@@ -105,8 +105,8 @@ def test_vx_intervention():
     rota.run()
 
     # verify that a RotaVaxProg intervention was created
-    assert len(rota.pars.interventions) > 0, "No interventions were created"
-    assert isinstance(rota.pars.interventions[0], rs.RotaVaxProg), "First intervention is not a RotaVaxProg"
+    assert len(rota.interventions) > 0, "No interventions were created"
+    assert isinstance(rota.interventions[0], rs.RotaVaxProg), "First intervention is not a RotaVaxProg"
 
 
 def test_vx_scheduling():
@@ -129,7 +129,7 @@ def test_vx_multivalent():
     """
     Test multi-strain vaccine.
     """
-    interventions = [rs.RotaVaxProg(start_date="2001-01-01", end_date="2002-01-01", vx_types=['G1', 'P1', 'G2', 'P2'])]
+    interventions = [rs.RotaVaxProg(start_date="2001-01-01", end_date="2002-01-01", vx_strains=['G1', 'P1', 'G2', 'P2'])]
     rota = rs.Sim(N=N, timelimit=timelimit, verbose=verbose, interventions=interventions)
     rota.run(until=2002)
 
