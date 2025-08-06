@@ -227,7 +227,7 @@ class RotaVaxProg(ss.BaseVaccination):
 
         self.define_states(
             ss.FloatArr('waned_effectiveness', default=1.0, label='current base waned effectiveness'),
-            ss.BoolArr("to_vx", default=False, label="Vaccination flag, if true the person is eligible for vaccination"),
+            ss.BoolArr("is_vx_eligible", default=False, label="Vaccination flag, if true the person is eligible for vaccination"),
         )
 
         return
@@ -267,7 +267,7 @@ class RotaVaxProg(ss.BaseVaccination):
 
     def eligible(self, sim):
         """ Determine which agents are eligible for vaccination """
-        return self.to_vx.uids
+        return self.is_vx_eligible.uids
 
 
     def step(self):
@@ -293,20 +293,20 @@ class RotaVaxProg(ss.BaseVaccination):
                 # this is the first time step, so all still need an opportunity to get vaccinated
                 vx_age_min_yrs = self.pars.vx_age_min.to('year')
                 vx_age_max_yrs = self.pars.vx_age_max.to('year')
-                to_vx = (ppl.age >= vx_age_min_yrs) & (ppl.age < vx_age_max_yrs)
-                self.to_vx[to_vx] = True
+                is_vx_eligible = (ppl.age >= vx_age_min_yrs) & (ppl.age < vx_age_max_yrs)
+                self.is_vx_eligible[is_vx_eligible] = True
             else:
                 # if this is not the first time step, we only vaccinate those who are eligible:
                 #   * those who have aged into the vaccination age range
                 #   * those ready for their next dose
                 vx_age_min_yrs = self.pars.vx_age_min.to('year')
                 vx_age_max_yrs = self.pars.vx_age_max.to('year')
-                to_vx_age = (ppl.age >= vx_age_min_yrs) & (ppl.age < (vx_age_min_yrs + self.t.dt_year))
-                to_vx_next_dose = (self.n_doses < self.pars.max_doses) & \
+                is_vx_eligible_age = (ppl.age >= vx_age_min_yrs) & (ppl.age < (vx_age_min_yrs + self.t.dt_year))
+                is_vx_eligible_next_dose = (self.n_doses < self.pars.max_doses) & \
                                   (self.ti - self.ti_vaccinated >= self.pars.vx_spacing.values) & \
                                   (self.ti - self.ti_vaccinated < self.pars.vx_spacing.values + 1)  # Ensure they have been vaccinated before
-                self.to_vx[to_vx_age] = True
-                self.to_vx[to_vx_next_dose] = True
+                self.is_vx_eligible[is_vx_eligible_age] = True
+                self.is_vx_eligible[is_vx_eligible_next_dose] = True
 
         vx_uids = super().step()
 
@@ -318,7 +318,7 @@ class RotaVaxProg(ss.BaseVaccination):
 
         self.update_immunity()
 
-        self.to_vx[:] = False # Reset the vaccination flag for all individuals after processing
+        self.is_vx_eligible[:] = False # Reset the vaccination flag for all individuals after processing
 
 
     def update_immunity(self):
