@@ -47,7 +47,7 @@ class RotaVax(ss.Vx):
         self.validate_pars()
 
         self.define_states(
-            ss.FloatArr('waning_rate', default=0, label='Rate of waning immunity'),
+            ss.FloatArr('mean_waning_duration', default=0, label='Mean duration used in exponential decay of waning immunity'),
         )
 
         vx_strains = sc.promotetolist(self.pars.vx_strains)  # Ensure vx_types is a list
@@ -223,9 +223,7 @@ class RotaVaxProg(ss.BaseVaccination):
         self.prob = self.pars.prob
 
         self.define_states(
-            ss.FloatArr('n_doses', default=0, label='Number of doses received'),
             ss.FloatArr('waned_effectiveness', default=1.0, label='current base waned effectiveness'),
-            ss.FloatArr('waning_rate', default=0, label='Rate of waning immunity'),
             ss.BoolArr("to_vx", default=False, label="Vaccination flag, if true the person is eligible for vaccination"),
         )
 
@@ -254,6 +252,9 @@ class RotaVaxProg(ss.BaseVaccination):
             probs = [self.prob] * len(self.timepoints)
             self.prob = probs  # Assign the probability to the timepoints
 
+        if len(self.timepoints) != len(self.prob):
+            raise ValueError("The number of timepoints must match the number of probabilities.")
+
 
     def init_results(self):
         super().init_results()
@@ -263,9 +264,7 @@ class RotaVaxProg(ss.BaseVaccination):
 
     def eligible(self, sim):
         """ Determine which agents are eligible for vaccination """
-        # ppl = sim.people
-        eligible = self.to_vx == True
-        return eligible.uids
+        return self.to_vx.uids
 
 
     def step(self):
@@ -310,7 +309,7 @@ class RotaVaxProg(ss.BaseVaccination):
         self.results.new_vaccinated_second_dose[self.ti] = np.count_nonzero(self.n_doses[vx_uids] == 2)
 
         # update the waning rate for all new vaccinations based on the total number of doses
-        self.product.waning_rate[vx_uids] = [self.product.pars.mean_dur_protection[int(self.n_doses[vx_uid]) - 1].values for vx_uid in vx_uids]
+        self.product.mean_waning_duration[vx_uids] = [self.product.pars.mean_dur_protection[int(self.n_doses[vx_uid]) - 1].values for vx_uid in vx_uids]
 
         self.update_immunity()
 
@@ -328,7 +327,7 @@ class RotaVaxProg(ss.BaseVaccination):
 
         # waning not yet started:
         self.waned_effectiveness[nonwaning_uids] = 1
-        self.waned_effectiveness[waning_uids] = np.exp( (-1/self.product.waning_rate[waning_uids]) *
+        self.waned_effectiveness[waning_uids] = np.exp( (-1/self.product.mean_waning_duration[waning_uids]) *
                                            (self.ti - (np.round(self.product.pars.waning_delay) + self.ti_vaccinated[waning_uids])))
 
         return
