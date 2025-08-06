@@ -291,15 +291,17 @@ class RotaVaxProg(ss.BaseVaccination):
                     self.product.p = [strain[1]]
 
                 # this is the first time step, so all still need an opportunity to get vaccinated
-
-                to_vx = (ppl.age >= self.pars.vx_age_min) & (ppl.age < self.pars.vx_age_max)
+                vx_age_min_yrs = self.pars.vx_age_min.to('year')
+                vx_age_max_yrs = self.pars.vx_age_max.to('year')
+                to_vx = (ppl.age >= vx_age_min_yrs) & (ppl.age < vx_age_max_yrs)
                 self.to_vx[to_vx] = True
             else:
                 # if this is not the first time step, we only vaccinate those who are eligible:
                 #   * those who have aged into the vaccination age range
                 #   * those ready for their next dose
-
-                to_vx_age = (ppl.age >= self.pars.vx_age_min) & (ppl.age < (self.pars.vx_age_min + self.t.dt_year))
+                vx_age_min_yrs = self.pars.vx_age_min.to('year')
+                vx_age_max_yrs = self.pars.vx_age_max.to('year')
+                to_vx_age = (ppl.age >= vx_age_min_yrs) & (ppl.age < (vx_age_min_yrs + self.t.dt_year))
                 to_vx_next_dose = (self.n_doses < self.pars.max_doses) & \
                                   (self.ti - self.ti_vaccinated >= self.pars.vx_spacing.values) & \
                                   (self.ti - self.ti_vaccinated < self.pars.vx_spacing.values + 1)  # Ensure they have been vaccinated before
