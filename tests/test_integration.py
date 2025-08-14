@@ -9,7 +9,7 @@ import time
 # Add rotasim to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from rotasim import Rotasim, Rotavirus, RotaImmunityConnector
+from rotasim import Sim, Rotavirus, RotaImmunityConnector
 from rotasim.utils import create_strain_diseases, generate_gp_reassortments
 
 
@@ -52,7 +52,7 @@ def test_dormant_strain_handling():
     print("Testing dormant strain handling...")
     
     initial_strains = [(1, 8), (2, 4), (3, 6)]
-    sim = Rotasim(initial_strains=initial_strains)
+    sim = Sim(initial_strains=initial_strains)
     
     # Get strain summary
     summary = sim.get_strain_summary()
@@ -101,9 +101,9 @@ def test_fitness_scenarios():
     assert len(diseases_custom) == 8
     
     # Test that Rotasim instances can be created with different scenarios
-    sim_baseline = Rotasim(initial_strains=initial_strains, fitness_scenario='baseline')
-    sim_high = Rotasim(initial_strains=initial_strains, fitness_scenario='high_diversity')
-    sim_custom = Rotasim(initial_strains=initial_strains, fitness_scenario=custom_fitness)
+    sim_baseline = Sim(initial_strains=initial_strains, fitness_scenario='baseline')
+    sim_high = Sim(initial_strains=initial_strains, fitness_scenario='high_diversity')
+    sim_custom = Sim(initial_strains=initial_strains, fitness_scenario=custom_fitness)
     
     # Properties should be set correctly
     assert sim_baseline.fitness_scenario == 'baseline'
@@ -124,7 +124,7 @@ def test_manual_vs_convenience():
     immunity_manual = RotaImmunityConnector()
     
     # Method 2: Convenience class 
-    sim_convenience = Rotasim(initial_strains=initial_strains, fitness_scenario='baseline', base_beta=0.1)
+    sim_convenience = Sim(initial_strains=initial_strains, fitness_scenario='baseline', base_beta=0.1)
     
     # Should create same number of diseases (test indirectly via utils)
     expected_combinations = generate_gp_reassortments(initial_strains)
@@ -160,7 +160,7 @@ def test_initialization_performance():
     
     start_time = time.time()
     diseases_med = create_strain_diseases(initial_strains_med, 'baseline', 0.1)
-    sim_med = Rotasim(initial_strains=initial_strains_med)
+    sim_med = Sim(initial_strains=initial_strains_med)
     med_time = time.time() - start_time
     
     # Test large scenario (8 strains -> 21 combinations)
@@ -171,7 +171,7 @@ def test_initialization_performance():
     
     start_time = time.time()
     diseases_large = create_strain_diseases(initial_strains_large, 'baseline', 0.1)
-    sim_large = Rotasim(initial_strains=initial_strains_large)
+    sim_large = Sim(initial_strains=initial_strains_large)
     large_time = time.time() - start_time
     
     print(f"  Medium (15 strains): {med_time:.3f}s")
@@ -193,7 +193,7 @@ def test_strain_summary_large():
     print("Testing strain summary with large strain count...")
     
     initial_strains = [(1, 8), (2, 4), (3, 6), (4, 8), (9, 8)]  # 15 total
-    sim = Rotasim(initial_strains=initial_strains)
+    sim = Sim(initial_strains=initial_strains)
     
     # Test that summary methods exist and properties are correct
     assert hasattr(sim, 'get_strain_summary')
@@ -214,16 +214,16 @@ def test_immunity_connector_integration():
     initial_strains = [(1, 8), (2, 4), (3, 6)]
     
     # Test default behavior (should add connector)
-    sim_default = Rotasim(initial_strains=initial_strains)
+    sim_default = Sim(initial_strains=initial_strains)
     # Should work without error
     
     # Test with custom connectors
     custom_immunity = RotaImmunityConnector()
-    sim_custom = Rotasim(initial_strains=initial_strains, connectors=[custom_immunity])
+    sim_custom = Sim(initial_strains=initial_strains, connectors=[custom_immunity])
     # Should work without error
     
     # Test with no connectors
-    sim_none = Rotasim(initial_strains=initial_strains, connectors=[])
+    sim_none = Sim(initial_strains=initial_strains, connectors=[])
     # Should work without error
     
     # Test that utilities work with expected strain count
@@ -260,7 +260,7 @@ def test_parameter_inheritance():
         assert hasattr(disease.pars, 'beta')
     
     # Test that Rotasim stores parameters correctly
-    sim = Rotasim(initial_strains=initial_strains, base_beta=base_beta, fitness_scenario='baseline')
+    sim = Sim(initial_strains=initial_strains, base_beta=base_beta, fitness_scenario='baseline')
     assert sim.base_beta == base_beta
     assert sim.fitness_scenario == 'baseline'
     

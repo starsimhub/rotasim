@@ -27,7 +27,7 @@ def analyzer_usage_example():
     age_analyzer = rs.AgeStats()          # Track age distribution
     
     # Create simulation with analyzers
-    sim = rs.Rotasim(
+    sim = rs.Sim(
         people=pop,
         networks=net,
         initial_strains=[(1, 8), (2, 4)],  # Two initial strains 

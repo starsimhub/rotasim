@@ -7,7 +7,7 @@ import os
 # Add rotasim to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from rotasim import Rotasim, StrainStats
+from rotasim import Sim, StrainStats
 import numpy as np
 
 
@@ -20,7 +20,7 @@ def test_analyzer_creation():
     print(f"✓ Created StrainStats analyzer: {type(analyzer).__name__}")
     
     # Test integration with Rotasim
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8), (2, 4)], 
         analyzers=[analyzer]
     )
@@ -35,7 +35,7 @@ def test_analyzer_initialization():
     
     # Create simulation with analyzer
     analyzer = StrainStats()
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8), (2, 4), (3, 6)], 
         analyzers=[analyzer],
         n_agents=1000
@@ -60,7 +60,7 @@ def test_v1_format_compatibility():
     
     # Create simple simulation to test format
     analyzer = StrainStats()
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8), (2, 4)], 
         analyzers=[analyzer],
         n_agents=100,
@@ -113,7 +113,7 @@ def test_strain_counting_logic():
         print(f"  {description}")
         
         analyzer = StrainStats()
-        sim = Rotasim(
+        sim = Sim(
             initial_strains=strains, 
             analyzers=[analyzer],
             n_agents=500

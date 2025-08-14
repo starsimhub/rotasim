@@ -25,7 +25,7 @@ class StrainStats(ss.Analyzer):
     
     Example usage:
         analyzer = StrainStats()
-        sim = Rotasim(initial_strains=[(1,8), (2,4)], analyzers=[analyzer])
+        sim = Sim(initial_strains=[(1,8), (2,4)], analyzers=[analyzer])
         sim.run()
         df = analyzer.to_df()  # Same format as v1
     """
@@ -192,7 +192,7 @@ class EventStats(ss.Analyzer):
     
     Example usage:
         analyzer = EventStats()
-        sim = Rotasim(initial_strains=[(1,8), (2,4)], analyzers=[analyzer])
+        sim = Sim(initial_strains=[(1,8), (2,4)], analyzers=[analyzer])
         sim.run()
         df = analyzer.to_df()  # Same format as v1 event_counts
     """
@@ -301,7 +301,7 @@ class AgeStats(ss.Analyzer):
     
     Example usage:
         analyzer = AgeStats()
-        sim = Rotasim(initial_strains=[(1,8), (2,4)], analyzers=[analyzer])
+        sim = Sim(initial_strains=[(1,8), (2,4)], analyzers=[analyzer])
         sim.run()
         df = analyzer.to_df()  # Same format as v1 age counts
     """

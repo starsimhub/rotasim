@@ -8,7 +8,7 @@ import os
 # Add rotasim to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from rotasim import Rotasim, Rotavirus, RotaImmunityConnector
+from rotasim import Sim, Rotavirus, RotaImmunityConnector
 
 
 def test_rotasim_creation():
@@ -17,7 +17,7 @@ def test_rotasim_creation():
     
     # Test basic creation (now need to provide people and time parameters)
     import starsim as ss
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8), (2, 4)],
         people=ss.People(100),
         networks=ss.RandomNet(),
@@ -47,7 +47,7 @@ def test_custom_parameters():
     
     # Test custom fitness scenario and parameters
     custom_fitness = {(1, 8): 1.2, (2, 4): 0.6}
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8), (2, 4)],
         fitness_scenario=custom_fitness,
         base_beta=0.15,
@@ -71,16 +71,16 @@ def test_connector_control():
     print("Testing connector control...")
     
     # Test default behavior (should add RotaImmunityConnector)
-    sim1 = Rotasim(initial_strains=[(1, 8)])
+    sim1 = Sim(initial_strains=[(1, 8)])
     # Just test that it doesn't crash
     
     # Test with custom connectors
     custom_connector = RotaImmunityConnector()
-    sim2 = Rotasim(initial_strains=[(1, 8)], connectors=[custom_connector])
+    sim2 = Sim(initial_strains=[(1, 8)], connectors=[custom_connector])
     # Just test that it doesn't crash
     
     # Test with no connectors
-    sim3 = Rotasim(initial_strains=[(1, 8)], connectors=[])
+    sim3 = Sim(initial_strains=[(1, 8)], connectors=[])
     # Just test that it doesn't crash
     
     print("✓ Connector control tests passed")
@@ -90,7 +90,7 @@ def test_strain_summary():
     """Test strain summary functionality"""
     print("Testing strain summary...")
     
-    sim = Rotasim(initial_strains=[(1, 8), (2, 4)])
+    sim = Sim(initial_strains=[(1, 8), (2, 4)])
     
     # For now, just test that the methods exist and don't crash
     # (Full testing would require simulation initialization)
@@ -120,7 +120,7 @@ def test_fitness_scenarios():
     
     # Test using different built-in scenarios
     for scenario_name in ['baseline', 'high_diversity', 'low_diversity']:
-        sim = Rotasim(initial_strains=[(1, 8)], fitness_scenario=scenario_name)
+        sim = Sim(initial_strains=[(1, 8)], fitness_scenario=scenario_name)
         assert sim.fitness_scenario == scenario_name
     
     print("✓ Fitness scenarios tests passed")
@@ -139,7 +139,7 @@ def test_validation():
     
     for invalid in invalid_cases:
         try:
-            Rotasim(initial_strains=invalid)
+            Sim(initial_strains=invalid)
             assert False, f"Should have raised ValueError for {invalid}"
         except ValueError:
             pass  # Expected
@@ -151,7 +151,7 @@ def test_repr():
     """Test string representation"""
     print("Testing string representation...")
     
-    sim = Rotasim(initial_strains=[(1, 8), (2, 4)])
+    sim = Sim(initial_strains=[(1, 8), (2, 4)])
     repr_str = repr(sim)
     
     # Should contain key information

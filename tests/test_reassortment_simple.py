@@ -7,7 +7,7 @@ import os
 # Add rotasim to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from rotasim import Rotasim, RotaReassortmentConnector
+from rotasim import Sim, RotaReassortmentConnector
 
 
 def test_basic_creation():
@@ -21,7 +21,7 @@ def test_basic_creation():
     
     # Test Rotasim creation with no connectors (should avoid the issue)
     print("\n=== Rotasim with No Connectors ===")
-    sim = Rotasim(initial_strains=[(1, 8), (2, 4)], connectors=[])
+    sim = Sim(initial_strains=[(1, 8), (2, 4)], connectors=[])
     print("✓ Created Rotasim with no connectors")
     
     # Try to initialize this one
@@ -35,7 +35,7 @@ def test_basic_creation():
     print("\n=== Test Single Connector ===")
     # Try with just reassortment connector
     reassortment = RotaReassortmentConnector()
-    sim2 = Rotasim(initial_strains=[(1, 8), (2, 4)], connectors=[reassortment])
+    sim2 = Sim(initial_strains=[(1, 8), (2, 4)], connectors=[reassortment])
     print("✓ Created Rotasim with only reassortment connector")
     
     try:

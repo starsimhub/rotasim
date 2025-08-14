@@ -4,7 +4,13 @@ Uses bitmask vectorization for cross-strain immunity calculations
 """
 import numpy as np
 import starsim as ss
-from .rotavirus import Rotavirus, PathogenMatch
+from .rotavirus import Rotavirus
+
+class PathogenMatch:
+    """Define whether pathogens are completely heterotypic, partially heterotypic, or homotypic"""
+    COMPLETE_HETERO = 1
+    PARTIAL_HETERO = 2
+    HOMOTYPIC = 3
 
 
 class RotaImmunityConnector(ss.Connector):

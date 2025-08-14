@@ -7,7 +7,7 @@ import os
 # Add rotasim to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from rotasim import Rotasim, StrainStats
+from rotasim import Sim, StrainStats
 import numpy as np
 import pandas as pd
 
@@ -18,7 +18,7 @@ def test_small_simulation_run():
     
     # Create small simulation for testing
     analyzer = StrainStats()
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8), (2, 4)], 
         analyzers=[analyzer],
         n_agents=200,
@@ -94,7 +94,7 @@ def test_csv_export_compatibility():
     
     # Run simulation
     analyzer = StrainStats()
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8), (2, 4)], 
         analyzers=[analyzer],
         n_agents=100,
@@ -167,7 +167,7 @@ def test_strain_summary_feature():
     
     # Create simulation with some activity
     analyzer = StrainStats()
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8), (2, 4)], 
         analyzers=[analyzer],
         n_agents=500,
@@ -221,7 +221,7 @@ def test_multiple_strain_scenarios():
         print(f"{name}: {strains}")
         
         analyzer = StrainStats()
-        sim = Rotasim(
+        sim = Sim(
             initial_strains=strains,
             analyzers=[analyzer],
             n_agents=200,

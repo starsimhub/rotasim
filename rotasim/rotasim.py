@@ -1,5 +1,6 @@
 """
-Rotasim convenience class for multi-strain simulations
+Sim convenience class for multi-strain simulations
+For starsim v2, the class must be named "Sim", not "Rotasim"
 Provides an easy-to-use interface for researchers while maintaining flexibility
 """
 import starsim as ss
@@ -8,7 +9,7 @@ from .immunity import RotaImmunityConnector
 from .reassortment import RotaReassortmentConnector
 
 
-class Rotasim(ss.Sim):
+class Sim(ss.Sim):
     """
     Convenience class for multi-strain Rotavirus simulations
     
@@ -18,21 +19,21 @@ class Rotasim(ss.Sim):
     
     Example usage:
         # Simple case
-        sim = Rotasim(initial_strains=[(1,8), (2,4)])
+        sim = Sim(initial_strains=[(1,8), (2,4)])
         sim.run()
         
         # Custom fitness scenario and prevalence
-        sim = Rotasim(initial_strains=[(1,8), (2,4)], 
+        sim = Sim(initial_strains=[(1,8), (2,4)], 
                       fitness_scenario='high_diversity',
                       base_beta=0.15,
                       init_prev=0.02)
         
         # Strain-specific initial prevalence
-        sim = Rotasim(initial_strains=[(1,8), (2,4)],
+        sim = Sim(initial_strains=[(1,8), (2,4)],
                       init_prev={(1,8): 0.02, (2,4): 0.005})
         
         # Custom connectors and analyzers
-        sim = Rotasim(initial_strains=[(1,8), (2,4)], 
+        sim = Sim(initial_strains=[(1,8), (2,4)], 
                       connectors=[RotaImmunityConnector()],
                       analyzers=[MyAnalyzer()])
     """
@@ -208,10 +209,10 @@ class Rotasim(ss.Sim):
         
     def __repr__(self):
         """String representation of Rotasim instance"""
-        return (f"Rotasim(initial_strains={self._initial_strains}, "
+        return (f"Sim(initial_strains={self._initial_strains}, "
                 f"fitness_scenario={self._fitness_scenario}, "
                 f"n_agents={self.pars.n_agents})")
 
 
 # Make Rotasim importable from the package root
-__all__ = ['Rotasim']
+__all__ = ['Sim']

@@ -7,7 +7,7 @@ import os
 # Add rotasim to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from rotasim import Rotasim, Rotavirus, RotaImmunityConnector
+from rotasim import Sim, Rotavirus, RotaImmunityConnector
 
 
 def test_time_units():
@@ -15,7 +15,7 @@ def test_time_units():
     print("=== Testing Daily Time Units ===\n")
     
     # Create a basic simulation
-    sim = Rotasim(initial_strains=[(1, 8)])
+    sim = Sim(initial_strains=[(1, 8)])
     
     # Check simulation parameters
     print("Simulation parameters:")

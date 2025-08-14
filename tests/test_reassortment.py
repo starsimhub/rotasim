@@ -8,7 +8,7 @@ import os
 # Add rotasim to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from rotasim import Rotasim, RotaReassortmentConnector
+from rotasim import Sim, RotaReassortmentConnector
 
 
 def test_reassortment_creation():
@@ -33,7 +33,7 @@ def test_reassortment_with_rotasim():
     
     # Create Rotasim with default connectors (should include reassortment)
     print("1. Testing default connectors (includes reassortment):")
-    sim = Rotasim(initial_strains=[(1, 8), (2, 4)])
+    sim = Sim(initial_strains=[(1, 8), (2, 4)])
     print(f"✓ Created Rotasim with default connectors")
     
     # Check strain summary 
@@ -45,14 +45,14 @@ def test_reassortment_with_rotasim():
     
     # Create Rotasim with no connectors
     print("2. Testing without connectors:")
-    sim_no_connectors = Rotasim(initial_strains=[(1, 8), (2, 4)], connectors=[])
+    sim_no_connectors = Sim(initial_strains=[(1, 8), (2, 4)], connectors=[])
     print(f"✓ Created Rotasim without connectors")
     print()
     
     # Create Rotasim with custom reassortment connector
     print("3. Testing with custom reassortment connector:")
     custom_reassortment = RotaReassortmentConnector(reassortment_rate=0.2)
-    sim_custom = Rotasim(
+    sim_custom = Sim(
         initial_strains=[(1, 8), (2, 4)], 
         connectors=[custom_reassortment]
     )
@@ -66,7 +66,7 @@ def test_reassortment_analysis():
     
     # Test 1: Verify reassortment connector is included by default
     print("1. Verify reassortment connector included in defaults:")
-    sim = Rotasim(initial_strains=[(1, 8), (2, 4), (3, 6)])
+    sim = Sim(initial_strains=[(1, 8), (2, 4), (3, 6)])
     summary = sim.get_strain_summary()
     
     # Calculate expected reassortants: from 3 strains (G1P8, G2P4, G3P6)
@@ -128,7 +128,7 @@ def test_reassortment_analysis():
     ]
     
     for name, strains, exp_total, exp_active, exp_dormant in scenarios:
-        test_sim = Rotasim(initial_strains=strains)
+        test_sim = Sim(initial_strains=strains)
         test_summary = test_sim.get_strain_summary()
         
         actual_total = test_summary['total_diseases']

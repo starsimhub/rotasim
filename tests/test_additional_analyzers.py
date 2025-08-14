@@ -7,7 +7,7 @@ import os
 # Add rotasim to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from rotasim import Rotasim, EventStats, AgeStats
+from rotasim import Sim, EventStats, AgeStats
 import numpy as np
 
 
@@ -20,7 +20,7 @@ def test_event_stats_creation():
     print(f"✓ Created EventStats analyzer: {type(analyzer).__name__}")
     
     # Test integration with Rotasim
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8), (2, 4)], 
         analyzers=[analyzer]
     )
@@ -40,7 +40,7 @@ def test_age_stats_creation():
     print(f"  Age bin edges: {analyzer.age_bins}")
     
     # Test integration with Rotasim
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8), (2, 4)], 
         analyzers=[analyzer]
     )
@@ -65,7 +65,7 @@ def test_multi_analyzer_integration():
     print(f"Created analyzers: {', '.join(analyzer_names)}")
     
     # Test integration with Rotasim
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8), (2, 4)], 
         analyzers=analyzers,
         n_agents=500
@@ -80,7 +80,7 @@ def test_event_stats_format():
     print("=== Testing EventStats Format ===\n")
     
     analyzer = EventStats()
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8)],
         analyzers=[analyzer],
         n_agents=100
@@ -102,7 +102,7 @@ def test_age_stats_format():
     print("=== Testing AgeStats Format ===\n")
     
     analyzer = AgeStats()
-    sim = Rotasim(
+    sim = Sim(
         initial_strains=[(1, 8)],
         analyzers=[analyzer],
         n_agents=100

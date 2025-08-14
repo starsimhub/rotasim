@@ -32,6 +32,7 @@ dev = [
     "black",             # Code formatting
     "ruff",              # Linting
     "pre-commit",        # Git hooks
+    "pytest",            # Testing framework
 ]
 
 [tool.setuptools.packages.find]

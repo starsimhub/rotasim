@@ -7,7 +7,7 @@ import os
 # Add rotasim to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from rotasim import Rotasim, RotaImmunityConnector
+from rotasim import Sim, RotaImmunityConnector
 
 
 def main():
@@ -15,14 +15,14 @@ def main():
     
     # Example 1: Basic usage with defaults
     print("1. Basic usage (default immunity connector):")
-    sim1 = Rotasim(initial_strains=[(1, 8), (2, 4)])
+    sim1 = Sim(initial_strains=[(1, 8), (2, 4)])
     print(f"   Created simulation with {sim1.get_strain_summary()['total_diseases']} total strains")
     print(f"   Using fitness scenario: {sim1.fitness_scenario}")
     print()
     
     # Example 2: Custom fitness scenario
     print("2. Custom fitness scenario:")
-    sim2 = Rotasim(
+    sim2 = Sim(
         initial_strains=[(1, 8), (2, 4), (3, 6)], 
         fitness_scenario='high_diversity',
         base_beta=0.15
@@ -33,7 +33,7 @@ def main():
     # Example 3: Custom connectors (standard ss.Sim pattern)
     print("3. Custom connectors:")
     custom_immunity = RotaImmunityConnector(waning_rate=1/365)  # Slower waning
-    sim3 = Rotasim(
+    sim3 = Sim(
         initial_strains=[(1, 8), (2, 4)],
         connectors=[custom_immunity]
     )
@@ -42,7 +42,7 @@ def main():
     
     # Example 4: No immunity connector
     print("4. No immunity (standard ss.Sim pattern):")
-    sim4 = Rotasim(
+    sim4 = Sim(
         initial_strains=[(1, 8), (2, 4)],
         connectors=[]  # No connectors
     )
@@ -51,7 +51,7 @@ def main():
     
     # Example 5: Custom simulation parameters (standard ss.Sim pattern)
     print("5. Custom simulation parameters:")
-    sim5 = Rotasim(
+    sim5 = Sim(
         initial_strains=[(1, 8), (2, 4)],
         n_agents=5000,
         start='2025-01-01',  # Start year

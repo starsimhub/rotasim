@@ -5,13 +5,6 @@ Individual strain-specific disease instances following traditional Starsim patte
 import starsim as ss
 
 
-class PathogenMatch:
-    """Define whether pathogens are completely heterotypic, partially heterotypic, or homotypic"""
-    COMPLETE_HETERO = 1
-    PARTIAL_HETERO = 2
-    HOMOTYPIC = 3
-
-
 class Rotavirus(ss.Infection):
     """
     Individual rotavirus strain as a separate disease instance
