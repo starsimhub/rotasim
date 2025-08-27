@@ -18,7 +18,7 @@ dependencies = [
     "numpy",
     "matplotlib",
     "pandas",
-    "starsim",
+    "starsim==2.3.1",
 ]
 
 [tool.setuptools.packages.find]

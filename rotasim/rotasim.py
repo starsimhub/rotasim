@@ -17,7 +17,7 @@ TODO:
 import sciris as sc
 import starsim as ss
 from . import rotasim_genetics as rg
-
+from .interventions import RotaVaxProg
 
 __all__ = ["Sim"]
 
@@ -63,6 +63,19 @@ class Sim(ss.Sim):
         # If the Rota module isn't provided, create it
         if "connectors" not in kwargs:
             kwargs["connectors"] = rg.Rota(to_csv=to_csv, **rota_kwargs)
+
+        vx_intv_found = False
+        if "interventions" not in kwargs:
+            kwargs["interventions"] = None
+
+        kwargs["interventions"] = sc.promotetolist(kwargs["interventions"])
+        for intervention in kwargs["interventions"]:
+            if isinstance(intervention, RotaVaxProg):
+                vx_intv_found = True
+                break
+
+        if not vx_intv_found:
+            kwargs["interventions"].append(RotaVaxProg())
 
         super().__init__(
             n_agents=n_agents,
