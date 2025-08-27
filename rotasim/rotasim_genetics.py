@@ -531,8 +531,6 @@ class Rota(ss.Module):
             rsa.MultiList("infections_without_vaccination", default=[]),
             ss.BoolArr("is_immune_flag", default=False),
             ss.FloatArr("oldest_infection", default=np.nan),
-            ss.FloatArr("rel_sus", default=1.0),  # relative susceptibility to infection
-            ss.FloatArr("rel_sev", default=1.0),  # relative severity of infection
         )
 
         # Set filenames
@@ -905,8 +903,6 @@ class Rota(ss.Module):
         if self.sim.pars.verbose > 0:
             print("Files initialized")
 
-    def start_step(self):
-        self.rel_sus[:] = 1.0  # reset relative susceptibility
 
     def step(self):
         """
@@ -1032,8 +1028,9 @@ class Rota(ss.Module):
         return f"G{G}P{P}A{A}B{B}"
 
     def get_probability_of_severe(
-        self, immunity_count, pathogen_in=None, vaccine=None, n_doses=0,
-    ):  # TEMP: refactor and include above
+        self, uid, pathogen_in, vaccine):
+    # ):  # TEMP: refactor and include above
+        immunity_count = self.prior_infections[uid]
         if immunity_count >= 3:
             severity_probability = 0.18
         elif immunity_count == 2:
@@ -1043,11 +1040,16 @@ class Rota(ss.Module):
         elif immunity_count == 0:
             severity_probability = 0.17
 
-        if vaccine is not None and n_doses > 0:
+        if vaccine is not None:
+            n_doses = vaccine.n_doses[uid]
+        else:
+            n_doses = 0
+
+        if n_doses > 0:
             # Probability of severity also depends on the strain (homotypic/heterotypic/etc.)
             pathogen_match = vaccine.product.is_match(pathogen_in)
             # Effectiveness of the vaccination depends on the number of doses
-            ve_s = vaccine.product.vaccine_efficacy_s[n_doses][pathogen_match]
+            ve_s = vaccine.product.vaccine_efficacy_s[n_doses][pathogen_match] * vaccine.waned_effectiveness[uid]
             return severity_probability * (1 - ve_s)
         else:
             return severity_probability
@@ -1568,9 +1570,7 @@ class Rota(ss.Module):
 
         # Probability of getting a severe disease depends on the number of previous infections and vaccination status of the host
         vx = self.vx
-        severity_probability = self.get_probability_of_severe(
-           self.prior_infections[uid], pathogen_in.strain, vx, vx.n_doses[uid]
-        )
+        severity_probability = self.get_probability_of_severe(uid, pathogen_in.strain, vx)
         if rnd.random() < severity_probability:
             severe = True
         else:
