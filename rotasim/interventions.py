@@ -99,7 +99,14 @@ class RotaVax(ss.Vx):
 
     def breakdown_vaccine_efficacy(self, ve, x):
         """
-        Break down the vaccine efficacy into its components
+        The protective effect of vaccination on infection and progression into severe disease was calculated using the
+        following equation: (1 - VE) = (1- VEi)(1-VEs) https://link.springer.com/chapter/10.1007/978-0-387-68636-3_2
+
+        We assume VEi = xVEs, where vaccine efficacy is greater against severe disease given infection than against
+        infection. VE and x are parameters in the model. VE is the input vaccine efficacy rate. In the model we have
+        3 efficacy rates; protection from the vaccine for homotypic strains, partial heterotypic strains and complete
+        heterotypic strains. By plugging the values for VE and x, we can solve for VEi and VEs with the quadratic
+        equation in the function. Therefore, for each input VE, the VEi and VEs will be calculated.
         """
         (r1, r2) = self.solve_quadratic(x, -(1 + x), ve)
         if self.sim.pars.verbose > 0:
