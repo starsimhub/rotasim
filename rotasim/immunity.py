@@ -40,8 +40,9 @@ class RotaImmunityConnector(ss.Connector):
         
         # Define immunity state arrays
         self.define_states(
-            ss.FloatArr('exposed_G_bitmask', default=0.0),  # Bitmask of exposed G types
-            ss.FloatArr('exposed_P_bitmask', default=0.0),  # Bitmask of exposed P types  
+            ss.FloatArr('exposed_GP_bitmask', default=0.0),  # Bitmask of exposed (G,P) pairs
+            ss.FloatArr('exposed_G_bitmask', default=0.0),   # Bitmask of exposed G types
+            ss.FloatArr('exposed_P_bitmask', default=0.0),   # Bitmask of exposed P types  
             ss.FloatArr('oldest_infection', default=np.nan), # Time of first infection (for waning)
             ss.BoolArr('has_immunity', default=False),       # Whether agent has any immunity
         )
@@ -50,8 +51,10 @@ class RotaImmunityConnector(ss.Connector):
         self.rota_diseases = []
         self.G_to_bit = {}
         self.P_to_bit = {}
+        self.GP_to_bit = {}
         self.disease_G_masks = {}
         self.disease_P_masks = {}
+        self.disease_GP_masks = {}
         
     def init_post(self):
         """Auto-detect Rotavirus diseases and create bitmask mappings"""
@@ -67,28 +70,33 @@ class RotaImmunityConnector(ss.Connector):
             
         print(f"RotaImmunityConnector: Found {len(self.rota_diseases)} Rotavirus strains")
         
-        # Create bit mappings for unique G,P types in simulation
+        # Create bit mappings for unique G,P types and combinations in simulation
         unique_G = sorted(set(d.G for d in self.rota_diseases))
         unique_P = sorted(set(d.P for d in self.rota_diseases))
+        unique_GP = sorted(set((d.G, d.P) for d in self.rota_diseases))
         
         # Ensure we don't exceed bitwise limits (32/64 bits)
         max_bits = 32  # Conservative limit
-        if len(unique_G) > max_bits or len(unique_P) > max_bits:
-            raise ValueError(f"Too many unique genotypes: {len(unique_G)} G types, {len(unique_P)} P types. Max {max_bits} each.")
+        if len(unique_G) > max_bits or len(unique_P) > max_bits or len(unique_GP) > max_bits:
+            raise ValueError(f"Too many unique genotypes: {len(unique_G)} G types, {len(unique_P)} P types, {len(unique_GP)} GP pairs. Max {max_bits} each.")
         
         # Create mappings: genotype -> bit position
         self.G_to_bit = {g: i for i, g in enumerate(unique_G)}
         self.P_to_bit = {p: i for i, p in enumerate(unique_P)}
+        self.GP_to_bit = {gp: i for i, gp in enumerate(unique_GP)}
         
         print(f"  - G genotypes: {unique_G} -> bits {list(self.G_to_bit.values())}")
         print(f"  - P genotypes: {unique_P} -> bits {list(self.P_to_bit.values())}")
+        print(f"  - GP pairs: {unique_GP} -> bits {list(self.GP_to_bit.values())}")
         
         # Pre-compute disease-specific bitmasks for fast lookup
         self.disease_G_masks = {}
         self.disease_P_masks = {}
+        self.disease_GP_masks = {}
         for disease in self.rota_diseases:
             self.disease_G_masks[disease.name] = 1 << self.G_to_bit[disease.G]
             self.disease_P_masks[disease.name] = 1 << self.P_to_bit[disease.P]
+            self.disease_GP_masks[disease.name] = 1 << self.GP_to_bit[(disease.G, disease.P)]
             
         print(f"  - Pre-computed bitmasks for {len(self.rota_diseases)} diseases")
         
@@ -124,6 +132,7 @@ class RotaImmunityConnector(ss.Connector):
             waning_uids = immune_uids[waning_indices]
             
             # Clear all immunity bitmasks for these people
+            self.exposed_GP_bitmask[waning_uids] = 0.0
             self.exposed_G_bitmask[waning_uids] = 0.0
             self.exposed_P_bitmask[waning_uids] = 0.0
             self.has_immunity[waning_uids] = False
@@ -143,17 +152,20 @@ class RotaImmunityConnector(ss.Connector):
         for disease in self.rota_diseases:
             disease_G_mask = self.disease_G_masks[disease.name]
             disease_P_mask = self.disease_P_masks[disease.name]
+            disease_GP_mask = self.disease_GP_masks[disease.name]
             
-            # Convert FloatArr to int for bitwise operations, then back to bool
+            # Convert FloatArr to int for bitwise operations
             G_bits = self.exposed_G_bitmask.astype(int)
             P_bits = self.exposed_P_bitmask.astype(int)
+            GP_bits = self.exposed_GP_bitmask.astype(int)
             
             # Vectorized matching using bitwise operations
+            has_exact_match = (GP_bits & disease_GP_mask) != 0
             has_G_match = (G_bits & disease_G_mask) != 0
             has_P_match = (P_bits & disease_P_mask) != 0
             
             # Determine immunity type for entire population
-            has_homotypic = has_G_match & has_P_match
+            has_homotypic = has_exact_match
             has_partial = (has_G_match | has_P_match) & ~has_homotypic
             
             # Vectorized protection assignment using numpy.where
@@ -183,16 +195,19 @@ class RotaImmunityConnector(ss.Connector):
         if not isinstance(disease, Rotavirus):
             return  # Only handle Rotavirus diseases
             
-        # Get bit positions for this disease's G,P genotypes
+        # Get bit positions for this disease's G,P genotypes and combination
         G_bit = 1 << self.G_to_bit[disease.G]  
         P_bit = 1 << self.P_to_bit[disease.P]
+        GP_bit = 1 << self.GP_to_bit[(disease.G, disease.P)]
         
         # Update bitmasks with type conversion (FloatArr bitwise ops)
         current_G = self.exposed_G_bitmask[recovered_uids].astype(int)
         current_P = self.exposed_P_bitmask[recovered_uids].astype(int)
+        current_GP = self.exposed_GP_bitmask[recovered_uids].astype(int)
         
         self.exposed_G_bitmask[recovered_uids] = (current_G | G_bit).astype(float)
         self.exposed_P_bitmask[recovered_uids] = (current_P | P_bit).astype(float)
+        self.exposed_GP_bitmask[recovered_uids] = (current_GP | GP_bit).astype(float)
         
         # Mark as having immunity
         self.has_immunity[recovered_uids] = True
