@@ -241,38 +241,37 @@ class EventStats(ss.Analyzer):
             'reassortments': 0
         }
         
-        # Get population changes (births/deaths) from demographics
-        if hasattr(self.sim, 'people'):
-            # In v2, we can track births/deaths through people module
-            # For now, set to 0 since we don't have dynamic demographics
-            events['births'] = 0  # Would need demographics module
-            events['deaths'] = 0  # Would need demographics module
+        # Get population changes (births/deaths) from demographics modules
+        for module in self.sim.modules:
+            if hasattr(module, 'results'):
+                #todo replace with people births/deaths logic after upgrading to SS v3.
+                # Check for births
+                if hasattr(module.results, 'new_births'):
+                    events['births'] += getattr(module.results.new_births, self.sim.ti, 0)
+                # Check for deaths  
+                if hasattr(module.results, 'new_deaths'):
+                    events['deaths'] += getattr(module.results.new_deaths, self.sim.ti, 0)
         
-        # Count recoveries across all Rotavirus diseases
+        # Count recoveries and new infections across all Rotavirus diseases
         for disease in self.sim.diseases.values():
             if hasattr(disease, 'G') and hasattr(disease, 'P'):  # Is Rotavirus
                 # Count agents who recovered this timestep
-                if hasattr(disease, 'recovered'):
-                    # This would need to track new recoveries vs total recovered
-                    # For now, approximate as 0 (would need proper event tracking)
-                    events['recoveries'] += 0
-        
-        # Count transmission contacts (new infections across all strains)
-        for disease in self.sim.diseases.values():
-            if hasattr(disease, 'G') and hasattr(disease, 'P'):  # Is Rotavirus
-                # Count new infections this timestep
-                if hasattr(disease, 'infected'):
-                    # This would need to track new vs existing infections
-                    # For now, approximate as 0 (would need proper event tracking)
-                    events['contacts'] += 0
+                if hasattr(disease.results, 'new_recovered'):
+                    events['recoveries'] += disease.results.new_recovered[self.sim.ti]
+                
+                # Count new infections this timestep (built into ss.Infection)
+                if hasattr(disease.results, 'new_infections'):
+                    events['contacts'] += disease.results.new_infections[self.sim.ti]
         
         # Count immunity waning events
-        # Would need to track waning events from immunity connector
-        events['wanings'] = 0  # Would need immunity connector event tracking
+        if 'rotaimmunityconnector' in self.sim.connectors:
+            events['wanings'] = self.sim.connectors.rotaimmunityconnector.results.n_waned[self.sim.ti]
         
-        # Count reassortment events  
-        # Would need to track reassortment events from reassortment connector
-        events['reassortments'] = 0  # Would need reassortment connector event tracking
+        # Count reassortment events from reassortment connector
+        if 'rotareassortment' in self.sim.connectors:
+            events['reassortments'] = self.sim.connectors.rotareassortment.results.n_reassortments[self.sim.ti]
+
+        print(events)
         
         # Store results
         for event_type, count in events.items():

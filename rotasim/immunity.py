@@ -33,6 +33,7 @@ class RotaImmunityConnector(ss.Connector):
             partial_heterotypic_immunity_rate = 0.5,  # Protection from shared G or P
             complete_heterotypic_immunity_rate = 0.5, # Protection from different G,P
             waning_rate = ss.perday(1/273),           # Rate of immunity waning (omega parameter, ~273 days)
+            infection_history_rel_sus_mapping = {0: 1.0, 1: 0.61, 2: 0.48, 3: 0.33},  # Susceptibility scaling based on total infection history
         )
         
         # Update with user parameters
@@ -45,6 +46,7 @@ class RotaImmunityConnector(ss.Connector):
             ss.FloatArr('exposed_P_bitmask', default=0.0),   # Bitmask of exposed P types  
             ss.FloatArr('oldest_infection', default=np.nan), # Time of first infection (for waning)
             ss.BoolArr('has_immunity', default=False),       # Whether agent has any immunity
+            ss.FloatArr('num_infections', default=0.0),   # Total number of prior infections (for scaling susceptibility)
         )
         
         # Will be populated during init_post
@@ -55,7 +57,14 @@ class RotaImmunityConnector(ss.Connector):
         self.disease_G_masks = {}
         self.disease_P_masks = {}
         self.disease_GP_masks = {}
-        
+
+    def init_results(self):
+        """Initialize results storage for immunity-related outputs"""
+        super().init_results()
+
+        self.define_results(ss.Result('n_waned', dtype=int, scale=True, summarize_by='sum', label='Number of people losing immunity each timestep'))
+        return
+
     def init_post(self):
         """Auto-detect Rotavirus diseases and create bitmask mappings"""
         super().init_post()
@@ -118,7 +127,7 @@ class RotaImmunityConnector(ss.Connector):
             return
             
         # Number of people to lose immunity this timestep (Poisson process)
-        n_waning = np.random.poisson(self.pars.waning_rate * self.dt * self.has_immunity.sum())
+        n_waning = np.random.poisson(self.pars.waning_rate * self.t.dt * self.has_immunity.sum())
         
         if n_waning > 0:
             # Get UIDs of people who have immunity
@@ -140,6 +149,7 @@ class RotaImmunityConnector(ss.Connector):
             
             if len(waning_uids) > 0:
                 print(f"  Immunity waning: {len(waning_uids)} people lost all immunity")
+            self.results.n_waned[self.ti] += len(waning_uids)
                 
     def _update_cross_immunity(self):
         """Fully vectorized cross-immunity using bitwise operations - NO UID LOOPS"""
@@ -169,15 +179,24 @@ class RotaImmunityConnector(ss.Connector):
             has_partial = (has_G_match | has_P_match) & ~has_homotypic
             
             # Vectorized protection assignment using numpy.where
-            protection = np.where(
+            strain_protection = np.where(
                 has_homotypic, self.pars.homotypic_immunity_rate,
                 np.where(has_partial, self.pars.partial_heterotypic_immunity_rate,
                         self.pars.complete_heterotypic_immunity_rate)
             )
             
-            # Apply protection only to people with immunity (multiply by immune_mask)
+            # Get infection history susceptibility scaling factor
+            infection_history_sus_factor = np.ones(self.has_immunity.shape, dtype=float)
+            for n_inf, scalar in self.pars.infection_history_rel_sus_mapping.items():
+                if n_inf < 3:
+                    mask = (self.num_infections == n_inf)
+                else:  # 3+ infections use same scalar as 3
+                    mask = (self.num_infections >= 3)
+                infection_history_sus_factor[mask] = scalar
+            
+            # Apply protection only to people with immunity
             # People without immunity have full susceptibility (rel_sus = 1.0)
-            disease.rel_sus[:] = 1.0 - (protection * immune_mask)
+            disease.rel_sus[:] = (1.0 - (strain_protection * infection_history_sus_factor * immune_mask))
     
     def record_recovery(self, disease, recovered_uids):
         """
@@ -211,6 +230,9 @@ class RotaImmunityConnector(ss.Connector):
         
         # Mark as having immunity
         self.has_immunity[recovered_uids] = True
+        
+        # Increment total infection count for each recovered agent
+        self.num_infections[recovered_uids] += 1.0
         
         # Track oldest infection time (only set if first infection)
         first_infections = np.isnan(self.oldest_infection[recovered_uids])

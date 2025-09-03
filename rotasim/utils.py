@@ -6,38 +6,81 @@ import itertools
 import starsim as ss
 from .rotavirus import Rotavirus
 
+INITIAL_STRAIN_SCENARIOS = {
+    'default': [(1, 8), (2, 4), (3, 8)],  # Default initial strains
+    'high_diversity': [(1, 8), (2, 4), (3, 8), (4, 8), (9, 8), (12, 8), (9, 6), (12, 6), (9, 4), (1, 6), (2, 8), (2, 6)],
+    'low_diversity': [(1, 8), (2, 4), (3, 8), (4, 8)],
+}
 
 # Built-in fitness scenarios based on v1 fitness hypotheses
-FITNESS_SCENARIOS = {
+# TODO update scenarios based on fitness hypotheses in old version, rename to match
+FITNESS_HYPOTHESES = {
     'baseline': {
+        'default': 1.0,  # Default fitness multiplier if not specified
         (1, 8): 1.0,
         (2, 4): 0.8,
     },
-    'high_diversity': {
-        (1, 8): 0.98,
-        (2, 4): 0.4,
-        (3, 8): 0.7,
-        (4, 8): 0.6,
-        (9, 8): 0.7,
-        (12, 8): 0.75,
-        (9, 6): 0.58,
-        (11, 8): 0.2,
+    '2': {
+        'default': 0.9,  # Default fitness multiplier if not specified
+        (1, 1): 0.93,
+        (2, 2): 0.93,
+        (3, 3): 0.93,
+        (4, 4): 0.93,
     },
-    'low_diversity': {
+    '15': {
+        'default': 0.4,  # Default fitness multiplier if not specified
+        (1, 8): 1,
+        (2, 4): 0.7,
+        (3, 8): 0.93,
+        (4, 8): 0.93,
+        (9, 8): 0.95,
+        (12, 8): 0.94,
+        (9, 6): 0.3,
+        (11, 8): 0.35,
+    },
+    '17': {
+        'default': 0.7,  # Default fitness multiplier if not specified
         (1, 8): 1.0,
         (2, 4): 0.85,
         (3, 8): 0.85,
         (4, 8): 0.88,
         (9, 8): 0.95,
         (12, 8): 0.93,
-        (9, 6): 0.85,
+        (9, 6): 0.83,
         (12, 6): 0.90,
         (9, 4): 0.90,
-        (1, 6): 0.6,
-        (2, 8): 0.6,
-        (2, 6): 0.6,
+        (1, 6): 0.8,
+        (2, 8): 0.8,
+        (2, 6): 0.8,
     },
 }
+
+# INITIAL_PREVALENCE_SCENARIOS = {
+#     'equal': {
+#         (1, 8): n_init_seg,
+#         (2, 4): n_init_seg,
+#         (9, 8): n_init_seg,
+#         (4, 8): n_init_seg,
+#         (3, 8): n_init_seg,
+#         (12, 8): n_init_seg,
+#         (12, 6): n_init_seg,
+#         (9, 4): n_init_seg,
+#         (9, 6): n_init_seg,
+#         (1, 6): n_init_seg,
+#         (2, 8): n_init_seg,
+#         (2, 6): n_init_seg,
+#         (11, 8): n_init_seg,
+#         (11, 6): n_init_seg,
+#         (1, 4): n_init_seg,
+#         (12, 4): n_init_seg,
+#     },
+#     'low_diversity': {
+#         (1, 8): n_init_seg,
+#         (3, 8): n_init_seg,
+#         (2, 4): n_init_seg,
+#         (4, 8): n_init_seg,
+#     }
+# }
 
 
 def generate_gp_reassortments(initial_strains):
@@ -56,7 +99,7 @@ def generate_gp_reassortments(initial_strains):
     """
     if not initial_strains:
         raise ValueError("initial_strains cannot be empty")
-        
+
     # Extract unique G and P genotypes
     unique_G = sorted(set(g for g, p in initial_strains))
     unique_P = sorted(set(p for g, p in initial_strains))
@@ -89,12 +132,13 @@ def get_fitness_multiplier(G, P, scenario):
     """
     # Handle string scenario names
     if isinstance(scenario, str):
-        if scenario not in FITNESS_SCENARIOS:
-            raise ValueError(f"Unknown fitness scenario '{scenario}'. Available: {list(FITNESS_SCENARIOS.keys())}")
-        scenario = FITNESS_SCENARIOS[scenario]
+        if scenario not in FITNESS_HYPOTHESES:
+            raise ValueError(f"Unknown fitness scenario '{scenario}'. Available: {list(FITNESS_HYPOTHESES.keys())}")
+        scenario = FITNESS_HYPOTHESES[scenario]
     
     # Return fitness multiplier, defaulting to 1.0
-    return scenario.get((G, P), 1.0)
+    default = scenario.get('default', 1.0)
+    return scenario.get((G, P), default)
 
 
 def _parse_init_prev_parameter(init_prev, initial_strains):
@@ -111,23 +155,32 @@ def _parse_init_prev_parameter(init_prev, initial_strains):
     Raises:
         ValueError: If format is invalid or values are out of range
     """
-    if isinstance(init_prev, (int, float)):
-        # Float format: same prevalence for all initial strains
-        if init_prev < 0 or init_prev > 1:
-            raise ValueError(f"init_prev must be between 0 and 1, got {init_prev}")
-        return {strain: float(init_prev) for strain in initial_strains}
-    
-    elif isinstance(init_prev, dict):
+
+    def _parse_dict(d):
         # Dict format: {(G,P): prevalence}
         result = {}
-        for strain, prev in init_prev.items():
+        for strain, prev in d.items():
             if not isinstance(strain, (tuple, list)) or len(strain) != 2:
                 raise ValueError(f"Dict keys must be (G,P) tuples, got {strain}")
             if not isinstance(prev, (int, float)) or prev < 0 or prev > 1:
                 raise ValueError(f"Prevalence values must be between 0 and 1, got {prev} for strain {strain}")
             result[tuple(strain)] = float(prev)
         return result
-    
+
+    if isinstance(init_prev, (int, float)):
+        # Float format: same prevalence for all initial strains
+        if init_prev < 0 or init_prev > 1:
+            raise ValueError(f"init_prev must be between 0 and 1, got {init_prev}")
+        return {strain: float(init_prev) for strain in initial_strains}
+
+    elif isinstance(init_prev, dict):
+        return _parse_dict(init_prev)  # Validate format
+
+    elif isinstance(init_prev, str):
+        # String format: use predefined prevalence scenarios
+        if init_prev not in PREVALENCE_SCENARIOS:
+            raise ValueError(f"Unknown prevalence scenario '{init_prev}'. Available: {list(PREVALENCE_SCENARIOS.keys())}")
+        return _parse_dict(PREVALENCE_SCENARIOS[init_prev])
     else:
         raise ValueError(f"init_prev must be float or dict, got {type(init_prev)}")
 
@@ -161,6 +214,11 @@ def create_strain_diseases(initial_strains, fitness_scenario='baseline', base_be
     """
     if not initial_strains:
         raise ValueError("initial_strains cannot be empty")
+
+    if isinstance(initial_strains, str):
+        if initial_strains not in INITIAL_STRAIN_SCENARIOS:
+            raise ValueError(f"Unknown initial_strains scenario '{initial_strains}'. Available: {list(INITIAL_STRAIN_SCENARIOS.keys())}")
+        initial_strains = INITIAL_STRAIN_SCENARIOS[initial_strains]
         
     # Parse init_prev parameter into a dict format
     init_prev_dict = _parse_init_prev_parameter(init_prev, initial_strains)
@@ -232,8 +290,13 @@ def validate_initial_strains(initial_strains):
     if not initial_strains:
         raise ValueError("initial_strains cannot be empty")
         
-    if not isinstance(initial_strains, (list, tuple)):
-        raise ValueError("initial_strains must be a list or tuple")
+    if not isinstance(initial_strains, (list, tuple, str)):
+        raise ValueError("initial_strains must be a list, tuple, or scenario name string")
+
+    if isinstance(initial_strains, str):
+        if initial_strains not in INITIAL_STRAIN_SCENARIOS:
+            raise ValueError(f"Unknown initial_strains scenario '{initial_strains}'. Available: {list(INITIAL_STRAIN_SCENARIOS.keys())}")
+        initial_strains = INITIAL_STRAIN_SCENARIOS[initial_strains]
         
     for i, strain in enumerate(initial_strains):
         if not isinstance(strain, (list, tuple)) or len(strain) != 2:

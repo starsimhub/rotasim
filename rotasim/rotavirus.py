@@ -47,11 +47,19 @@ class Rotavirus(ss.Infection):
             ss.State('recovered', label='Recovered'),
             ss.FloatArr('ti_infected', label='Time of infection'),
             ss.FloatArr('ti_recovered', label='Time of recovery'),
+            ss.FloatArr('n_infections', default=0, label='Total number of infections'),
             ss.FloatArr('rel_sus', default=1.0, label='Relative susceptibility'),
             ss.FloatArr('rel_trans', default=1.0, label='Relative transmission'),
         )
         
         self.update_pars(pars=pars, **kwargs)
+
+    def init_results(self):
+        super().init_results()
+        self.define_results(ss.Result('new_recovered', label='New recoveries this timestep', dtype=int, scale=True))
+
+        return
+
         
     def set_prognoses(self, uids, sources=None):
         """
@@ -75,6 +83,9 @@ class Rotavirus(ss.Infection):
         self.infected[uids] = True
         self.ti_infected[uids] = ti
         
+        # Increment infection count for each agent
+        self.n_infections[uids] += 1
+        
         # Sample duration of infection for each agent
         # dur_inf is typically ss.lognorm_ex(mean=7) for ~7 days
         dur_inf = self.pars.dur_inf.rvs(uids)
@@ -96,6 +107,10 @@ class Rotavirus(ss.Infection):
         recovering = (self.infected & (self.ti_recovered <= sim.ti)).uids
         self.infected[recovering] = False
         self.recovered[recovering] = True
+
+        self.results['new_recovered'][self.ti] = len(recovering)
+
+        self.sim.connectors['rotaimmunityconnector'].record_recovery(self, recovering)
         
         return
 

@@ -38,12 +38,12 @@ class Sim(ss.Sim):
                       analyzers=[MyAnalyzer()])
     """
     
-    def __init__(self, initial_strains, fitness_scenario='baseline', base_beta=0.1, init_prev=0.01, **kwargs):
+    def __init__(self, initial_strains='default', fitness_scenario='baseline', base_beta=0.1, init_prev=0.01, **kwargs):
         """
         Initialize Rotasim simulation
         
         Args:
-            initial_strains: List of (G,P) tuples representing starting strains, e.g. [(1,8), (2,4)]
+            initial_strains: List of (G,P) tuples representing starting strains, e.g. [(1,8), (2,4)] or string name of built-in scenario
             fitness_scenario: String name of built-in scenario or dict of custom fitness multipliers
             base_beta: Base transmission rate before fitness adjustment (default: 0.1)
             init_prev: Initial prevalence for active strains. Can be:
@@ -97,6 +97,11 @@ class Sim(ss.Sim):
         
         print(f"  Time units: {kwargs.get('unit', 'day')}, dt={kwargs.get('dt', 1)}")
         print(f"  Total diseases: {len(diseases)} ({len(initial_strains)} active + {len(diseases)-len(initial_strains)} dormant)")
+
+        if 'networks' not in kwargs:
+
+            kwargs['networks'] = ss.poisson(n_contacts= lambda self: self.pars.contact_rate * sum(np.sum(d.infected) for d in self.sim.diseases.values())) # number of contacts is product of contact rate and total infected
+            print("  Networks: Using default random network")
         
         # Initialize parent Sim class
         super().__init__(diseases=diseases, **kwargs)

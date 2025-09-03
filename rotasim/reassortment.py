@@ -82,6 +82,13 @@ class RotaReassortmentConnector(ss.Connector):
             print(f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}")
         
         print(f"  Reassortment rate: {self.pars.reassortment_prob} per day per co-infected host")
+
+    def init_results(self):
+        """Initialize results tracking if needed"""
+        super().init_results()
+
+        self.define_results(ss.Result('n_reassortments', label='Number of reassortment events', dtype=int, scale=False, summarize_by='sum'))
+        return
         
     def step(self):
         """
@@ -119,6 +126,7 @@ class RotaReassortmentConnector(ss.Connector):
         
         if total_new_infections > 0:
             print(f"  → {total_new_infections} new reassortant infections created")
+        self.results.n_reassortments[self.ti] += total_new_infections
     
     def _get_coinfected_hosts(self):
         """
