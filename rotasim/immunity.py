@@ -34,6 +34,7 @@ class RotaImmunityConnector(ss.Connector):
             complete_heterotypic_immunity_rate = 0.5, # Protection from different G,P
             waning_rate = ss.perday(1/273),           # Rate of immunity waning (omega parameter, ~273 days)
             infection_history_rel_sus_mapping = {0: 1.0, 1: 0.61, 2: 0.48, 3: 0.33},  # Susceptibility scaling based on total infection history
+            cotransmission_prob = ss.bernoulli(p=0.02),  # Probability of transmitting all strains instead of dominant strain selection (2%)
         )
         
         # Update with user parameters
@@ -121,6 +122,9 @@ class RotaImmunityConnector(ss.Connector):
         # 2. Update cross-immunity protection for all diseases
         self._update_cross_immunity()
         
+        # 3. Apply strain selection for coinfected transmission
+        self._apply_strain_selection()
+        
     def _apply_waning(self):
         """Vectorized immunity waning - clear entire immunity portfolios based on oldest infection"""
         if not self.has_immunity.any():
@@ -186,7 +190,7 @@ class RotaImmunityConnector(ss.Connector):
             )
             
             # Get infection history susceptibility scaling factor
-            infection_history_sus_factor = np.ones(self.has_immunity.shape, dtype=float)
+            infection_history_sus_factor = np.ones(len(self.sim.people), dtype=float)
             for n_inf, scalar in self.pars.infection_history_rel_sus_mapping.items():
                 if n_inf < 3:
                     mask = (self.num_infections == n_inf)
@@ -197,6 +201,65 @@ class RotaImmunityConnector(ss.Connector):
             # Apply protection only to people with immunity
             # People without immunity have full susceptibility (rel_sus = 1.0)
             disease.rel_sus[:] = (1.0 - (strain_protection * infection_history_sus_factor * immune_mask))
+    
+    def _apply_strain_selection(self):
+        """
+        Apply strain selection for coinfected transmission using vectorized operations
+
+        Most of the time we want to transmit only a single strain of the virus, even if the host
+        is coinfected with multiple strains. We accomplish this by adjusting the relative transmissibility
+        of the various strains for each host. There is also a possibility that multiple strains will transmit.
+
+        """
+        # Build infection matrix and fitness values
+        infection_matrix = np.zeros((len(self.sim.people), len(self.rota_diseases)), dtype=bool)
+        fitness_values = np.zeros(len(self.rota_diseases), dtype=float)
+        
+        for i, disease in enumerate(self.rota_diseases):
+            infection_matrix[:, i] = disease.infected[:]
+            fitness_values[i] = disease.pars.beta.mean()  # Use beta as fitness metric
+        
+        # Find coinfected agents (>1 strain)
+        infections_per_agent = infection_matrix.sum(axis=1)
+        coinfected_uids = np.where(infections_per_agent > 1)[0]
+        
+        if len(coinfected_uids) == 0:
+            return  # No coinfected agents
+        
+        # Filter out cotransmission agents
+        cotransmission_mask = self.pars.cotransmission_prob.rvs(coinfected_uids)
+        strain_selection_uids = coinfected_uids[~cotransmission_mask]
+        
+        if len(strain_selection_uids) == 0:
+            return  # All coinfected agents are cotransmission
+        
+        # Vectorized strain selection
+        coinfected_infections = infection_matrix[strain_selection_uids, :]  # Shape: (n_agents, n_strains)
+        
+        # For each agent, find maximum fitness among their infected strains
+        agent_fitness_matrix = coinfected_infections * fitness_values[np.newaxis, :]  # Broadcast fitness
+        agent_fitness_matrix[~coinfected_infections] = -np.inf  # Mask uninfected strains
+        max_fitness_per_agent = np.max(agent_fitness_matrix, axis=1, keepdims=True)
+        
+        # Create mask for dominant strains (fitness == max_fitness for each agent)
+        dominant_mask = (agent_fitness_matrix == max_fitness_per_agent) & coinfected_infections
+        
+        # Randomly select one strain among tied dominant strains per agent
+        selected_strains = np.zeros_like(dominant_mask, dtype=bool)
+        for i, uid in enumerate(strain_selection_uids):
+            dominant_indices = np.where(dominant_mask[i, :])[0]
+            if len(dominant_indices) > 0:
+                selected_idx = np.random.choice(dominant_indices)
+                selected_strains[i, selected_idx] = True
+        
+        # Set rel_trans: 0 for non-selected strains, 1 for selected strains
+        for strain_idx, disease in enumerate(self.rota_diseases):
+            # Reset rel_trans to 1 for all strain_selection_uids first
+            disease.rel_trans[ss.uids(strain_selection_uids)] = 1.0
+            
+            # Set to 0 for infected but non-selected strains
+            infected_but_not_selected = coinfected_infections[:, strain_idx] & ~selected_strains[:, strain_idx]
+            disease.rel_trans[ss.uids(strain_selection_uids[infected_but_not_selected])] = 0.0
     
     def record_recovery(self, disease, recovered_uids):
         """
