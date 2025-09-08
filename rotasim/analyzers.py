@@ -212,7 +212,9 @@ class EventStats(ss.Analyzer):
             'recoveries',
             'contacts',
             'wanings',
-            'reassortments'
+            'reassortments',
+            'total_infected',
+            'coinfected_agents'
         ]
         
         for event_type in event_types:
@@ -270,6 +272,15 @@ class EventStats(ss.Analyzer):
         # Count reassortment events from reassortment connector
         if 'rotareassortment' in self.sim.connectors:
             events['reassortments'] = self.sim.connectors.rotareassortment.results.n_reassortments[self.sim.ti]
+
+        # Count total infected agents and coinfected agents
+        infection_counts = np.zeros(len(self.sim.people), dtype=int)
+        for disease in self.sim.diseases.values():
+            if hasattr(disease, 'G') and hasattr(disease, 'P'):  # Is Rotavirus
+                infection_counts += disease.infected[:].astype(int)
+        
+        events['total_infected'] = int(np.sum(infection_counts > 0))  # Agents infected with any strain
+        events['coinfected_agents'] = int(np.sum(infection_counts > 1))  # Agents infected with >1 strain
 
         print(events)
         
