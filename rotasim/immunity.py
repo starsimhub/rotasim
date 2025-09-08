@@ -122,8 +122,8 @@ class RotaImmunityConnector(ss.Connector):
         # 2. Update cross-immunity protection for all diseases
         self._update_cross_immunity()
         
-        # 3. Apply strain selection for coinfected transmission
-        self._apply_strain_selection()
+        # 3. Apply fitness-weighted transmission for coinfected agents
+        self._apply_fitness_weighted_transmission()
         
     def _apply_waning(self):
         """Vectorized immunity waning - clear entire immunity portfolios based on oldest infection"""
@@ -154,6 +154,9 @@ class RotaImmunityConnector(ss.Connector):
             if len(waning_uids) > 0:
                 print(f"  Immunity waning: {len(waning_uids)} people lost all immunity")
             self.results.n_waned[self.ti] += len(waning_uids)
+
+            for disease in self.rota_diseases:
+                disease.susceptible[waning_uids] = True
                 
     def _update_cross_immunity(self):
         """Fully vectorized cross-immunity using bitwise operations - NO UID LOOPS"""
@@ -260,6 +263,63 @@ class RotaImmunityConnector(ss.Connector):
             # Set to 0 for infected but non-selected strains
             infected_but_not_selected = coinfected_infections[:, strain_idx] & ~selected_strains[:, strain_idx]
             disease.rel_trans[ss.uids(strain_selection_uids[infected_but_not_selected])] = 0.0
+    
+    def _apply_fitness_weighted_transmission(self):
+        """
+        Apply fitness-weighted transmission for coinfected agents using vectorized operations
+        
+        For coinfected agents, set rel_trans for all strains such that their sum equals 1,
+        with weights proportional to fitness (beta values). This allows multiple strains
+        to transmit but with probabilities based on their relative fitness.
+        """
+        # Build infection matrix and fitness values
+        infection_matrix = np.zeros((len(self.sim.people), len(self.rota_diseases)), dtype=bool)
+        fitness_values = np.zeros(len(self.rota_diseases), dtype=float)
+        
+        for i, disease in enumerate(self.rota_diseases):
+            infection_matrix[:, i] = disease.infected[:]
+            fitness_values[i] = disease.pars.beta.mean()  # Use beta as fitness metric
+        
+        # Find coinfected agents (>1 strain)
+        infections_per_agent = infection_matrix.sum(axis=1)
+        coinfected_uids = np.where(infections_per_agent > 1)[0]
+        
+        if len(coinfected_uids) == 0:
+            return  # No coinfected agents
+        
+        # Filter out cotransmission agents
+        cotransmission_mask = self.pars.cotransmission_prob.rvs(coinfected_uids)
+        fitness_weighted_uids = coinfected_uids[~cotransmission_mask]
+        
+        if len(fitness_weighted_uids) == 0:
+            return  # All coinfected agents are cotransmission
+        
+        # Vectorized fitness-weighted transmission
+        coinfected_infections = infection_matrix[fitness_weighted_uids, :]  # Shape: (n_agents, n_strains)
+        
+        # Calculate fitness weights for each agent's infected strains
+        agent_fitness_matrix = coinfected_infections * fitness_values[np.newaxis, :]  # Broadcast fitness
+        agent_fitness_matrix[~coinfected_infections] = 0.0  # Zero out uninfected strains
+        
+        # Calculate sum of fitness for each coinfected agent
+        fitness_sums = agent_fitness_matrix.sum(axis=1, keepdims=True)  # Shape: (n_agents, 1)
+        fitness_sums[fitness_sums == 0] = 1.0  # Avoid division by zero
+        
+        # Normalize to sum to 1 for each agent
+        normalized_weights = agent_fitness_matrix / fitness_sums  # Shape: (n_agents, n_strains)
+        
+        # Set rel_trans for each strain based on normalized weights
+        for strain_idx, disease in enumerate(self.rota_diseases):
+            # Get normalized weights for this strain
+            strain_weights = normalized_weights[:, strain_idx]
+            
+            # Only update agents that are infected with this strain
+            infected_with_strain = coinfected_infections[:, strain_idx]
+            uids_to_update = fitness_weighted_uids[infected_with_strain]
+            weights_to_apply = strain_weights[infected_with_strain]
+            
+            if len(uids_to_update) > 0:
+                disease.rel_trans[ss.uids(uids_to_update)] = weights_to_apply
     
     def record_recovery(self, disease, recovered_uids):
         """
