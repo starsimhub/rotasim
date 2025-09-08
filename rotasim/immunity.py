@@ -47,7 +47,7 @@ class RotaImmunityConnector(ss.Connector):
             ss.FloatArr('exposed_P_bitmask', default=0.0),   # Bitmask of exposed P types  
             ss.FloatArr('oldest_infection', default=np.nan), # Time of first infection (for waning)
             ss.BoolArr('has_immunity', default=False),       # Whether agent has any immunity
-            ss.FloatArr('num_infections', default=0.0),   # Total number of prior infections (for scaling susceptibility)
+            ss.FloatArr('num_recovered_infections', default=0.0),   # Total number of prior infections (for scaling susceptibility)
         )
         
         # Will be populated during init_post
@@ -150,6 +150,7 @@ class RotaImmunityConnector(ss.Connector):
             self.exposed_P_bitmask[waning_uids] = 0.0
             self.has_immunity[waning_uids] = False
             self.oldest_infection[waning_uids] = np.nan
+            self.n_recovered_infections[waning_uids] = 0.0 # TODO verify that this is what we want to do
             
             if len(waning_uids) > 0:
                 print(f"  Immunity waning: {len(waning_uids)} people lost all immunity")
@@ -196,9 +197,9 @@ class RotaImmunityConnector(ss.Connector):
             infection_history_sus_factor = np.ones(len(self.sim.people), dtype=float)
             for n_inf, scalar in self.pars.infection_history_rel_sus_mapping.items():
                 if n_inf < 3:
-                    mask = (self.num_infections == n_inf)
+                    mask = (self.num_recovered_infections == n_inf)
                 else:  # 3+ infections use same scalar as 3
-                    mask = (self.num_infections >= 3)
+                    mask = (self.num_recovered_infections >= 3)
                 infection_history_sus_factor[mask] = scalar
             
             # Apply protection only to people with immunity
@@ -355,7 +356,7 @@ class RotaImmunityConnector(ss.Connector):
         self.has_immunity[recovered_uids] = True
         
         # Increment total infection count for each recovered agent
-        self.num_infections[recovered_uids] += 1.0
+        self.num_recovered_infections[recovered_uids] += 1.0
         
         # Track oldest infection time (only set if first infection)
         first_infections = np.isnan(self.oldest_infection[recovered_uids])
