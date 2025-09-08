@@ -39,12 +39,14 @@ class Rotavirus(ss.Infection):
             beta = ss.rate_prob(0.1),             # Transmission rate (will be modified by fitness)
             dur_inf = ss.lognorm_ex(mean=7),      # Duration of infection (~7 days)
         )
+
+        self.pars.dur_inf.dt_jump_size = 5000
         
         # Define disease states (following standard Starsim patterns)
         self.define_states(
             ss.State('susceptible', default=True, label='Susceptible'),
             ss.State('infected', label='Infected'),
-            ss.State('recovered', label='Recovered'),
+            # ss.State('recovered', label='Recovered'),
             ss.FloatArr('ti_infected', label='Time of infection'),
             ss.FloatArr('ti_recovered', label='Time of recovery'),
             ss.FloatArr('n_infections', default=0, label='Total number of infections'),
@@ -106,7 +108,7 @@ class Rotavirus(ss.Infection):
         sim = self.sim
         recovering = (self.infected & (self.ti_recovered <= sim.ti)).uids
         self.infected[recovering] = False
-        self.recovered[recovering] = True
+        # self.recovered[recovering] = True
 
         self.results['new_recovered'][self.ti] = len(recovering)
 
