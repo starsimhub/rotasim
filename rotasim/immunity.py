@@ -28,10 +28,9 @@ class RotaImmunityConnector(ss.Connector):
         
         # Define immunity parameters
         self.define_pars(
-            # TODO: Rename to *_immunity_efficacy - these are efficacy values, not rates
-            homotypic_immunity_rate = 0.5,        # Protection from same G,P strain
-            partial_heterotypic_immunity_rate = 0.5,  # Protection from shared G or P
-            complete_heterotypic_immunity_rate = 0.5, # Protection from different G,P
+            homotypic_immunity_efficacy = 1,        # Protection from same G,P strain
+            partial_heterotypic_immunity_efficacy = 0.66,  # Protection from shared G or P
+            complete_heterotypic_immunity_efficacy = 0.33, # Protection from different G,P
             waning_rate = ss.perday(1/273),           # Rate of immunity waning (omega parameter, ~273 days)
             immunity_waning_delay = ss.days(0),               # Time delay before immunity decay starts (years)
             immunity_waning_mean_duration = ss.days(200.0),           # Mean duration for exponential immunity decay
@@ -121,7 +120,7 @@ class RotaImmunityConnector(ss.Connector):
             return
             
         # 1. Apply vectorized immunity waning (some agents will lose all immunity over time)
-        self._apply_full_waning()
+        # self._apply_full_waning() #disabled because not biologically accurate
 
         # 2. Update cross-immunity protection for all diseases
         self._update_cross_immunity()
@@ -186,26 +185,33 @@ class RotaImmunityConnector(ss.Connector):
             has_exact_match = (GP_bits & disease_GP_mask) != 0
             has_G_match = (G_bits & disease_G_mask) != 0
             has_P_match = (P_bits & disease_P_mask) != 0
-            
+
+
+            # Get infection history susceptibility scaling factor. This accounts for the generalized protective effect
+            # of having had multiple prior infections, regardless of strain.
+            infection_history_sus_factor = np.ones(len(self.sim.people), dtype=float)
+            for n_inf, rel_sus_factor in self.pars.infection_history_rel_sus_mapping.items():
+                if n_inf < 3:
+                    mask = (self.num_recovered_infections == n_inf)
+                else:  # 3+ infections use same scalar as 3
+                    mask = (self.num_recovered_infections >= 3)
+                infection_history_sus_factor[mask] = rel_sus_factor
+
+
+            # Next we look at infection history with this specific strain to determine homotypic vs heterotypic immunity
+            # and assign protection levels accordingly.
             # Determine immunity type for entire population
             has_homotypic = has_exact_match
             has_partial = (has_G_match | has_P_match) & ~has_homotypic
             
             # Vectorized protection assignment using numpy.where
             strain_protection = np.where(
-                has_homotypic, self.pars.homotypic_immunity_rate,
-                np.where(has_partial, self.pars.partial_heterotypic_immunity_rate,
-                        self.pars.complete_heterotypic_immunity_rate)
+                has_homotypic, self.pars.homotypic_immunity_efficacy,
+                np.where(has_partial, self.pars.partial_heterotypic_immunity_efficacy,
+                        self.pars.complete_heterotypic_immunity_efficacy)
             )
             
-            # Get infection history susceptibility scaling factor
-            infection_history_sus_factor = np.ones(len(self.sim.people), dtype=float)
-            for n_inf, scalar in self.pars.infection_history_rel_sus_mapping.items():
-                if n_inf < 3:
-                    mask = (self.num_recovered_infections == n_inf)
-                else:  # 3+ infections use same scalar as 3
-                    mask = (self.num_recovered_infections >= 3)
-                infection_history_sus_factor[mask] = scalar
+
             
             # Calculate decay factor for agents recovered from this specific strain
             self.immunity_decay_factor[:] = 1
@@ -226,11 +232,11 @@ class RotaImmunityConnector(ss.Connector):
                     decay_rate = 1.0 / self.pars.immunity_waning_mean_duration.values
                     
                     # Exponential decay: protection decays from 0 to 1.0 over time
-                    self.immunity_decay_factor[waning_started_uids] = 1 - np.exp(-decay_rate * decay_time)
+                    self.immunity_decay_factor[waning_started_uids] = np.exp(-decay_rate * decay_time)
 
             # Apply protection with decay factor
             # People without immunity have full susceptibility (rel_sus = 1.0)
-            disease.rel_sus[:] = (strain_protection * infection_history_sus_factor * self.immunity_decay_factor)
+            disease.rel_sus[:] = (1- strain_protection * self.immunity_decay_factor) * infection_history_sus_factor
     
     def _apply_strain_selection(self):
         """
