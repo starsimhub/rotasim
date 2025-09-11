@@ -55,35 +55,15 @@ FITNESS_HYPOTHESES = {
     },
 }
 
-# INITIAL_PREVALENCE_SCENARIOS = {
-#     'equal': {
-#         (1, 8): n_init_seg,
-#         (2, 4): n_init_seg,
-#         (9, 8): n_init_seg,
-#         (4, 8): n_init_seg,
-#         (3, 8): n_init_seg,
-#         (12, 8): n_init_seg,
-#         (12, 6): n_init_seg,
-#         (9, 4): n_init_seg,
-#         (9, 6): n_init_seg,
-#         (1, 6): n_init_seg,
-#         (2, 8): n_init_seg,
-#         (2, 6): n_init_seg,
-#         (11, 8): n_init_seg,
-#         (11, 6): n_init_seg,
-#         (1, 4): n_init_seg,
-#         (12, 4): n_init_seg,
-#     },
-#     'low_diversity': {
-#         (1, 8): n_init_seg,
-#         (3, 8): n_init_seg,
-#         (2, 4): n_init_seg,
-#         (4, 8): n_init_seg,
-#     }
-# }
+# Preferred partners for reassortment. Dict key is G, value is list of preferred P partners
+PREFERRED_PARTNERS = {
+    1: [6, 8],
+    2: [4, 6, 8],
+    9: [4, 6, 8],
+    12: [6, 8],
+}
 
-
-def generate_gp_reassortments(initial_strains):
+def generate_gp_reassortments(initial_strains, use_preferred_partners=False):
     """
     Generate all possible G,P combinations from initial strains
     
@@ -103,11 +83,23 @@ def generate_gp_reassortments(initial_strains):
     # Extract unique G and P genotypes
     unique_G = sorted(set(g for g, p in initial_strains))
     unique_P = sorted(set(p for g, p in initial_strains))
-    
-    # Generate all possible combinations
-    all_combinations = list(itertools.product(unique_G, unique_P))
-    
-    return all_combinations
+
+    all_reassortments = []
+    # Optionally filter P genotypes to preferred partners
+    if use_preferred_partners:
+        for g in unique_G:
+            if g not in PREFERRED_PARTNERS:
+                raise ValueError(f"No preferred partners defined for G genotype {g}")
+            for p in unique_P:
+                if p not in PREFERRED_PARTNERS[g]:
+                    print(f"Warning: P genotype {p} is not a preferred partner for G genotype {g}")
+                all_reassortments.append((g, p))
+
+    else:
+        # Generate all possible combinations
+        all_reassortments = list(itertools.product(unique_G, unique_P))
+
+    return all_reassortments
 
 
 def get_fitness_multiplier(G, P, scenario):

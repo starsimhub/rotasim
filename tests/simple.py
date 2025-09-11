@@ -11,15 +11,15 @@ with sc.timer():
         # rota_kwargs={"vaccination_time": 5, "time_to_equilibrium": 2},
         initial_strains='low_diversity',
         fitness_scenario='2',
-        init_prev=.002,
+        init_prev=.001,
         start='2000-01-01',
         stop='2001-01-01',
         dt=1,
         unit='days',
         analyzers=[rs.EventStats(), rs.StrainStats()],
-        networks=ss.RandomNet(n_contacts=ss.poisson(1)),
+        networks=ss.RandomNet(n_contacts=7),
         demographics=[ss.Births(birth_rate=ss.peryear(0.5/70)), ss.Deaths(death_rate=ss.peryear(1/70))],
-        base_beta=0.3,
+        base_beta=0.1,
     )
     sim.init()
     sim.run()

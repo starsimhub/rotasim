@@ -33,7 +33,7 @@ class RotaReassortmentConnector(ss.Connector):
     4. Activate dormant diseases using set_prognoses
     """
     
-    def __init__(self, reassortment_prob=0.1, **kwargs):
+    def __init__(self, reassortment_prob=0.05, **kwargs):
         """
         Initialize reassortment connector
         
@@ -136,16 +136,8 @@ class RotaReassortmentConnector(ss.Connector):
             np.array: UIDs of co-infected hosts
         """
         # Count active rotavirus infections per host
-        infection_counts = np.zeros(len(self.sim.people), dtype=int)
-        
-        for disease in self._rotavirus_diseases:
-            # Add 1 for each host infected with this disease
-            infected_uids = disease.infected.uids  # Get UIDs of infected agents
-            infection_counts[infected_uids] += 1
-        
-        # Find hosts with ≥2 infections
-        coinfected_mask = infection_counts >= 2
-        coinfected_uids = np.where(coinfected_mask)[0]
+        infection_counts = self.sim.connectors.rotaimmunityconnector.num_current_infections
+        coinfected_uids = (infection_counts >= 2).uids
         
         return coinfected_uids
     

@@ -46,7 +46,7 @@ class Rotavirus(ss.Infection):
         self.define_states(
             ss.State('susceptible', default=True, label='Susceptible'),
             ss.State('infected', label='Infected'),
-            # ss.State('recovered', label='Recovered'),
+            ss.State('recovered', label='Recovered'),
             ss.FloatArr('ti_infected', label='Time of infection'),
             ss.FloatArr('ti_recovered', label='Time of recovery'),
             ss.FloatArr('n_infections', default=0, label='Total number of infections'),
@@ -83,6 +83,7 @@ class Rotavirus(ss.Infection):
         # Update agent states: susceptible → infected
         self.susceptible[uids] = False
         self.infected[uids] = True
+        self.recovered[uids] = False
         self.ti_infected[uids] = ti
         
         # Increment infection count for each agent
@@ -94,6 +95,7 @@ class Rotavirus(ss.Infection):
         
         # Set recovery time: current time + infection duration
         self.ti_recovered[uids] = ti + dur_inf
+        self.sim.connectors['rotaimmunityconnector'].record_infection(self, uids)
         
         return
 
@@ -108,7 +110,8 @@ class Rotavirus(ss.Infection):
         sim = self.sim
         recovering = (self.infected & (self.ti_recovered <= sim.ti)).uids
         self.infected[recovering] = False
-        # self.recovered[recovering] = True
+        self.recovered[recovering] = True
+        self.susceptible[recovering] = True # When recovered, become susceptible again (SIRS), but with modified susceptibility via connector
 
         self.results['new_recovered'][self.ti] = len(recovering)
 

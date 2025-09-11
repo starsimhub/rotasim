@@ -33,6 +33,8 @@ class RotaImmunityConnector(ss.Connector):
             partial_heterotypic_immunity_rate = 0.5,  # Protection from shared G or P
             complete_heterotypic_immunity_rate = 0.5, # Protection from different G,P
             waning_rate = ss.perday(1/273),           # Rate of immunity waning (omega parameter, ~273 days)
+            immunity_waning_delay = ss.days(0),               # Time delay before immunity decay starts (years)
+            immunity_waning_mean_duration = ss.days(200.0),           # Mean duration for exponential immunity decay
             infection_history_rel_sus_mapping = {0: 1.0, 1: 0.61, 2: 0.48, 3: 0.33},  # Susceptibility scaling based on total infection history
             cotransmission_prob = ss.bernoulli(p=0.02),  # Probability of transmitting all strains instead of dominant strain selection (2%)
         )
@@ -48,6 +50,8 @@ class RotaImmunityConnector(ss.Connector):
             ss.FloatArr('oldest_infection', default=np.nan), # Time of first infection (for waning)
             ss.BoolArr('has_immunity', default=False),       # Whether agent has any immunity
             ss.FloatArr('num_recovered_infections', default=0.0),   # Total number of prior infections (for scaling susceptibility)
+            ss.FloatArr('num_current_infections', default=0.0),  # Current number of active infections (for coinfection logic)
+            ss.FloatArr('immunity_decay_factor', default=0.0),  # Decay factor for immunity over time (1.0 = full immunity, 0.0 = none)
         )
         
         # Will be populated during init_post
@@ -116,16 +120,17 @@ class RotaImmunityConnector(ss.Connector):
         if len(self.rota_diseases) == 0:
             return
             
-        # 1. Apply vectorized immunity waning
-        self._apply_waning()
-        
+        # 1. Apply vectorized immunity waning (some agents will lose all immunity over time)
+        self._apply_full_waning()
+
         # 2. Update cross-immunity protection for all diseases
         self._update_cross_immunity()
         
         # 3. Apply fitness-weighted transmission for coinfected agents
+        # self._apply_strain_selection()
         self._apply_fitness_weighted_transmission()
         
-    def _apply_waning(self):
+    def _apply_full_waning(self):
         """Vectorized immunity waning - clear entire immunity portfolios based on oldest infection"""
         if not self.has_immunity.any():
             return
@@ -150,7 +155,7 @@ class RotaImmunityConnector(ss.Connector):
             self.exposed_P_bitmask[waning_uids] = 0.0
             self.has_immunity[waning_uids] = False
             self.oldest_infection[waning_uids] = np.nan
-            self.n_recovered_infections[waning_uids] = 0.0 # TODO verify that this is what we want to do
+            self.num_recovered_infections[waning_uids] = 0.0 # TODO verify that this is what we want to do
             
             if len(waning_uids) > 0:
                 print(f"  Immunity waning: {len(waning_uids)} people lost all immunity")
@@ -165,7 +170,7 @@ class RotaImmunityConnector(ss.Connector):
         if not self.has_immunity.any():
             return
             
-        immune_mask = self.has_immunity
+        # immune_mask = self.has_immunity
         
         for disease in self.rota_diseases:
             disease_G_mask = self.disease_G_masks[disease.name]
@@ -202,9 +207,30 @@ class RotaImmunityConnector(ss.Connector):
                     mask = (self.num_recovered_infections >= 3)
                 infection_history_sus_factor[mask] = scalar
             
-            # Apply protection only to people with immunity
+            # Calculate decay factor for agents recovered from this specific strain
+            self.immunity_decay_factor[:] = 1
+            recovered_from_strain = (disease.infected==False) & (disease.ti_recovered > 0)
+            recovered_uids = recovered_from_strain.uids
+            
+            if recovered_from_strain.any():
+                # Time since recovery from this strain
+                time_since_recovery = disease.ti - disease.ti_recovered[recovered_from_strain]
+                
+                # Apply delayed exponential decay
+                waning_started = time_since_recovery > self.pars.immunity_waning_delay.values
+                waning_started_uids = recovered_uids[waning_started]
+
+                if waning_started.any():
+                    # For agents past the delay period, decay protection toward full susceptibility (1.0)
+                    decay_time = time_since_recovery[waning_started] - self.pars.immunity_waning_delay.values
+                    decay_rate = 1.0 / self.pars.immunity_waning_mean_duration.values
+                    
+                    # Exponential decay: protection decays from 0 to 1.0 over time
+                    self.immunity_decay_factor[waning_started_uids] = 1 - np.exp(-decay_rate * decay_time)
+
+            # Apply protection with decay factor
             # People without immunity have full susceptibility (rel_sus = 1.0)
-            disease.rel_sus[:] = (1.0 - (strain_protection * infection_history_sus_factor * immune_mask))
+            disease.rel_sus[:] = (strain_protection * infection_history_sus_factor * self.immunity_decay_factor)
     
     def _apply_strain_selection(self):
         """
@@ -321,6 +347,9 @@ class RotaImmunityConnector(ss.Connector):
             
             if len(uids_to_update) > 0:
                 disease.rel_trans[ss.uids(uids_to_update)] = weights_to_apply
+
+    def record_infection(self, disease, new_infected_uids):
+        self.num_current_infections[new_infected_uids] += 1.0
     
     def record_recovery(self, disease, recovered_uids):
         """
@@ -356,6 +385,7 @@ class RotaImmunityConnector(ss.Connector):
         self.has_immunity[recovered_uids] = True
         
         # Increment total infection count for each recovered agent
+        self.num_current_infections[recovered_uids] -= 1.0
         self.num_recovered_infections[recovered_uids] += 1.0
         
         # Track oldest infection time (only set if first infection)
