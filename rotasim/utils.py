@@ -15,10 +15,11 @@ INITIAL_STRAIN_SCENARIOS = {
 # Built-in fitness scenarios based on v1 fitness hypotheses
 # TODO update scenarios based on fitness hypotheses in old version, rename to match
 FITNESS_HYPOTHESES = {
-    'baseline': {
+    'default': {
         'default': 1.0,  # Default fitness multiplier if not specified
-        (1, 8): 1.0,
-        (2, 4): 0.8,
+    },
+    '1': {
+        'default': 1,  # Default fitness multiplier if not specified
     },
     '2': {
         'default': 0.9,  # Default fitness multiplier if not specified
@@ -26,6 +27,89 @@ FITNESS_HYPOTHESES = {
         (2, 2): 0.93,
         (3, 3): 0.93,
         (4, 4): 0.93,
+    },
+    '3': {
+        'default': 0.87,
+        (1, 1): 0.93,
+        (2, 2): 0.93,
+        (3, 3): 0.90,
+        (4, 4): 0.90,
+    },
+    '4': {
+        'default': 1,
+        (1, 1): 1,
+        (2, 2): 0.2,
+    },
+    '5': {
+        'default': 0.2,  # Default fitness multiplier if not specified
+        (1, 1): 1,
+        (2, 1): 0.5,
+        (1, 3): 0.5,
+    },
+    '6': {
+        'default': 0.05,  # Default fitness multiplier if not specified
+        (1, 8): 1,
+        (2, 4): 0.2,
+        (3, 8): 0.4,
+        (4, 8): 0.5,
+    },
+    '7': {
+        'default': 0.05,  # Default fitness multiplier if not specified
+        (1, 8): 1,
+        (2, 4): 0.3,
+        (3, 8): 0.7,
+        (4, 8): 0.6,
+    },
+    '8': {
+        'default': 0.05,  # Default fitness multiplier if not specified
+        (1, 8): 1,
+        (2, 4): 0.4,
+        (3, 8): 0.9,
+        (4, 8): 0.8,
+    },
+    '9': {
+        'default': 0.2,  # Default fitness multiplier if not specified
+        (1, 8): 1,
+        (2, 4): 0.6,
+        (3, 8): 0.9,
+        (4, 8): 0.9,
+    },
+    '10': {
+        'default': 0.4,  # Default fitness multiplier if not specified
+        (1, 8): 1,
+        (2, 4): 0.6,
+        (3, 8): 0.9,
+        (4, 8): 0.9,
+    },
+    '11': {
+        'default': 0.5,  # Default fitness multiplier if not specified
+        (1, 8): 0.98,
+        (2, 4): 0.7,
+        (3, 8): 0.8,
+        (4, 8): 0.8,
+    },
+    '12': {
+        'default': 0.5,  # Default fitness multiplier if not specified
+        (1, 8): 0.98,
+        (2, 4): 0.7,
+        (3, 8): 0.9,
+        (4, 8): 0.9,
+    },
+    '13': {
+        'default': 0.7,  # Default fitness multiplier if not specified
+        (1, 8): 0.98,
+        (2, 4): 0.8,
+        (3, 8): 0.9,
+        (4, 8): 0.9,
+    },
+    '14': {
+        'default': 0.05,  # Default fitness multiplier if not specified
+        (1, 8): 0.98,
+        (2, 4): 0.4,
+        (3, 8): 0.7,
+        (12, 8): 0.75,
+        (9, 6): 0.58,
+        (11, 8): 0.2,
     },
     '15': {
         'default': 0.4,  # Default fitness multiplier if not specified
@@ -37,6 +121,21 @@ FITNESS_HYPOTHESES = {
         (12, 8): 0.94,
         (9, 6): 0.3,
         (11, 8): 0.35,
+    },
+    '16': {
+        'default': 0.4,  # Default fitness multiplier if not specified
+        (1, 8): 1,
+        (2, 4): 0.7,
+        (3, 8): 0.85,
+        (4, 8): 0.88,
+        (9, 8): 0.95,
+        (12, 8): 0.93,
+        (9, 6): 0.85,
+        (12, 6): 0.90,
+        (9, 4): 0.90,
+        (1, 6): 0.6,
+        (2, 8): 0.6,
+        (2, 6): 0.6,
     },
     '17': {
         'default': 0.7,  # Default fitness multiplier if not specified
@@ -53,12 +152,39 @@ FITNESS_HYPOTHESES = {
         (2, 8): 0.8,
         (2, 6): 0.8,
     },
+    # below fitness hypo. 18 was used in the analysis for the high baseline diversity setting in the report
+    '18': {
+        'default': 0.65,  # Default fitness multiplier if not specified
+        (1, 8): 1,
+        (2, 4): 0.92,
+        (3, 8): 0.79,
+        (4, 8): 0.81,
+        (9, 8): 0.95,
+        (12, 8): 0.89,
+        (9, 6): 0.80,
+        (12, 6): 0.86,
+        (9, 4): 0.83,
+        (1, 6): 0.75,
+        (2, 8): 0.75,
+        (2, 6): 0.75,
+    },
+    # below fitness hypo 19 was used for the low baseline diversity setting analysis in the report
+    '19': {
+        'default': 0.4,  # Default fitness multiplier if not specified
+        (1, 8): 1,
+        (2, 4): 0.5,
+        (3, 8): 0.55,
+        (4, 8): 0.55,
+        (9, 8): 0.6,
+    },
 }
 
 # Preferred partners for reassortment. Dict key is G, value is list of preferred P partners
 PREFERRED_PARTNERS = {
     1: [6, 8],
     2: [4, 6, 8],
+    3: [6, 8],
+    4: [8],
     9: [4, 6, 8],
     12: [6, 8],
 }
@@ -115,11 +241,11 @@ def get_fitness_multiplier(G, P, scenario):
         Float fitness multiplier (defaults to 1.0 if not found)
         
     Example:
-        >>> get_fitness_multiplier(1, 8, 'baseline')
+        >>> get_fitness_multiplier(1, 1, '4')
         1.0
-        >>> get_fitness_multiplier(2, 4, 'baseline') 
+        >>> get_fitness_multiplier(2, 2, '4')
         0.8
-        >>> get_fitness_multiplier(3, 6, 'baseline')  # Not in dict
+        >>> get_fitness_multiplier(3, 6, '4')  # Not in dict
         1.0
     """
     # Handle string scenario names
@@ -177,7 +303,7 @@ def _parse_init_prev_parameter(init_prev, initial_strains):
         raise ValueError(f"init_prev must be float or dict, got {type(init_prev)}")
 
 
-def create_strain_diseases(initial_strains, fitness_scenario='baseline', base_beta=0.1, init_prev=0.01):
+def create_strain_diseases(initial_strains, fitness_scenario='baseline', base_beta=0.1, init_prev=0.01, use_preferred_partners=False):
     """
     Create all Rotavirus disease instances for multi-strain simulation
     
@@ -216,7 +342,7 @@ def create_strain_diseases(initial_strains, fitness_scenario='baseline', base_be
     init_prev_dict = _parse_init_prev_parameter(init_prev, initial_strains)
         
     # Generate all possible G,P combinations
-    gp_combinations = generate_gp_reassortments(initial_strains)
+    gp_combinations = generate_gp_reassortments(initial_strains, use_preferred_partners)
     
     print(f"Creating {len(gp_combinations)} strain diseases from {len(initial_strains)} initial strains")
     print(f"  Initial strains: {initial_strains}")

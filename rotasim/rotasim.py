@@ -38,7 +38,8 @@ class Sim(ss.Sim):
                       analyzers=[MyAnalyzer()])
     """
     
-    def __init__(self, initial_strains='default', fitness_scenario='baseline', base_beta=0.1, init_prev=0.01, **kwargs):
+    def __init__(self, initial_strains='default', fitness_scenario='baseline', base_beta=0.1, init_prev=0.01,
+                 use_preferred_partners=False, **kwargs):
         """
         Initialize Rotasim simulation
         
@@ -62,6 +63,7 @@ class Sim(ss.Sim):
         self._fitness_scenario = fitness_scenario  
         self._base_beta = base_beta
         self._init_prev = init_prev
+        self._use_preferred_partners = use_preferred_partners
         
         print("Rotasim: Setting up multi-strain simulation")
         print(f"  Initial strains: {initial_strains}")
@@ -69,7 +71,7 @@ class Sim(ss.Sim):
         print(f"  Base beta: {base_beta}")
         
         # Generate all strain diseases using utility function
-        diseases = create_strain_diseases(initial_strains, fitness_scenario, base_beta, init_prev)
+        diseases = create_strain_diseases(initial_strains, fitness_scenario, base_beta, init_prev, use_preferred_partners)
         
         # Add default connectors if none provided
         if 'connectors' not in kwargs:
@@ -137,7 +139,7 @@ class Sim(ss.Sim):
         if not hasattr(self, 'diseases'):
             # Use utility function to get expected strain information
             from .utils import generate_gp_reassortments
-            expected_combinations = generate_gp_reassortments(self._initial_strains)
+            expected_combinations = generate_gp_reassortments(self._initial_strains, use_preferred_partners=self._use_preferred_partners)
             
             summary = {
                 'total_diseases': len(expected_combinations),
