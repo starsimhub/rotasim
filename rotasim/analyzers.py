@@ -270,8 +270,8 @@ class EventStats(ss.Analyzer):
             events['wanings'] = self.sim.connectors.rotaimmunityconnector.results.n_waned[self.sim.ti]
         
         # Count reassortment events from reassortment connector
-        if 'rotareassortment' in self.sim.connectors:
-            events['reassortments'] = self.sim.connectors.rotareassortment.results.n_reassortments[self.sim.ti]
+        if 'rotareassortmentconnector' in self.sim.connectors:
+            events['reassortments'] = self.sim.connectors.rotareassortmentconnector.results.n_reassortments[self.sim.ti]
 
         # Count total infected agents and coinfected agents
         infection_counts = np.zeros(len(self.sim.people), dtype=int)
