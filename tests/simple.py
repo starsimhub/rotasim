@@ -1,16 +1,14 @@
 import sciris as sc
 import rotasim as rs
 import starsim as ss
+import matplotlib.pyplot as plt
 
 with sc.timer():
     sim = rs.Sim(
         verbose=True,
-        # to_csv=False,
         n_agents=50000,
-        # timelimit=10,
-        # rota_kwargs={"vaccination_time": 5, "time_to_equilibrium": 2},
-        initial_strains='low_diversity',
-        fitness_scenario='2',
+        initial_strains='high_diversity', # in utils.py, options are 'high_diversity', 'low_diversity', 'custom'
+        fitness_scenario='default',
         init_prev=.001,
         start='2000-01-01',
         stop='2001-01-01',
@@ -18,16 +16,16 @@ with sc.timer():
         unit='days',
         analyzers=[rs.EventStats(), rs.StrainStats()],
         networks=ss.RandomNet(n_contacts=7),
-        demographics=[ss.Births(birth_rate=ss.peryear(0.5/70)), ss.Deaths(death_rate=ss.peryear(1/70))],
-        base_beta=0.1,
+        # demographics=[ss.Births(birth_rate=ss.peryear(0.5/70)), ss.Deaths(death_rate=ss.peryear(1/70))],
+        base_beta=0.15,
+        use_preferred_partners=True # if True, preferred partners are used for reassortment (see utils.py).
     )
     sim.init()
     sim.run()
 
-    # events = sim.connectors["rota"].event_dict
     print(sim)
 
-    import matplotlib.pyplot as plt
+
 
     # Extract strain data from analyzers
     for analyzer_name, analyzer in sim.analyzers.items():
