@@ -87,7 +87,7 @@ class RotaReassortmentConnector(ss.Connector):
         """Initialize results tracking if needed"""
         super().init_results()
 
-        self.define_results(ss.Result('n_reassortments', label='Number of reassortment events', dtype=int, scale=False, summarize_by='sum'))
+        self.define_results(ss.Result('n_reassortments', label='Number of reassortment events', dtype=int, scale=True, summarize_by='sum'))
         return
         
     def step(self):

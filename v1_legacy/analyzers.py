@@ -15,7 +15,7 @@ class StrainStats(ss.Analyzer):
 
         for strain in self.sim.connectors.rota.pars.segment_combinations:
             self.results += ss.Result(f'{strain} proportion', dtype=float, scale=False, module=self.name, shape=self.timevec.shape, timevec=self.timevec)
-            self.results += ss.Result(f'{strain} count', dtype=float, scale=False,
+            self.results += ss.Result(f'{strain} count', dtype=float, scale=True,
                                       module=self.name, shape=self.timevec.shape, timevec=self.timevec)
         return
 

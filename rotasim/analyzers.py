@@ -84,7 +84,7 @@ class StrainStats(ss.Analyzer):
             self.results += ss.Result(
                 f'{strain_name} count', 
                 dtype=float, 
-                scale=False,
+                scale=True,
                 module='strainstats', 
                 shape=self.timevec.shape, 
                 timevec=self.timevec
@@ -220,7 +220,7 @@ class EventStats(ss.Analyzer):
             self.results += ss.Result(
                 event_type,
                 dtype=int,
-                scale=False,
+                scale=True,
                 module='eventstats',
                 shape=self.timevec.shape,
                 timevec=self.timevec
@@ -332,7 +332,7 @@ class AgeStats(ss.Analyzer):
             self.results += ss.Result(
                 age_label,
                 dtype=int,
-                scale=False,
+                scale=True,
                 module='agestats',
                 shape=self.timevec.shape,
                 timevec=self.timevec
