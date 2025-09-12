@@ -7,17 +7,17 @@ with sc.timer():
     sim = rs.Sim(
         verbose=True,
         n_agents=50000,
-        initial_strains='high_diversity', # in utils.py, options are 'high_diversity', 'low_diversity', 'custom'
-        fitness_scenario='default',
-        init_prev=.001,
-        start='2000-01-01',
-        stop='2001-01-01',
-        dt=1,
-        unit='days',
-        analyzers=[rs.EventStats(), rs.StrainStats()],
-        networks=ss.RandomNet(n_contacts=7),
-        # demographics=[ss.Births(birth_rate=ss.peryear(0.5/70)), ss.Deaths(death_rate=ss.peryear(1/70))],
-        base_beta=0.15,
+        initial_strains='high_diversity', # see utils.py for options
+        fitness_scenario='default', # see utils.py for options
+        init_prev=.0001, # percent of population initially infected with each strain
+        start='2000-01-01', # simulation start date
+        stop='2000-06-01', # simulation end date
+        dt=1, # timestep size
+        unit='days', # timestep units
+        analyzers=[rs.EventStats(), rs.StrainStats()], # analyzers to collect data
+        networks=ss.RandomNet(n_contacts=10), # contact network. n_contacts controls the number of contacts per agent per timestep
+        demographics=[ss.Births(birth_rate=ss.peryear(70)), ss.Deaths(death_rate=ss.peryear(20))], # simple demographics, birth and death rates per 1000 per year
+        base_beta=0.07, # base transmission rate (will be modified by fitness)
         use_preferred_partners=True # if True, preferred partners are used for reassortment (see utils.py).
     )
     sim.init()
@@ -26,12 +26,10 @@ with sc.timer():
     print(sim)
 
 
-
+    # Generate summary plot of strains
     # Extract strain data from analyzers
     for analyzer_name, analyzer in sim.analyzers.items():
         if analyzer_name == 'strainstats':
-            # continue
-        # if hasattr(analyzer, 'results'):
             results = analyzer.results
 
             # Plot strain counts over time

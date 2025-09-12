@@ -51,9 +51,8 @@ class StrainStats(ss.Analyzer):
             if hasattr(disease, 'G') and hasattr(disease, 'P'):
                 self._rotavirus_diseases.append(disease)
                 
-                # Create strain name in v1 format: (G, P, A, B) tuple as string
-                # V2 only uses G,P, so we use (1,1) for A,B backbone to match v1 format
-                strain_tuple = (disease.G, disease.P, 1, 1)
+                # Create strain name in v1 format: (G, P) tuple as string
+                strain_tuple = (disease.G, disease.P)
                 strain_name = str(strain_tuple)
                 self._strain_names.append(strain_name)
         

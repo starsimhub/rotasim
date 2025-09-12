@@ -125,7 +125,7 @@ class RotaReassortmentConnector(ss.Connector):
             total_new_infections += new_infections
         
         if total_new_infections > 0:
-            print(f"  → {total_new_infections} new reassortant infections created")
+            print(f"  {total_new_infections} new reassortant infections created")
         self.results.n_reassortments[self.ti] += total_new_infections
     
     def _get_coinfected_hosts(self):
