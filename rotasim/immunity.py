@@ -203,10 +203,7 @@ class RotaImmunityConnector(ss.Connector):
                 
     def _update_cross_immunity(self):
         """Fully vectorized cross-immunity using bitwise operations - NO UID LOOPS"""
-        # Only process people who have immunity (performance optimization)
-        if not self.has_immunity.any():
-            return
-        
+
         # Reset G and P max decay factors to 0.0 each timestep for fresh calculation
         for g in self.unique_G:
             self.G_max_decayed_immunity_factors[g][:] = 0.0
