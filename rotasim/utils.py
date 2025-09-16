@@ -364,7 +364,8 @@ def create_strain_diseases(initial_strains, fitness_scenario='baseline', base_be
         # Create disease instance with proper Starsim parameter format
         disease = Rotavirus(G=G, P=P, 
                           init_prev=ss.bernoulli(p=strain_init_prev), 
-                          beta=ss.rate_prob(adjusted_beta))
+                          beta=ss.rate_prob(adjusted_beta),
+                          dur_inf = ss.lognorm_ex(mean=4),)
         diseases.append(disease)
         
         if strain_init_prev > 0:

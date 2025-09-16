@@ -38,9 +38,11 @@ class Rotavirus(ss.Infection):
             init_prev = ss.bernoulli(p=0.01),     # Initial prevalence
             beta = ss.rate_prob(0.1),             # Transmission rate (will be modified by fitness)
             dur_inf = ss.lognorm_ex(mean=7),      # Duration of infection (~7 days)
+            dur_waning = ss.poisson(lam=90), # Duration of waning immunity (~100 days)
+            waning_delay = ss.days(0)
         )
 
-        self.pars.dur_inf.dt_jump_size = 5000
+        self.pars.dur_inf.dt_jump_size = 14000 # TODO check if this is reasonable
         
         # Define disease states (following standard Starsim patterns)
         self.define_states(
@@ -49,6 +51,7 @@ class Rotavirus(ss.Infection):
             ss.State('recovered', label='Recovered'),
             ss.FloatArr('ti_infected', label='Time of infection'),
             ss.FloatArr('ti_recovered', label='Time of recovery'),
+            ss.FloatArr('ti_waned', label='Time of waned immunity'),
             ss.FloatArr('n_infections', default=0, label='Total number of infections'),
             ss.FloatArr('rel_sus', default=1.0, label='Relative susceptibility'),
             ss.FloatArr('rel_trans', default=1.0, label='Relative transmission'),
@@ -112,6 +115,7 @@ class Rotavirus(ss.Infection):
         self.infected[recovering] = False
         self.recovered[recovering] = True
         self.susceptible[recovering] = True # When recovered, become susceptible again (SIRS), but with modified susceptibility via connector
+        self.ti_waned[recovering] = sim.ti + self.pars.dur_waning.rvs(recovering)
 
         self.results['new_recovered'][self.ti] = len(recovering)
 
