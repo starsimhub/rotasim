@@ -7,6 +7,7 @@ import os
 # Add rotasim to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+import starsim as ss
 from rotasim import Sim, StrainStats
 import numpy as np
 
@@ -66,8 +67,7 @@ def test_v1_format_compatibility():
         n_agents=100,
         start='2020-01-01',
         stop='2021-01-01',  # Just 1 year for testing
-        unit='day',
-        dt=1  # Daily timesteps
+        dt=ss.days(1)  # Daily timesteps
     )
     
     print("1. Testing column name format:")

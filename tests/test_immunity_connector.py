@@ -20,15 +20,15 @@ def test_immunity_connector_creation():
     connector = RotaImmunityConnector()
     
     # Check parameter defaults
-    assert hasattr(connector.pars, 'homotypic_immunity_rate')
-    assert hasattr(connector.pars, 'waning_rate')
+    assert hasattr(connector.pars, 'homotypic_immunity_efficacy')
+    assert hasattr(connector.pars, 'full_waning_rate')
     
     # Check that state arrays are defined (but not initialized yet)
     assert hasattr(connector, 'exposed_G_bitmask')
     assert hasattr(connector, 'exposed_P_bitmask')
     assert hasattr(connector, 'has_immunity')
     
-    print("✓ Immunity connector creation tests passed")
+    print("[OK] Immunity connector creation tests passed")
 
 
 def test_strain_matching():
@@ -55,7 +55,7 @@ def test_strain_matching():
     assert RotaImmunityConnector.match_strain(rota_g1p8, rota_g2p4) == PathogenMatch.COMPLETE_HETERO
     assert RotaImmunityConnector.match_strain(rota_g1p8, (2, 4)) == PathogenMatch.COMPLETE_HETERO
     
-    print("✓ Strain matching tests passed")
+    print("[OK] Strain matching tests passed")
 
 
 def test_connector_auto_detection():
@@ -79,8 +79,7 @@ def test_connector_auto_detection():
         n_agents=1000,
         start='2020-01-01',
         stop='2020-01-08',  # Very short sim just for initialization testing
-        unit='day',
-        dt=1,
+        dt=ss.days(1),
         verbose=0
     )
     
@@ -112,7 +111,7 @@ def test_connector_auto_detection():
     print(f"  - G mappings: {connector.G_to_bit}")
     print(f"  - P mappings: {connector.P_to_bit}")
     
-    print("✓ Connector auto-detection tests passed")
+    print("[OK] Connector auto-detection tests passed")
 
 
 if __name__ == "__main__":
@@ -123,10 +122,10 @@ if __name__ == "__main__":
         test_strain_matching()
         test_connector_auto_detection()
         
-        print(f"\n🎉 All immunity connector tests passed!")
+        print(f"\n[SUCCESS] All immunity connector tests passed!")
         
     except Exception as e:
-        print(f"\n❌ Test failed: {e}")
+        print(f"\n[ERROR] Test failed: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

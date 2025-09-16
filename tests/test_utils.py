@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from rotasim import (generate_gp_reassortments, get_fitness_multiplier, 
                      create_strain_diseases, list_fitness_scenarios, 
-                     validate_initial_strains, FITNESS_SCENARIOS)
+                     validate_initial_strains, FITNESS_HYPOTHESES)
 
 
 def test_generate_gp_reassortments():
@@ -34,7 +34,7 @@ def test_generate_gp_reassortments():
     assert (1, 6) in combinations, "Should include reassortant (1,6)"
     assert (3, 8) in combinations, "Should include reassortant (3,8)"
     
-    print("✓ G,P reassortment generation tests passed")
+    print("G,P reassortment generation tests passed")
 
 
 def test_fitness_multiplier():
@@ -42,9 +42,9 @@ def test_fitness_multiplier():
     print("Testing fitness multiplier lookup...")
     
     # Test built-in scenarios
-    assert get_fitness_multiplier(1, 8, 'baseline') == 1.0
-    assert get_fitness_multiplier(2, 4, 'baseline') == 0.8
-    assert get_fitness_multiplier(3, 6, 'baseline') == 1.0  # Default
+    assert get_fitness_multiplier(1, 8, 'default') == 1.0
+    assert get_fitness_multiplier(2, 4, 'default') == 1.0
+    assert get_fitness_multiplier(3, 6, 'default') == 1.0  # Default
     
     # Test custom scenario
     custom = {(1, 8): 1.2, (2, 4): 0.6}
@@ -59,7 +59,7 @@ def test_fitness_multiplier():
     except ValueError as e:
         assert 'Unknown fitness scenario' in str(e)
     
-    print("✓ Fitness multiplier tests passed")
+    print("Fitness multiplier tests passed")
 
 
 def test_create_strain_diseases():
@@ -68,7 +68,7 @@ def test_create_strain_diseases():
     
     # Test basic creation
     initial = [(1, 8), (2, 4)]
-    diseases = create_strain_diseases(initial, 'baseline', base_beta=0.1)
+    diseases = create_strain_diseases(initial, 'default', base_beta=0.1)
     
     # Should create 4 diseases
     assert len(diseases) == 4, f"Expected 4 diseases, got {len(diseases)}"
@@ -97,7 +97,7 @@ def test_create_strain_diseases():
     assert g1p8_disease.strain == (1, 8)
     assert g2p4_disease.strain == (2, 4)
     
-    print("✓ Strain disease creation tests passed")
+    print("Strain disease creation tests passed")
 
 
 def test_validation():
@@ -125,7 +125,7 @@ def test_validation():
         except ValueError:
             pass  # Expected
     
-    print("✓ Input validation tests passed")
+    print("Input validation tests passed")
 
 
 def test_fitness_scenarios():
@@ -138,11 +138,11 @@ def test_fitness_scenarios():
     assert 'high_diversity' in scenarios
     assert 'low_diversity' in scenarios
     
-    # Test that FITNESS_SCENARIOS dict is populated
-    assert len(FITNESS_SCENARIOS) >= 3
-    assert 'baseline' in FITNESS_SCENARIOS
+    # Test that FITNESS_HYPOTHESES dict is populated
+    assert len(FITNESS_HYPOTHESES) >= 3
+    assert 'default' in FITNESS_HYPOTHESES
     
-    print("✓ Fitness scenarios tests passed")
+    print("Fitness scenarios tests passed")
 
 
 if __name__ == "__main__":
@@ -155,10 +155,10 @@ if __name__ == "__main__":
         test_validation()
         test_fitness_scenarios()
         
-        print(f"\n🎉 All utility function tests passed!")
+        print(f"\nAll utility function tests passed!")
         
     except Exception as e:
-        print(f"\n❌ Test failed: {e}")
+        print(f"\nTest failed: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

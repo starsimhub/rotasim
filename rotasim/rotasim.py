@@ -38,7 +38,7 @@ class Sim(ss.Sim):
                       analyzers=[MyAnalyzer()])
     """
     
-    def __init__(self, initial_strains='default', fitness_scenario='baseline', base_beta=0.1, init_prev=0.01,
+    def __init__(self, initial_strains='default', fitness_scenario='default', base_beta=0.1, init_prev=0.01,
                  use_preferred_partners=False, **kwargs):
         """
         Initialize Rotasim simulation
@@ -100,8 +100,7 @@ class Sim(ss.Sim):
         print(f"  Total diseases: {len(diseases)} ({len(initial_strains)} active + {len(diseases)-len(initial_strains)} dormant)")
 
         if 'networks' not in kwargs:
-
-            kwargs['networks'] = ss.poisson(n_contacts= lambda self: self.pars.contact_rate * sum(np.sum(d.infected) for d in self.sim.diseases.values())) # number of contacts is product of contact rate and total infected
+            kwargs['networks'] = 'random'
             print("  Networks: Using default random network")
         
         # Initialize parent Sim class
