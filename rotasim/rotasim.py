@@ -88,8 +88,7 @@ class Sim(ss.Sim):
         
         # Set reasonable defaults for rotavirus simulations if not provided  
         rotasim_defaults = {
-            'unit': 'day',
-            'dt': 1,  # Daily timesteps
+            'dt': ss.days(1),  # Daily timesteps
         }
         
         # Apply defaults only if not explicitly provided
@@ -97,7 +96,7 @@ class Sim(ss.Sim):
             if key not in kwargs:
                 kwargs[key] = default_value
         
-        print(f"  Time units: {kwargs.get('unit', 'day')}, dt={kwargs.get('dt', 1)}")
+        print(f"  Time units: day, dt={kwargs.get('dt', ss.days(1))}")
         print(f"  Total diseases: {len(diseases)} ({len(initial_strains)} active + {len(diseases)-len(initial_strains)} dormant)")
 
         if 'networks' not in kwargs:

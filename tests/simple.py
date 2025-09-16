@@ -9,17 +9,17 @@ with sc.timer():
         n_agents=50000,
         initial_strains='high_diversity', # see utils.py for options
         fitness_scenario='default', # see utils.py for options
-        init_prev=.0001, # percent of population initially infected with each strain
+        init_prev=.002, # percent of population initially infected with each strain
         start='2000-01-01', # simulation start date
-        stop='2000-06-01', # simulation end date
-        dt=1, # timestep size
-        unit='days', # timestep units
+        stop='2003-06-01', # simulation end date
+        dt=ss.days(1), # timestep size
         analyzers=[rs.EventStats(), rs.StrainStats()], # analyzers to collect data
-        networks=ss.RandomNet(n_contacts=10), # contact network. n_contacts controls the number of contacts per agent per timestep
+        networks=ss.RandomNet(n_contacts=7), # contact network. n_contacts controls the number of contacts per agent per timestep
         demographics=[ss.Births(birth_rate=ss.peryear(70)), ss.Deaths(death_rate=ss.peryear(20))], # simple demographics, birth and death rates per 1000 per year
-        base_beta=0.07, # base transmission rate (will be modified by fitness)
+        base_beta=0.16, # base transmission rate (will be modified by fitness)
         use_preferred_partners=True # if True, preferred partners are used for reassortment (see utils.py).
     )
+    # sc.profile(sim.run, [rs.RotaImmunityConnector._update_cross_immunity])
     sim.init()
     sim.run()
 

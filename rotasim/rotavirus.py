@@ -36,28 +36,25 @@ class Rotavirus(ss.Infection):
         
         self.define_pars(
             init_prev = ss.bernoulli(p=0.01),     # Initial prevalence
-            beta = ss.rate_prob(0.1),             # Transmission rate (will be modified by fitness)
+            beta = ss.perday(0.1),               # Transmission rate (will be modified by fitness)
             dur_inf = ss.lognorm_ex(mean=7),      # Duration of infection (~7 days)
             dur_waning = ss.poisson(lam=90), # Duration of waning immunity (~100 days)
             waning_delay = ss.days(0)
         )
 
-        self.pars.dur_inf.dt_jump_size = 14000 # TODO check if this is reasonable
+
         
-        # Define disease states (following standard Starsim patterns)
+        # Define additional disease states (base ss.Infection already provides susceptible, infected, rel_sus, rel_trans, ti_infected)
         self.define_states(
-            ss.State('susceptible', default=True, label='Susceptible'),
-            ss.State('infected', label='Infected'),
-            ss.State('recovered', label='Recovered'),
-            ss.FloatArr('ti_infected', label='Time of infection'),
+            ss.BoolState('recovered', label='Recovered'),
             ss.FloatArr('ti_recovered', label='Time of recovery'),
             ss.FloatArr('ti_waned', label='Time of waned immunity'),
             ss.FloatArr('n_infections', default=0, label='Total number of infections'),
-            ss.FloatArr('rel_sus', default=1.0, label='Relative susceptibility'),
-            ss.FloatArr('rel_trans', default=1.0, label='Relative transmission'),
         )
         
         self.update_pars(pars=pars, **kwargs)
+
+        self.pars.dur_inf.dt_jump_size = 15000 # TODO check if this is reasonable
 
     def init_results(self):
         super().init_results()

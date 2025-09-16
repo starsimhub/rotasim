@@ -32,7 +32,7 @@ class RotaImmunityConnector(ss.Connector):
             partial_heterotypic_immunity_efficacy = 0.5,  # Protection from shared G or P
             complete_heterotypic_immunity_efficacy = 0.3, # Protection from different G,P (or no prior exposure to any strain)
             naive_immunity_efficacy = 0.0,               # Baseline immunity for naive individuals (0.0 = fully susceptible)
-            full_waning_rate = ss.perday(1/273),           # Rate of immunity waning (omega parameter, ~273 days)
+            full_waning_rate = ss.freqperyear(365/273),    # Rate of immunity waning (omega parameter, ~273 days)
             immunity_waning_delay = ss.days(0),               # Time delay before immunity decay starts (years)
             # immunity_waning_mean_duration = ss.poisson(lam=(50.0)),           # Mean duration for exponential immunity decay
             # infection_history_susceptibility_factors = {0: 1.0, 1: 0.61, 2: 0.48, 3: 0.33},  # Susceptibility scaling based on total infection history
@@ -46,9 +46,9 @@ class RotaImmunityConnector(ss.Connector):
         
         # Define immunity state arrays
         self.define_states(
-            ss.FloatArr('exposed_GP_bitmask', default=0.0),  # Bitmask of exposed (G,P) pairs
-            ss.FloatArr('exposed_G_bitmask', default=0.0),   # Bitmask of exposed G types
-            ss.FloatArr('exposed_P_bitmask', default=0.0),   # Bitmask of exposed P types  
+            ss.IntArr('exposed_GP_bitmask', default=0),    # Bitmask of exposed (G,P) pairs
+            ss.IntArr('exposed_G_bitmask', default=0),     # Bitmask of exposed G types
+            ss.IntArr('exposed_P_bitmask', default=0),     # Bitmask of exposed P types  
             ss.FloatArr('oldest_infection', default=np.nan), # Time of first infection (for waning)
             ss.BoolArr('has_immunity', default=False),       # Whether agent has any immunity
             ss.FloatArr('num_recovered_infections', default=0.0),   # Total number of prior infections (for scaling susceptibility)
@@ -188,9 +188,9 @@ class RotaImmunityConnector(ss.Connector):
             waning_uids = immune_uids[waning_indices]
             
             # Clear all immunity bitmasks for these people
-            self.exposed_GP_bitmask[waning_uids] = 0.0
-            self.exposed_G_bitmask[waning_uids] = 0.0
-            self.exposed_P_bitmask[waning_uids] = 0.0
+            self.exposed_GP_bitmask[waning_uids] = 0
+            self.exposed_G_bitmask[waning_uids] = 0
+            self.exposed_P_bitmask[waning_uids] = 0
             self.has_immunity[waning_uids] = False
             self.oldest_infection[waning_uids] = np.nan
             self.num_recovered_infections[waning_uids] = 0.0 # TODO verify that this is what we want to do
@@ -224,12 +224,12 @@ class RotaImmunityConnector(ss.Connector):
                 time_since_recovery = disease.ti - disease.ti_recovered[recovered_from_strain]
                 
                 # Apply delayed exponential decay
-                waning_started = time_since_recovery > disease.pars.waning_delay.values
+                waning_started = time_since_recovery > disease.pars.waning_delay.value
 
                 if waning_started.any():
                     waning_started_uids = recovered_uids[waning_started]
                     # Calculate decay factor for agents past the delay period
-                    decay_time = time_since_recovery[waning_started] - self.pars.immunity_waning_delay.values
+                    decay_time = time_since_recovery[waning_started] - self.pars.immunity_waning_delay.value
                     decay_rate = 1/disease.ti_waned[waning_started_uids]
                     decay_factor = np.exp(-decay_rate * decay_time)
                     
@@ -258,10 +258,10 @@ class RotaImmunityConnector(ss.Connector):
             disease_P_mask = self.disease_P_masks[disease.name]
             disease_GP_mask = self.disease_GP_masks[disease.name]
             
-            # Convert FloatArr to int for bitwise operations # TODO: convert these to IntArr after porting starsim version
-            G_bits = self.exposed_G_bitmask.astype(int)
-            P_bits = self.exposed_P_bitmask.astype(int)
-            GP_bits = self.exposed_GP_bitmask.astype(int)
+            # Extract raw numpy arrays for bitwise operations
+            G_bits = self.exposed_G_bitmask.values
+            P_bits = self.exposed_P_bitmask.values
+            GP_bits = self.exposed_GP_bitmask.values
             
             # Vectorized matching using bitwise operations
             has_exact_match = (GP_bits & disease_GP_mask) != 0
@@ -474,14 +474,14 @@ class RotaImmunityConnector(ss.Connector):
         P_bit = 1 << self.P_to_bit[disease.P]
         GP_bit = 1 << self.GP_to_bit[(disease.G, disease.P)]
         
-        # Update bitmasks with type conversion (FloatArr bitwise ops)
-        current_G = self.exposed_G_bitmask[recovered_uids].astype(int)
-        current_P = self.exposed_P_bitmask[recovered_uids].astype(int)
-        current_GP = self.exposed_GP_bitmask[recovered_uids].astype(int)
+        # Update bitmasks using IntArr bitwise ops
+        current_G = self.exposed_G_bitmask[recovered_uids]
+        current_P = self.exposed_P_bitmask[recovered_uids]
+        current_GP = self.exposed_GP_bitmask[recovered_uids]
         
-        self.exposed_G_bitmask[recovered_uids] = (current_G | G_bit).astype(float)
-        self.exposed_P_bitmask[recovered_uids] = (current_P | P_bit).astype(float)
-        self.exposed_GP_bitmask[recovered_uids] = (current_GP | GP_bit).astype(float)
+        self.exposed_G_bitmask[recovered_uids] = current_G | G_bit
+        self.exposed_P_bitmask[recovered_uids] = current_P | P_bit
+        self.exposed_GP_bitmask[recovered_uids] = current_GP | GP_bit
         
         # Mark as having immunity
         self.has_immunity[recovered_uids] = True
