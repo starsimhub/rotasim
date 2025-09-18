@@ -38,7 +38,7 @@ class Rotavirus(ss.Infection):
             init_prev = ss.bernoulli(p=0.01),     # Initial prevalence
             beta = ss.perday(0.1),               # Transmission rate (will be modified by fitness)
             dur_inf = ss.lognorm_ex(mean=7),      # Duration of infection (~7 days)
-            dur_waning = ss.poisson(lam=90), # Duration of waning immunity (~100 days)
+            dur_waning = ss.poisson(lam=180), # Duration of waning immunity (~100 days)
             waning_delay = ss.days(0)
         )
 

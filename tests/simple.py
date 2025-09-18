@@ -32,6 +32,11 @@ with sc.timer():
         if analyzer_name == 'strainstats':
             results = analyzer.results
 
+            # Skip the first 30 days (approximately one month)
+            skip_days = 30
+            time_mask = sim.timevec >= sim.timevec[skip_days]
+            filtered_timevec = sim.timevec[time_mask]
+
             # Plot strain counts over time
             plt.figure(figsize=(12, 6))
             # Find all strain count attributes (e.g., 'G1P8_count', 'G2P4_count')
@@ -39,12 +44,12 @@ with sc.timer():
 
             for strain_key in strain_count_keys:
                 strain_name = strain_key.replace(' count', '')  # Remove '_count' suffix
-                counts = results[strain_key]
-                plt.plot(sim.timevec, counts, 'o-', label=strain_name, alpha=0.7)
+                counts = results[strain_key][time_mask]  # Apply the same time filter
+                plt.plot(filtered_timevec, counts, 'o-', label=strain_name, alpha=0.7)
 
             plt.xlabel('Time (days)')
             plt.ylabel('Strain Count')
-            plt.title('Rotavirus Strain Dynamics')
+            plt.title('Rotavirus Strain Dynamics (excluding first month)')
             plt.legend()
             plt.grid(True, alpha=0.3)
             plt.show()
