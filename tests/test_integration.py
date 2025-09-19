@@ -9,40 +9,44 @@ import time
 # Add rotasim to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from rotasim import Sim, Rotavirus, RotaImmunityConnector
-from rotasim.utils import create_strain_diseases, generate_gp_reassortments
+from rotasim import Sim, RotaImmunityConnector
+from rotasim.utils import generate_gp_reassortments
 
 
 def test_multi_strain_creation():
     """Test creation with many strains (20-70 combinations)"""
     print("Testing multi-strain creation (20+ strains)...")
     
-    # Test by inspecting the disease creation directly via utils
-    from rotasim.utils import create_strain_diseases
+    # Test by inspecting the disease creation via Sim class
+    import rotasim as rs
     
     # Test with 3 initial strains -> 9 combinations
     initial_strains_3 = [(1, 8), (2, 4), (3, 6)]
-    diseases_3 = create_strain_diseases(initial_strains_3, 'default', 0.1)
-    assert len(diseases_3) == 9
+    sim_3 = rs.Sim(initial_strains=initial_strains_3, verbose=False)
+    sim_3.init()
+    assert len(sim_3.diseases) == 9
     
     # Test with 4 initial strains -> 12 combinations (4 G values x 3 P values)
     initial_strains_4 = [(1, 8), (2, 4), (3, 6), (9, 8)]
-    diseases_4 = create_strain_diseases(initial_strains_4, 'default', 0.1)
-    assert len(diseases_4) == 12
+    sim_4 = rs.Sim(initial_strains=initial_strains_4, verbose=False)
+    sim_4.init()
+    assert len(sim_4.diseases) == 12
     
     # Test with 5 initial strains -> 15 combinations (5 G values x 3 P values)
     initial_strains_5 = [(1, 8), (2, 4), (3, 6), (9, 8), (12, 8)]
-    diseases_5 = create_strain_diseases(initial_strains_5, 'default', 0.1)
-    assert len(diseases_5) == 15
+    sim_5 = rs.Sim(initial_strains=initial_strains_5, verbose=False)
+    sim_5.init()
+    assert len(sim_5.diseases) == 15
     
     # Test with large scenario (8 strains with diverse G,P -> many combinations)
     initial_strains_large = [
         (1, 8), (2, 4), (3, 6), (4, 8), 
         (9, 8), (12, 8), (9, 6), (11, 4)
     ]
-    diseases_large = create_strain_diseases(initial_strains_large, 'default', 0.1) 
+    sim_large = rs.Sim(initial_strains=initial_strains_large, verbose=False)
+    sim_large.init()
     # This gives us G: [1,2,3,4,9,11,12] P: [4,6,8] = 7×3 = 21 combinations
-    assert len(diseases_large) == 21
+    assert len(sim_large.diseases) == 21
     
     print(f"[OK] Multi-strain creation: 3->9, 4->12, 5->15, 8->21 strains")
 
@@ -80,30 +84,26 @@ def test_fitness_scenarios():
     
     initial_strains = [(1, 8), (2, 4), (3, 8), (9, 8)]
     
-    # Test by creating diseases directly to avoid initialization complexity
-    # Test default scenario
-    diseases_default = create_strain_diseases(initial_strains, 'default', 0.1)
+    # Test different scenarios via Sim class
+    sim_default = Sim(initial_strains=initial_strains, fitness_scenario='default', verbose=False)
+    sim_default.init()
     
-    # Test scenario '1' 
-    diseases_1 = create_strain_diseases(initial_strains, '1', 0.1)
+    sim_1 = Sim(initial_strains=initial_strains, fitness_scenario='1', verbose=False)
+    sim_1.init()
     
-    # Test scenario '2'
-    diseases_2 = create_strain_diseases(initial_strains, '2', 0.1)
+    sim_2 = Sim(initial_strains=initial_strains, fitness_scenario='2', verbose=False)
+    sim_2.init()
     
     # Test custom scenario
     custom_fitness = {(1, 8): 1.2, (2, 4): 0.5, (3, 8): 0.8}
-    diseases_custom = create_strain_diseases(initial_strains, custom_fitness, 0.1)
+    sim_custom = Sim(initial_strains=initial_strains, fitness_scenario=custom_fitness, verbose=False)
+    sim_custom.init()
     
     # All should create the same number of diseases (4 G values x 2 P values = 8)
-    assert len(diseases_default) == 8
-    assert len(diseases_1) == 8
-    assert len(diseases_2) == 8
-    assert len(diseases_custom) == 8
-    
-    # Test that Rotasim instances can be created with different scenarios
-    sim_default = Sim(initial_strains=initial_strains, fitness_scenario='default')
-    sim_1 = Sim(initial_strains=initial_strains, fitness_scenario='1')
-    sim_custom = Sim(initial_strains=initial_strains, fitness_scenario=custom_fitness)
+    assert len(sim_default.diseases) == 8
+    assert len(sim_1.diseases) == 8
+    assert len(sim_2.diseases) == 8
+    assert len(sim_custom.diseases) == 8
     
     # Properties should be set correctly
     assert sim_default.fitness_scenario == 'default'
@@ -112,42 +112,6 @@ def test_fitness_scenarios():
     
     print("[OK] Fitness scenarios: default, scenario '1', scenario '2', custom")
 
-
-def test_manual_vs_convenience():
-    """Compare manual disease creation vs convenience class"""
-    print("Testing manual vs convenience class creation...")
-    
-    initial_strains = [(1, 8), (2, 4)]
-    
-    # Method 1: Manual creation
-    diseases_manual = create_strain_diseases(initial_strains, 'default', 0.1)
-    immunity_manual = RotaImmunityConnector()
-    
-    # Method 2: Convenience class 
-    sim_convenience = Sim(initial_strains=initial_strains, fitness_scenario='default', base_beta=0.1)
-    
-    # Should create same number of diseases (test indirectly via utils)
-    expected_combinations = generate_gp_reassortments(initial_strains)
-    assert len(diseases_manual) == len(expected_combinations)
-    
-    # Check that disease names match expected pattern
-    manual_names = sorted([d.name for d in diseases_manual])
-    expected_names = sorted([f"G{g}P{p}" for g, p in expected_combinations])
-    assert manual_names == expected_names
-    
-    # Check that Rotasim has correct properties
-    assert sim_convenience.initial_strains == initial_strains
-    assert sim_convenience.fitness_scenario == 'default'
-    assert sim_convenience.base_beta == 0.1
-    
-    # Check that all diseases have correct G,P attributes
-    for disease in diseases_manual:
-        assert hasattr(disease, 'G') and hasattr(disease, 'P')
-        assert hasattr(disease, 'strain')
-        assert disease.strain == (disease.G, disease.P)
-        assert disease.name == f"G{disease.G}P{disease.P}"
-    
-    print("[OK] Manual vs convenience: identical disease creation")
 
 
 def test_initialization_performance():
@@ -159,8 +123,8 @@ def test_initialization_performance():
     initial_strains_med = [(1, 8), (2, 4), (3, 6), (4, 8), (9, 8)]
     
     start_time = time.time()
-    diseases_med = create_strain_diseases(initial_strains_med, 'default', 0.1)
-    sim_med = Sim(initial_strains=initial_strains_med)
+    sim_med = Sim(initial_strains=initial_strains_med, verbose=False)
+    sim_med.init()
     med_time = time.time() - start_time
     
     # Test large scenario (8 strains -> 21 combinations)
@@ -170,20 +134,20 @@ def test_initialization_performance():
     ]
     
     start_time = time.time()
-    diseases_large = create_strain_diseases(initial_strains_large, 'default', 0.1)
-    sim_large = Sim(initial_strains=initial_strains_large)
+    sim_large = Sim(initial_strains=initial_strains_large, verbose=False)
+    sim_large.init()
     large_time = time.time() - start_time
     
     print(f"  Medium (15 strains): {med_time:.3f}s")
     print(f"  Large (21 strains): {large_time:.3f}s")
     
-    # Performance should be reasonable (< 1 second for creation)
-    assert med_time < 1.0, f"Medium scenario too slow: {med_time:.3f}s"
-    assert large_time < 1.0, f"Large scenario too slow: {large_time:.3f}s"
+    # Performance should be reasonable (< 3 seconds for creation with full initialization)
+    assert med_time < 3.0, f"Medium scenario too slow: {med_time:.3f}s"
+    assert large_time < 3.0, f"Large scenario too slow: {large_time:.3f}s"
     
     # Verify correct number of diseases created
-    assert len(diseases_med) == 15
-    assert len(diseases_large) == 21
+    assert len(sim_med.diseases) == 15
+    assert len(sim_large.diseases) == 21
     
     print("[OK] Initialization performance: acceptable for up to 21+ strains")
 
@@ -214,24 +178,23 @@ def test_immunity_connector_integration():
     initial_strains = [(1, 8), (2, 4), (3, 6)]
     
     # Test default behavior (should add connector)
-    sim_default = Sim(initial_strains=initial_strains)
-    # Should work without error
+    sim_default = Sim(initial_strains=initial_strains, verbose=False)
+    sim_default.init()
+    assert len(sim_default.diseases) == 9
     
     # Test with custom connectors
     custom_immunity = RotaImmunityConnector()
-    sim_custom = Sim(initial_strains=initial_strains, connectors=[custom_immunity])
-    # Should work without error
+    sim_custom = Sim(initial_strains=initial_strains, connectors=[custom_immunity], verbose=False)
+    sim_custom.init()
+    assert len(sim_custom.diseases) == 9
     
     # Test with no connectors
-    sim_none = Sim(initial_strains=initial_strains, connectors=[])
-    # Should work without error
-    
-    # Test that utilities work with expected strain count
-    diseases = create_strain_diseases(initial_strains, 'default', 0.1)
-    assert len(diseases) == 9
+    sim_none = Sim(initial_strains=initial_strains, connectors=[], verbose=False)
+    sim_none.init()
+    assert len(sim_none.diseases) == 9
     
     # All diseases should be Rotavirus instances
-    for disease in diseases:
+    for disease in sim_default.diseases.values():
         assert hasattr(disease, 'G') and hasattr(disease, 'P')
         assert hasattr(disease, 'strain')
     
@@ -245,11 +208,16 @@ def test_parameter_inheritance():
     initial_strains = [(1, 8), (2, 4)]
     base_beta = 0.15
     
-    # Test via disease creation utilities
-    diseases = create_strain_diseases(initial_strains, 'default', base_beta)
+    # Test that Sim stores parameters correctly
+    sim = Sim(initial_strains=initial_strains, base_beta=base_beta, fitness_scenario='default', verbose=False)
+    sim.init()
+    
+    assert sim.base_beta == base_beta
+    assert sim.fitness_scenario == 'default'
+    assert len(sim.diseases) == 4
     
     # Check that all diseases have correct base parameters applied
-    for disease in diseases:
+    for disease in sim.diseases.values():
         # Should have proper strain attributes
         assert hasattr(disease, 'strain')
         assert disease.strain == (disease.G, disease.P)
@@ -258,11 +226,6 @@ def test_parameter_inheritance():
         # Check beta parameter is set (exact values depend on parameter wrappers)
         assert hasattr(disease, 'pars')
         assert hasattr(disease.pars, 'beta')
-    
-    # Test that Rotasim stores parameters correctly
-    sim = Sim(initial_strains=initial_strains, base_beta=base_beta, fitness_scenario='default')
-    assert sim.base_beta == base_beta
-    assert sim.fitness_scenario == 'default'
     
     print("[OK] Parameter inheritance: proper strain attributes and fitness application")
 
@@ -274,7 +237,6 @@ if __name__ == "__main__":
         test_multi_strain_creation()
         test_dormant_strain_handling()
         test_fitness_scenarios()
-        test_manual_vs_convenience()
         test_initialization_performance()
         test_strain_summary_large()
         test_immunity_connector_integration()

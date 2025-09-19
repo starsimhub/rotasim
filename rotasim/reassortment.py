@@ -74,14 +74,15 @@ class RotaReassortmentConnector(ss.Connector):
         if n_diseases == 0:
             raise ValueError("RotaReassortmentConnector requires at least one Rotavirus disease")
         
-        print(f"RotaReassortmentConnector: Found {n_diseases} Rotavirus diseases")
-        if n_diseases >= 10:
-            print(f"  First 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[:5]]}")
-            print(f"  Last 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[-5:]]}")
-        else:
-            print(f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}")
-        
-        print(f"  Reassortment rate: {self.pars.reassortment_prob} per day per co-infected host")
+        if sim.pars.verbose > 1:
+            print(f"RotaReassortmentConnector: Found {n_diseases} Rotavirus diseases")
+            if n_diseases >= 10:
+                print(f"  First 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[:5]]}")
+                print(f"  Last 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[-5:]]}")
+            else:
+                print(f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}")
+            
+            print(f"  Reassortment rate: {self.pars.reassortment_prob} per day per co-infected host")
 
     def init_results(self):
         """Initialize results tracking if needed"""
@@ -116,7 +117,8 @@ class RotaReassortmentConnector(ss.Connector):
         
         n_events = len(reassorting_uids)
         n_coinfected = len(co_infected_uids)
-        print(f"Reassortment: {n_events}/{n_coinfected} co-infected hosts reassorting")
+        if self.sim.pars.verbose > 1:
+            print(f"Reassortment: {n_events}/{n_coinfected} co-infected hosts reassorting")
         
         # Step 3-5: For each reassorting host, generate and activate reassortants
         total_new_infections = 0
@@ -124,7 +126,7 @@ class RotaReassortmentConnector(ss.Connector):
             new_infections = self._reassort_host(uid)
             total_new_infections += new_infections
         
-        if total_new_infections > 0:
+        if total_new_infections > 0 and self.sim.pars.verbose > 1:
             print(f"  {total_new_infections} new reassortant infections created")
         self.results.n_reassortments[self.ti] += total_new_infections
     
@@ -136,7 +138,11 @@ class RotaReassortmentConnector(ss.Connector):
             np.array: UIDs of co-infected hosts
         """
         # Count active rotavirus infections per host
-        infection_counts = self.sim.connectors.rotaimmunityconnector.num_current_infections
+        immunity_connector = self.sim.get_connector_by_type('RotaImmunityConnector')
+        if not immunity_connector:
+            return np.array([], dtype=int)  # No immunity connector found
+        
+        infection_counts = immunity_connector.num_current_infections
         coinfected_uids = (infection_counts >= 2).uids
         
         return coinfected_uids

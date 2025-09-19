@@ -4,7 +4,7 @@ For starsim v2, the class must be named "Sim", not "Rotasim"
 Provides an easy-to-use interface for researchers while maintaining flexibility
 """
 import starsim as ss
-from .utils import create_strain_diseases, validate_initial_strains, list_fitness_scenarios
+from .utils import validate_initial_strains, list_fitness_scenarios
 from .immunity import RotaImmunityConnector
 from .reassortment import RotaReassortmentConnector
 
@@ -69,9 +69,8 @@ class Sim(ss.Sim):
         print(f"  Initial strains: {initial_strains}")
         print(f"  Fitness scenario: {fitness_scenario if isinstance(fitness_scenario, str) else 'custom'}")
         print(f"  Base beta: {base_beta}")
-        
-        # Generate all strain diseases using utility function
-        diseases = create_strain_diseases(initial_strains, fitness_scenario, base_beta, init_prev, use_preferred_partners)
+
+        diseases = self._create_strain_diseases(initial_strains, fitness_scenario, base_beta, init_prev, use_preferred_partners, verbose=kwargs.get('verbose', False))
         
         # Add default connectors if none provided
         if 'connectors' not in kwargs:
@@ -207,11 +206,117 @@ class Sim(ss.Sim):
             if len(summary['dormant_strains']) > 10:
                 print(f"  ... and {len(summary['dormant_strains']) - 10} more")
         
+    def _create_strain_diseases(self, initial_strains, fitness_scenario='default', base_beta=0.1, init_prev=0.01, use_preferred_partners=False, verbose=False):
+        """
+        Create all Rotavirus disease instances for multi-strain simulation
+        
+        This method generates all possible reassortant strains from the initial strains,
+        applies fitness multipliers, and creates Rotavirus disease instances ready for simulation.
+        
+        Args:
+            initial_strains: List of (G,P) tuples, e.g. [(1,8), (2,4)]
+            fitness_scenario: Dict of fitness multipliers or string name
+            base_beta: Base transmission rate before fitness adjustment
+            init_prev: Initial prevalence for active strains
+            use_preferred_partners: Whether to filter reassortments by preferred partners
+            verbose: Verbose level for printing setup information
+            
+        Returns:
+            List of Rotavirus disease instances for all possible reassortants
+        """
+        from .utils import generate_gp_reassortments, get_fitness_multiplier, _parse_init_prev_parameter, INITIAL_STRAIN_SCENARIOS
+        from .rotavirus import Rotavirus
+        
+        if not initial_strains:
+            raise ValueError("initial_strains cannot be empty")
+
+        if isinstance(initial_strains, str):
+            if initial_strains not in INITIAL_STRAIN_SCENARIOS:
+                raise ValueError(f"Unknown initial_strains scenario '{initial_strains}'. Available: {list(INITIAL_STRAIN_SCENARIOS.keys())}")
+            initial_strains = INITIAL_STRAIN_SCENARIOS[initial_strains]
+            
+        # Parse init_prev parameter into a dict format
+        init_prev_dict = _parse_init_prev_parameter(init_prev, initial_strains)
+            
+        # Generate all possible G,P combinations
+        gp_combinations = generate_gp_reassortments(initial_strains, use_preferred_partners, verbose)
+        
+        # Strain creation details (debug verbose)
+        if verbose > 1:
+            print(f"Creating {len(gp_combinations)} strain diseases from {len(initial_strains)} initial strains")
+            print(f"  Initial strains: {initial_strains}")
+            print(f"  All combinations: {gp_combinations}")
+            print(f"  Fitness scenario: {fitness_scenario if isinstance(fitness_scenario, str) else 'custom'}")
+        
+        diseases = []
+        active_count = 0
+        dormant_count = 0
+        
+        for G, P in gp_combinations:
+            # Get initial prevalence for this strain (0.0 for dormant reassortants)
+            strain_init_prev = init_prev_dict.get((G, P), 0.0)
+            
+            # Apply fitness multiplier to base beta
+            fitness_mult = get_fitness_multiplier(G, P, fitness_scenario)
+            adjusted_beta = base_beta * fitness_mult
+            
+            # Create disease instance with proper Starsim parameter format
+            disease = Rotavirus(G=G, P=P, 
+                              init_prev=ss.bernoulli(p=strain_init_prev), 
+                              beta=ss.perday(adjusted_beta),
+                              dur_inf = ss.lognorm_ex(mean=4),)
+            diseases.append(disease)
+            
+            if strain_init_prev > 0:
+                active_count += 1
+                # Individual strain details (debug verbose)
+                if verbose > 1:
+                    print(f"    {disease.name}: beta={adjusted_beta:.3f} (x{fitness_mult:.2f}), init_prev={strain_init_prev} [ACTIVE]")
+            else:
+                dormant_count += 1
+                
+        # Summary (basic verbose)
+        if verbose:
+            print(f"  Created {active_count} active strains and {dormant_count} dormant reassortants")
+        
+        return diseases
+
     @staticmethod
     def list_fitness_scenarios():
         """List available built-in fitness scenarios"""
         return list_fitness_scenarios()
         
+    def get_connector_by_type(self, connector_type, warn_if_multiple=True):
+        """
+        Find a connector by type, with warning if not exactly one found
+        
+        Args:
+            connector_type: Class type or string name of the connector to find
+            warn_if_multiple: Whether to warn if multiple connectors found (default: True)
+            
+        Returns:
+            Connector instance or None if not found
+        """
+        # Handle string type names by checking class names
+        if isinstance(connector_type, str):
+            matching_connectors = [c for c in self.connectors.values() 
+                                  if c.__class__.__name__ == connector_type]
+            type_name = connector_type
+        else:
+            matching_connectors = [c for c in self.connectors.values() 
+                                  if isinstance(c, connector_type)]
+            type_name = connector_type.__name__
+        
+        if len(matching_connectors) == 0:
+            if self.pars.verbose:
+                print(f"Warning: No {type_name} found in simulation")
+            return None
+        elif len(matching_connectors) > 1 and warn_if_multiple:
+            if self.pars.verbose:
+                print(f"Warning: Multiple {type_name}s found ({len(matching_connectors)}), using first one")
+        
+        return matching_connectors[0]
+
     def __repr__(self):
         """String representation of Rotasim instance"""
         return (f"Sim(initial_strains={self._initial_strains}, "

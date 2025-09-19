@@ -8,8 +8,8 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from rotasim import (generate_gp_reassortments, get_fitness_multiplier, 
-                     create_strain_diseases, list_fitness_scenarios, 
-                     validate_initial_strains, FITNESS_HYPOTHESES)
+                     list_fitness_scenarios, validate_initial_strains, FITNESS_HYPOTHESES)
+from rotasim import Sim
 
 
 def test_generate_gp_reassortments():
@@ -62,32 +62,34 @@ def test_fitness_multiplier():
     print("Fitness multiplier tests passed")
 
 
-def test_create_strain_diseases():
-    """Test strain disease creation"""
-    print("Testing strain disease creation...")
+def test_sim_strain_creation():
+    """Test strain disease creation via Sim class"""
+    print("Testing Sim strain creation...")
     
     # Test basic creation
     initial = [(1, 8), (2, 4)]
-    diseases = create_strain_diseases(initial, 'default', base_beta=0.1)
+    sim = Sim(initial_strains=initial, fitness_scenario='default', base_beta=0.1, verbose=0)
+    sim.init()  # Initialize to access diseases
     
     # Should create 4 diseases
-    assert len(diseases) == 4, f"Expected 4 diseases, got {len(diseases)}"
+    assert len(sim.diseases) == 4, f"Expected 4 diseases, got {len(sim.diseases)}"
     
     # Check names
-    names = [d.name for d in diseases]
+    disease_list = list(sim.diseases.values())
+    names = [d.name for d in disease_list]
     expected_names = ['G1P8', 'G1P4', 'G2P8', 'G2P4']
     assert set(names) == set(expected_names), f"Expected {expected_names}, got {names}"
     
     # Check that initial strains have prevalence
-    for disease in diseases:
+    for disease in disease_list:
         if (disease.G, disease.P) in initial:
             assert disease.pars.init_prev.pars['p'] == 0.01, f"{disease.name} should have init_prev=0.01"
         else:
             assert disease.pars.init_prev.pars['p'] == 0.0, f"{disease.name} should have init_prev=0.0"
     
     # Check fitness adjustment by examining the stored parameters
-    g1p8_disease = next(d for d in diseases if d.name == 'G1P8')
-    g2p4_disease = next(d for d in diseases if d.name == 'G2P4')
+    g1p8_disease = next(d for d in disease_list if d.name == 'G1P8')
+    g2p4_disease = next(d for d in disease_list if d.name == 'G2P4')
     
     # Check that diseases were created with correct G,P attributes
     assert g1p8_disease.G == 1 and g1p8_disease.P == 8
@@ -97,7 +99,7 @@ def test_create_strain_diseases():
     assert g1p8_disease.strain == (1, 8)
     assert g2p4_disease.strain == (2, 4)
     
-    print("Strain disease creation tests passed")
+    print("Sim strain creation tests passed")
 
 
 def test_validation():
@@ -151,7 +153,7 @@ if __name__ == "__main__":
     try:
         test_generate_gp_reassortments()
         test_fitness_multiplier()
-        test_create_strain_diseases()
+        test_sim_strain_creation()
         test_validation()
         test_fitness_scenarios()
         

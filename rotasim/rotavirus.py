@@ -54,7 +54,9 @@ class Rotavirus(ss.Infection):
         
         self.update_pars(pars=pars, **kwargs)
 
-        self.pars.dur_inf.dt_jump_size = 15000 # TODO check if this is reasonable
+        # With large populations or large numbers of strains, the default Starsim jump size of 1000
+        # is not sufficient so override it here.
+        self.pars.dur_inf.dt_jump_size = kwargs.get('dt_jump_size', 15000)
 
     def init_results(self):
         super().init_results()
@@ -95,7 +97,9 @@ class Rotavirus(ss.Infection):
         
         # Set recovery time: current time + infection duration
         self.ti_recovered[uids] = ti + dur_inf
-        self.sim.connectors['rotaimmunityconnector'].record_infection(self, uids)
+        immunity_connector = self.sim.get_connector_by_type('RotaImmunityConnector')
+        if immunity_connector:
+            immunity_connector.record_infection(self, uids)
         
         return
 
@@ -116,7 +120,9 @@ class Rotavirus(ss.Infection):
 
         self.results['new_recovered'][self.ti] = len(recovering)
 
-        self.sim.connectors['rotaimmunityconnector'].record_recovery(self, recovering)
+        immunity_connector = self.sim.get_connector_by_type('RotaImmunityConnector')
+        if immunity_connector:
+            immunity_connector.record_recovery(self, recovering)
         
         return
 

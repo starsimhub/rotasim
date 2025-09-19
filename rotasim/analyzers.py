@@ -58,15 +58,17 @@ class StrainStats(ss.Analyzer):
         
         n_diseases = len(self._rotavirus_diseases)
         if n_diseases == 0:
-            print("Warning: StrainStats analyzer found no Rotavirus diseases")
+            if self.sim.pars.verbose:
+                print("Warning: StrainStats analyzer found no Rotavirus diseases")
             return
             
-        print(f"StrainStats: Tracking {n_diseases} Rotavirus strains")
-        if n_diseases >= 10:
-            print(f"  First 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[:5]]}")
-            print(f"  Last 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[-5:]]}")
-        else:
-            print(f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}")
+        if self.sim.pars.verbose:
+            print(f"StrainStats: Tracking {n_diseases} Rotavirus strains")
+            if n_diseases >= 10:
+                print(f"  First 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[:5]]}")
+                print(f"  Last 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[-5:]]}")
+            else:
+                print(f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}")
         
         # Create results for each strain - matching v1 format exactly
         for strain_name in self._strain_names:
@@ -126,7 +128,8 @@ class StrainStats(ss.Analyzer):
         
         # Handle case where results.to_df() returns None
         if df is None:
-            print("Warning: StrainStats results.to_df() returned None - no data collected")
+            if self.sim.pars.verbose:
+                print("Warning: StrainStats results.to_df() returned None - no data collected")
             return None
         
         # Remove duplicate timevec columns (same logic as v1)
@@ -226,8 +229,9 @@ class EventStats(ss.Analyzer):
                 timevec=self.timevec
             )
             
-        print(f"EventStats: Tracking {len(event_types)} event types")
-        print(f"  Events: {', '.join(event_types)}")
+        if self.sim.pars.verbose:
+            print(f"EventStats: Tracking {len(event_types)} event types")
+            print(f"  Events: {', '.join(event_types)}")
         
     def step(self):
         """Collect event statistics at each timestep"""
@@ -265,12 +269,14 @@ class EventStats(ss.Analyzer):
                     events['contacts'] += disease.results.new_infections[self.sim.ti]
         
         # Count immunity waning events
-        if 'rotaimmunityconnector' in self.sim.connectors:
-            events['wanings'] = self.sim.connectors.rotaimmunityconnector.results.n_waned[self.sim.ti]
+        immunity_connector = self.sim.get_connector_by_type('RotaImmunityConnector', warn_if_multiple=False)
+        if immunity_connector:
+            events['wanings'] = immunity_connector.results.n_waned[self.sim.ti]
         
         # Count reassortment events from reassortment connector
-        if 'rotareassortmentconnector' in self.sim.connectors:
-            events['reassortments'] = self.sim.connectors.rotareassortmentconnector.results.n_reassortments[self.sim.ti]
+        reassortment_connector = self.sim.get_connector_by_type('RotaReassortmentConnector', warn_if_multiple=False)
+        if reassortment_connector:
+            events['reassortments'] = reassortment_connector.results.n_reassortments[self.sim.ti]
 
         # Count total infected agents and coinfected agents
         infection_counts = np.zeros(len(self.sim.people), dtype=int)
@@ -281,8 +287,9 @@ class EventStats(ss.Analyzer):
         events['total_infected'] = int(np.sum(infection_counts > 0))  # Agents infected with any strain
         events['coinfected_agents'] = int(np.sum(infection_counts > 1))  # Agents infected with >1 strain
 
-        print(events)
-        
+        if self.sim.pars.verbose > 1:
+            print(events)
+
         # Store results
         for event_type, count in events.items():
             self.results[event_type][self.sim.ti] = count
@@ -338,8 +345,9 @@ class AgeStats(ss.Analyzer):
                 timevec=self.timevec
             )
             
-        print(f"AgeStats: Tracking {len(self.age_labels)} age bins")
-        print(f"  Age bins: {self.age_labels}")
+        if self.sim.pars.verbose:
+            print(f"AgeStats: Tracking {len(self.age_labels)} age bins")
+            print(f"  Age bins: {self.age_labels}")
         
     def step(self):
         """Collect age distribution statistics at each timestep"""

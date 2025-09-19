@@ -34,9 +34,6 @@ class RotaImmunityConnector(ss.Connector):
             naive_immunity_efficacy = 0.0,               # Baseline immunity for naive individuals (0.0 = fully susceptible)
             full_waning_rate = ss.freqperyear(365/273),    # Rate of immunity waning (omega parameter, ~273 days)
             immunity_waning_delay = ss.days(0),               # Time delay before immunity decay starts (years)
-            # immunity_waning_mean_duration = ss.poisson(lam=(50.0)),           # Mean duration for exponential immunity decay
-            # infection_history_susceptibility_factors = {0: 1.0, 1: 0.61, 2: 0.48, 3: 0.33},  # Susceptibility scaling based on total infection history
-            # infection_history_susceptibility_factors = {0: 1, 1: 0.61, 2: 0.5, 3: 0.4},  # Susceptibility scaling based on total infection history
             infection_history_susceptibility_factors = {0: 1, 1: 1, 2: 1, 3: 1},  # Susceptibility scaling based on total infection history
             cotransmission_prob = ss.bernoulli(p=0.02),  # Probability of transmitting all strains instead of dominant strain selection (2%)
         )
@@ -83,11 +80,13 @@ class RotaImmunityConnector(ss.Connector):
                             if isinstance(d, Rotavirus)]
         
         if len(self.rota_diseases) == 0:
-            print("Warning: No Rotavirus diseases found in simulation")
+            if sim.pars.verbose:
+                print("Warning: No Rotavirus diseases found in simulation")
             super().init_pre(sim)
             return
             
-        print(f"RotaImmunityConnector: Found {len(self.rota_diseases)} Rotavirus strains")
+        if sim.pars.verbose:
+            print(f"RotaImmunityConnector: Found {len(self.rota_diseases)} Rotavirus strains")
         
         # Calculate unique genotypes once and store for use in init_post()
         self.unique_G = sorted(set(d.G for d in self.rota_diseases))
@@ -112,8 +111,6 @@ class RotaImmunityConnector(ss.Connector):
         # Define all states at once
         self.define_states(*G_states, *P_states)
         
-        print(f"  - Created G max decayed immunity arrays: {list(self.G_max_decayed_immunity_factors.keys())}")
-        print(f"  - Created P max decayed immunity arrays: {list(self.P_max_decayed_immunity_factors.keys())}")
         
         # NOW call super().init_pre() with states already defined
         super().init_pre(sim)
@@ -137,9 +134,10 @@ class RotaImmunityConnector(ss.Connector):
         self.P_to_bit = {p: i for i, p in enumerate(self.unique_P)}
         self.GP_to_bit = {gp: i for i, gp in enumerate(self.unique_GP)}
         
-        print(f"  - G genotypes: {self.unique_G} -> bits {list(self.G_to_bit.values())}")
-        print(f"  - P genotypes: {self.unique_P} -> bits {list(self.P_to_bit.values())}")
-        print(f"  - GP pairs: {self.unique_GP} -> bits {list(self.GP_to_bit.values())}")
+        if self.sim.pars.verbose > 1:
+            print(f"  - G genotypes: {self.unique_G} -> bits {list(self.G_to_bit.values())}")
+            print(f"  - P genotypes: {self.unique_P} -> bits {list(self.P_to_bit.values())}")
+            print(f"  - GP pairs: {self.unique_GP} -> bits {list(self.GP_to_bit.values())}")
         
         # Pre-compute disease-specific bitmasks for fast lookup
         self.disease_G_masks = {}
@@ -150,7 +148,8 @@ class RotaImmunityConnector(ss.Connector):
             self.disease_P_masks[disease.name] = 1 << self.P_to_bit[disease.P]
             self.disease_GP_masks[disease.name] = 1 << self.GP_to_bit[(disease.G, disease.P)]
             
-        print(f"  - Pre-computed bitmasks for {len(self.rota_diseases)} diseases")
+        if self.sim.pars.verbose > 1:
+            print(f"  - Pre-computed bitmasks for {len(self.rota_diseases)} diseases")
         
         
     def step(self):
@@ -193,9 +192,9 @@ class RotaImmunityConnector(ss.Connector):
             self.exposed_P_bitmask[waning_uids] = 0
             self.has_immunity[waning_uids] = False
             self.oldest_infection[waning_uids] = np.nan
-            self.num_recovered_infections[waning_uids] = 0.0 # TODO verify that this is what we want to do
+            self.num_recovered_infections[waning_uids] = 0.0  # Reset infection history - full waning makes agents immunologically naive
             
-            if len(waning_uids) > 0:
+            if len(waning_uids) > 0 and self.sim.pars.verbose > 1:
                 print(f"  Immunity waning: {len(waning_uids)} people lost all immunity")
             self.results.n_waned[self.ti] += len(waning_uids)
 
@@ -311,28 +310,6 @@ class RotaImmunityConnector(ss.Connector):
 
             disease.rel_sus[:] = (1- strain_match_immunity_efficacy * final_decayed_immunity_factor) * infection_history_susceptibility_factor
             
-            # Print mean rel_sus and rel_trans for each disease at each timestep
-            mean_rel_sus = disease.rel_sus.mean()
-            mean_rel_trans = disease.rel_trans.mean()
-            n_infected = disease.infected.sum()
-            print(f"[T={disease.ti}] {disease.name}: mean_rel_sus={mean_rel_sus:.4f}, mean_rel_trans={mean_rel_trans:.4f}, n_infected={n_infected}")
-            
-            # Debug output for specific agent
-            # uid_to_track = 24308
-            # if uid_to_track < len(self.sim.people):
-            #     print(f"[T={disease.ti}] Agent {uid_to_track}, {disease.name}: "
-            #           f"rel_sus={disease.rel_sus[uid_to_track]:.3f}, "
-            #           f"strain_eff={strain_match_immunity_efficacy[uid_to_track]:.3f}, "
-            #           f"decay={final_decayed_immunity_factor[uid_to_track]:.3f}, "
-            #           f"hist={infection_history_susceptibility_factor[uid_to_track]:.3f}, "
-            #           f"has_immunity={self.has_immunity[uid_to_track]}, "
-            #           f"n_recovered={self.num_recovered_infections[uid_to_track]}")
-            
-        # print(f"[T={disease.ti}] sim.ti={self.sim.ti}, Agent {uid_to_track} recovered states:")
-        # for d in self.rota_diseases:  # Just show first 3 diseases to avoid spam
-        #     recovered = d.recovered[uid_to_track] if uid_to_track < len(self.sim.people) else False
-        #     ti_recovered = d.ti_recovered[uid_to_track] if uid_to_track < len(self.sim.people) else 0
-        #     print(f"[T={self.ti}] {d.name}: recovered={recovered}, ti_recovered={ti_recovered}")
     
     def _apply_strain_selection(self):
         """
@@ -494,7 +471,6 @@ class RotaImmunityConnector(ss.Connector):
         first_infections = np.isnan(self.oldest_infection[recovered_uids])
         self.oldest_infection[recovered_uids[first_infections]] = self.sim.ti
         
-        # print(f"  Immunity update: {len(recovered_uids)} people recovered from {disease.name}")
     
     @staticmethod
     def match_strain(strain1, strain2):
