@@ -180,46 +180,46 @@ class StrainStats(ss.Analyzer):
 
 class EventStats(ss.Analyzer):
     """
-    V2 analyzer to track simulation events - compatible with v1 event_counts_*.csv format
+    Convenience analyzer to track simulation events
     
-    This analyzer tracks key simulation events per timestep matching the v1 format:
+    This analyzer collects key simulation events per timestep:
     - births: Population births
     - deaths: Population deaths  
     - recoveries: Disease recoveries across all strains
-    - contacts: Transmission events across all strains
+    - new_infections: Transmission events across all strains
     - wanings: Immunity waning events
     - reassortments: Genetic reassortment events
-    
-    The output format matches v1 event_counts_*.csv for backwards compatibility.
+    - infected_agents: Number of currently infected agents (any strain)
+    - coinfected_agents: Number of agents infected with >1 strain
     
     Example usage:
         analyzer = EventStats()
         sim = Sim(initial_strains=[(1,8), (2,4)], analyzers=[analyzer])
         sim.run()
-        df = analyzer.to_df()  # Same format as v1 event_counts
     """
     
     def __init__(self, **kwargs):
         """Initialize event statistics analyzer"""
         super().__init__(**kwargs)
+        self.event_types = [
+            'births',
+            'deaths',
+            'recoveries',
+            'new_infections',
+            'wanings',
+            'reassortments',
+            'infected_agents',
+            'coinfected_agents'
+        ]
         
     def init_results(self):
         """Initialize results storage for event tracking"""
         super().init_results()
-        
-        # Create results for each event type - matching v1 format exactly
-        event_types = [
-            'births',
-            'deaths', 
-            'recoveries',
-            'contacts',
-            'wanings',
-            'reassortments',
-            'total_infected',
-            'coinfected_agents'
-        ]
-        
-        for event_type in event_types:
+
+        # Create results for each event type
+        self.events = {}
+        for event_type in self.event_types:
+            self.events[event_type] = 0
             self.results += ss.Result(
                 event_type,
                 dtype=int,
@@ -228,55 +228,43 @@ class EventStats(ss.Analyzer):
                 shape=self.timevec.shape,
                 timevec=self.timevec
             )
-            
-        if self.sim.pars.verbose:
-            print(f"EventStats: Tracking {len(event_types)} event types")
-            print(f"  Events: {', '.join(event_types)}")
+
+        print(f"EventStats: Tracking {len(self.event_types)} event types")
+        print(f"  Events: {', '.join(self.event_types)}")
         
     def step(self):
         """Collect event statistics at each timestep"""
         
         # Initialize all events to 0 for this timestep
-        events = {
-            'births': 0,
-            'deaths': 0,
-            'recoveries': 0, 
-            'contacts': 0,
-            'wanings': 0,
-            'reassortments': 0
-        }
+        for event in self.events:
+            self.events[event] = 0
         
         # Get population changes (births/deaths) from demographics modules
-        for module in self.sim.modules:
-            if hasattr(module, 'results'):
-                #todo replace with people births/deaths logic after upgrading to SS v3.
-                # Check for births
-                if hasattr(module.results, 'new_births'):
-                    events['births'] += getattr(module.results.new_births, self.sim.ti, 0)
-                # Check for deaths  
-                if hasattr(module.results, 'new_deaths'):
-                    events['deaths'] += getattr(module.results.new_deaths, self.sim.ti, 0)
+        # Check for births
+        self.events['births'] += self.sim.results.births.new[self.sim.ti]
+        # Check for deaths
+        self.events['deaths'] += self.sim.results.deaths.new[self.sim.ti]
         
         # Count recoveries and new infections across all Rotavirus diseases
         for disease in self.sim.diseases.values():
             if hasattr(disease, 'G') and hasattr(disease, 'P'):  # Is Rotavirus
                 # Count agents who recovered this timestep
                 if hasattr(disease.results, 'new_recovered'):
-                    events['recoveries'] += disease.results.new_recovered[self.sim.ti]
+                    self.events['recoveries'] += disease.results.new_recovered[self.sim.ti]
                 
                 # Count new infections this timestep (built into ss.Infection)
                 if hasattr(disease.results, 'new_infections'):
-                    events['contacts'] += disease.results.new_infections[self.sim.ti]
+                    self.events['new_infections'] += disease.results.new_infections[self.sim.ti]
         
         # Count immunity waning events
-        immunity_connector = self.sim.get_connector_by_type('RotaImmunityConnector', warn_if_multiple=False)
+        immunity_connector = self.sim.get_connector_by_type('RotaImmunityConnector')
         if immunity_connector:
-            events['wanings'] = immunity_connector.results.n_waned[self.sim.ti]
+            self.events['wanings'] = immunity_connector.results.n_waned[self.sim.ti]
         
         # Count reassortment events from reassortment connector
-        reassortment_connector = self.sim.get_connector_by_type('RotaReassortmentConnector', warn_if_multiple=False)
+        reassortment_connector = self.sim.get_connector_by_type('RotaReassortmentConnector')
         if reassortment_connector:
-            events['reassortments'] = reassortment_connector.results.n_reassortments[self.sim.ti]
+            self.events['reassortments'] = reassortment_connector.results.n_reassortments[self.sim.ti]
 
         # Count total infected agents and coinfected agents
         infection_counts = np.zeros(len(self.sim.people), dtype=int)
@@ -284,18 +272,18 @@ class EventStats(ss.Analyzer):
             if hasattr(disease, 'G') and hasattr(disease, 'P'):  # Is Rotavirus
                 infection_counts += disease.infected[:].astype(int)
         
-        events['total_infected'] = int(np.sum(infection_counts > 0))  # Agents infected with any strain
-        events['coinfected_agents'] = int(np.sum(infection_counts > 1))  # Agents infected with >1 strain
+        self.events['infected_agents'] = int(np.sum(infection_counts > 0))  # Agents infected with any strain
+        self.events['coinfected_agents'] = int(np.sum(infection_counts > 1))  # Agents infected with >1 strain
 
-        if self.sim.pars.verbose > 1:
-            print(events)
+        if self.sim.pars.verbose:
+            print(self.events)
 
         # Store results
-        for event_type, count in events.items():
+        for event_type, count in self.events.items():
             self.results[event_type][self.sim.ti] = count
             
     def to_df(self):
-        """Convert results to dataframe - matches v1 format exactly"""
+        """Convert results to dataframe"""
         df = self.results.to_df()
         
         # Remove duplicate timevec columns (same logic as v1)
