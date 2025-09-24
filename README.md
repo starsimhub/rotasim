@@ -2,13 +2,17 @@
 
 An agent-based model for simulating rotavirus genetic diversity and vaccination interventions. Rotasim is built on the Starsim v3 framework and uses genetic modeling to track pathogen evolution and immune responses across multiple strains.
 
+**Current Status**: V2 architecture complete with unified scenario API for easy strain configuration and improved performance.
+
 ## Features
 
+- **Unified scenario API**: Easy-to-use predefined scenarios with strain definitions, fitness, and prevalence
 - **Multi-strain architecture**: Each rotavirus G,P combination is modeled as a separate disease instance
 - **Cross-strain immunity**: High-performance vectorized immunity tracking with bitmask operations
 - **Genetic reassortment**: Realistic genetic recombination between co-infecting strains
 - **Population dynamics**: Birth, death, and aging processes
 - **Comprehensive analysis**: Built-in analyzers for strain statistics, events, and demographics
+- **Clean codebase**: Recently refactored to remove 435+ lines of deprecated code
 
 ## Installation
 
@@ -17,6 +21,17 @@ pip install -e .
 ```
 
 This installs Rotasim as an importable module in development mode.
+
+### Quick Start
+
+```python
+import rotasim as rs
+
+# Run a simple simulation
+sim = rs.Sim(scenario='simple')  # G1P8 and G2P4 strains
+sim.run()
+print(f"Simulation completed with {len(sim.diseases)} diseases")
+```
 
 ## Model Architecture
 
@@ -128,48 +143,87 @@ Where:
 
 ## Usage Examples
 
-### Basic Simulation
+### Basic Simulation with Unified Scenarios
 
 ```python
 import rotasim as rs
 
-# Simple simulation with default parameters
-sim = rs.Sim()
+# Simple simulation using predefined scenario
+sim = rs.Sim(scenario='simple')  # Two-strain scenario (G1P8, G2P4)
 sim.run()
 
 # Access results
-print(f"Simulation completed: {sim.ti} timesteps")
+print(f"Simulation completed with {len(sim.diseases)} total diseases")
+print(f"Scenario: {sim.scenario}")
+print(f"Initial strains: {sim.initial_strains}")
 ```
 
-### Multi-Strain Simulation with Custom Immunity
+### Available Built-in Scenarios
 
 ```python
 import rotasim as rs
-from rotasim import RotaImmunityConnector
 
-# Custom immunity parameters
-immunity = RotaImmunityConnector(
-    homotypic_immunity_efficacy=0.95,        # Very strong same-strain protection
-    partial_heterotypic_immunity_efficacy=0.7,  # Strong cross-protection
-    complete_heterotypic_immunity_efficacy=0.4, # Moderate heterotypic protection
-    full_waning_rate=rs.freqperyear(365/365)    # 1 year waning duration
-)
+# List all available scenarios
+scenarios = rs.list_scenarios()
+for name, description in scenarios.items():
+    print(f"{name}: {description}")
 
-# Specify initial strains (creates 9 total combinations)  
-initial_strains = [(1, 8), (2, 4), (3, 6)]
+# Use different scenarios
+sim_baseline = rs.Sim(scenario='baseline')           # 3 common global strains
+sim_diverse = rs.Sim(scenario='high_diversity')      # 12 strains with varied fitness
+sim_competition = rs.Sim(scenario='realistic_competition')  # G1P8 dominant with competition
+```
+
+### Scenario Customization with Overrides
+
+```python
+import rotasim as rs
+
+# Override scenario parameters
 sim = rs.Sim(
-    initial_strains=initial_strains,
-    connectors=[immunity],
-    n_agents=50000,
-    timelimit=10,
-    verbose=True
+    scenario='baseline',
+    override_prevalence=0.02,  # Set all strains to 2% prevalence
+    override_fitness={(1,8): 0.95, (2,4): 0.8},  # Override specific strain fitness
+    base_beta=0.15,  # Adjust base transmission rate
+    n_agents=50000
 )
 sim.run()
 
+# Add new strain to existing scenario
+sim = rs.Sim(
+    scenario='baseline', 
+    override_strains={(9,6): {'fitness': 0.7, 'prevalence': 0.003}},  # Add G9P6
+    verbose=True
+)
+
 # View strain summary
 summary = sim.get_strain_summary()
+print(f"Total diseases: {summary['total_diseases']}")
 print(f"Active strains: {len(summary['active_strains'])}")
-print(f"Dormant strains: {len(summary['dormant_strains'])}")
+print(f"Dormant reassortants: {len(summary['dormant_strains'])}")
+```
+
+### Custom Scenarios
+
+```python
+import rotasim as rs
+
+# Define custom scenario
+custom_scenario = {
+    'strains': {
+        (1, 8): {'fitness': 1.0, 'prevalence': 0.015},
+        (2, 4): {'fitness': 0.8, 'prevalence': 0.010},
+        (3, 6): {'fitness': 0.9, 'prevalence': 0.005}
+    },
+    'default_fitness': 0.3  # For dormant reassortants
+}
+
+sim = rs.Sim(
+    scenario=custom_scenario,
+    base_beta=0.1,
+    n_agents=25000
+)
+sim.run()
 ```
 
 ### Testing Cross-Strain Protection
@@ -194,9 +248,10 @@ low_cross_protection = RotaImmunityConnector(
 # Compare strain diversity outcomes
 for immunity, label in [(high_cross_protection, "High"), (low_cross_protection, "Low")]:
     sim = rs.Sim(
-        initial_strains=[(1, 8), (2, 4), (3, 6), (4, 8)],
+        scenario='high_diversity',  # Use built-in scenario
         connectors=[immunity],
-        timelimit=15,
+        n_agents=25000,
+        dt=rs.days(1),  # Daily timesteps
         verbose=0
     )
     sim.run()
@@ -216,9 +271,11 @@ analyzers = [
 ]
 
 sim = rs.Sim(
-    initial_strains=[(1, 8), (2, 4), (3, 8)],
+    scenario='realistic_competition',  # Use built-in scenario
     analyzers=analyzers,
-    timelimit=10
+    dt=rs.days(1),  # Daily timesteps
+    stop='2030-01-01',  # 10-year simulation
+    verbose=1
 )
 sim.run()
 
@@ -232,6 +289,7 @@ event_stats.to_csv("simulation_events.csv", index=False)
 # Examine immunity waning events
 waning_events = event_stats['wanings'].sum() 
 print(f"Total immunity waning events: {waning_events}")
+print(f"Final scenario: {sim.final_scenario}")
 ```
 
 ## Running Examples
@@ -247,9 +305,10 @@ python simple.py
 ### Integration Tests
 
 ```bash
-# Test multi-strain architecture
+# Test multi-strain architecture and unified scenarios
 cd tests
 python -m pytest test_integration.py -v
+python test_utils.py  # Test scenario system
 ```
 
 ### Performance Benchmarks
@@ -261,7 +320,7 @@ python tests/test_performance.py
 
 ## Advanced Configuration
 
-### Custom Protection Factors
+### Custom Protection Factors with Scenarios
 
 ```python
 import rotasim as rs
@@ -276,8 +335,10 @@ strong_homotypic = RotaImmunityConnector(
 )
 
 sim = rs.Sim(
-    initial_strains=[(1, 8), (2, 4), (3, 6), (4, 8)],
-    connectors=[strong_homotypic]
+    scenario='balanced_competition',  # Use built-in 4-strain scenario
+    connectors=[strong_homotypic],
+    base_beta=0.12,
+    verbose=2  # Detailed output
 )
 ```
 
@@ -290,9 +351,10 @@ from rotasim.analyzers import EventStats
 # Track immunity and reassortment events
 analyzer = EventStats()
 sim = rs.Sim(
-    initial_strains=[(1, 8), (2, 4), (3, 8)],
+    scenario='emergence_scenario',  # Weak background for emergence studies
     analyzers=[analyzer],
-    timelimit=15,
+    stop='2035-01-01',  # 15-year simulation
+    dt=rs.days(1),     # Daily timesteps
     verbose=1  # Show summary information
 )
 
@@ -303,6 +365,7 @@ events = analyzer.to_df()
 print(f"Immunity waning events: {events['wanings'].sum()}")
 print(f"Reassortment events: {events['reassortments'].sum()}")
 print(f"Peak coinfected agents: {events['coinfected_agents'].max()}")
+print(f"Final scenario used: {sim.final_scenario['strains']}")
 ```
 
 ### Parameter Sensitivity Analysis
@@ -311,41 +374,80 @@ print(f"Peak coinfected agents: {events['coinfected_agents'].max()}")
 import rotasim as rs
 import numpy as np
 
-# Test immunity parameter sensitivity
+# Test scenario and immunity parameter sensitivity
+scenarios = ['simple', 'baseline', 'realistic_competition']
 cross_protection_levels = [0.2, 0.4, 0.6, 0.8]
 results = []
 
-for cross_prot in cross_protection_levels:
-    immunity = rs.RotaImmunityConnector(
-        partial_heterotypic_immunity_efficacy=cross_prot
-    )
-    
-    sim = rs.Sim(
-        initial_strains=[(1, 8), (2, 4), (3, 8)],
-        connectors=[immunity],
-        timelimit=10,
-        verbose=0
-    )
-    sim.run()
-    
-    results.append({
-        'cross_protection': cross_prot,
-        'total_strains': len(sim.diseases)
-    })
+for scenario in scenarios:
+    for cross_prot in cross_protection_levels:
+        immunity = rs.RotaImmunityConnector(
+            partial_heterotypic_immunity_efficacy=cross_prot
+        )
+        
+        sim = rs.Sim(
+            scenario=scenario,
+            connectors=[immunity],
+            dt=rs.days(1),
+            stop='2030-01-01',
+            verbose=0
+        )
+        sim.run()
+        
+        results.append({
+            'scenario': scenario,
+            'cross_protection': cross_prot,
+            'total_diseases': len(sim.diseases),
+            'initial_strains': len(sim.initial_strains)
+        })
 
-print("Cross-protection sensitivity:")
+print("Scenario and cross-protection sensitivity:")
 for result in results:
-    print(f"Protection: {result['cross_protection']:.1f}, Total strains: {result['total_strains']}")
+    print(f"Scenario: {result['scenario']}, Protection: {result['cross_protection']:.1f}, "
+          f"Total diseases: {result['total_diseases']}, Initial: {result['initial_strains']}")
+```
+
+## Recent Changes (V2 Architecture)
+
+### Unified Scenario System
+- **Built-in scenarios**: 8 predefined scenarios from simple 2-strain to complex 12-strain setups
+- **Easy customization**: Override fitness, prevalence, or add new strains to existing scenarios
+- **Clean API**: Single `scenario` parameter replaces multiple configuration options
+- **Backward compatibility**: All existing functionality preserved
+
+### Code Cleanup
+- **Removed 435+ lines** of deprecated code after unified scenario implementation
+- **Eliminated legacy dictionaries**: `INITIAL_STRAIN_SCENARIOS`, `FITNESS_HYPOTHESES` 
+- **Streamlined imports**: Clean import structure with only necessary functions
+- **Updated examples**: All documentation updated to use new unified API
+
+### Available Scenarios
+```python
+import rotasim as rs
+
+# List all built-in scenarios
+print(rs.list_scenarios())
+# Output:
+# {
+#   'simple': 'Simple two-strain scenario - G1P8 and G2P4 with equal fitness and prevalence',
+#   'baseline': 'Baseline scenario - common global strains with equal fitness',
+#   'realistic_competition': 'G1P8 dominant with realistic strain competition',
+#   'balanced_competition': 'G1P8 dominant with moderate balanced competition',
+#   'high_diversity': 'High diversity with 12 strains and varied fitness',
+#   'low_diversity': 'Low diversity with 4 main competitive strains',
+#   'emergence_scenario': 'Scenario for studying strain emergence with weak background'
+# }
 ```
 
 ## Contributing
 
 This project follows standard development practices:
 
-1. **Testing**: Run `python -m pytest tests/` before submitting changes
+1. **Testing**: Run `python -m pytest tests/` and `python tests/test_utils.py` before submitting changes
 2. **Performance**: Use `python tests/test_performance.py` to check performance  
 3. **Style**: Follow existing code patterns and documentation standards
-4. **Verbosity**: Use `sim.pars.verbose` for debug output control
+4. **Scenarios**: Use built-in scenarios when possible, create custom scenarios for specific needs
+5. **Verbosity**: Use `verbose=1` for summary info, `verbose=2` for detailed strain creation output
 
 ## Dependencies
 
