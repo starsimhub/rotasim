@@ -4,7 +4,7 @@ For starsim v2, the class must be named "Sim", not "Rotasim"
 Provides an easy-to-use interface for researchers while maintaining flexibility
 """
 import starsim as ss
-from .utils import validate_initial_strains, list_fitness_scenarios
+from .utils import validate_initial_strains
 from .immunity import RotaImmunityConnector
 from .reassortment import RotaReassortmentConnector
 
@@ -281,11 +281,7 @@ class Sim(ss.Sim):
         
         return diseases
 
-    @staticmethod
-    def list_fitness_scenarios():
-        """List available built-in fitness scenarios"""
-        return list_fitness_scenarios()
-        
+
     def get_connector_by_type(self, connector_type, warn_if_multiple=True):
         """
         Find a connector by type, with warning if not exactly one found
