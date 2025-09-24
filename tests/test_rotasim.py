@@ -39,7 +39,10 @@ def test_default():
     assert total_infections > 0, "No infections occurred in simulation"
     
     print(f"Total cumulative infections: {total_infections}")
-    return sim
+    
+    # Additional validation
+    assert len(sim.diseases) == 4, f"Expected 4 diseases, got {len(sim.diseases)}"
+    assert len(sim.connectors) == 2, f"Expected 2 connectors, got {len(sim.connectors)}"
 
 
 def test_alt():
@@ -50,7 +53,7 @@ def test_alt():
     with sc.timer() as T:
         sim = rs.Sim(
             initial_strains=[(1, 8), (2, 4)],  # Use 2 strains instead of 3 for speed
-            fitness_scenario='high_diversity',
+            fitness_scenario='default',  # Use valid default scenario
             base_beta=0.15,
             init_prev=0.02,
             n_agents=N,
@@ -70,7 +73,10 @@ def test_alt():
     assert total_infections > 0, "No infections occurred in alternate simulation"
     
     print(f"Total cumulative infections (alternate): {total_infections}")
-    return sim
+    
+    # Additional validation for alternate simulation
+    assert len(sim.diseases) == 4, f"Expected 4 diseases, got {len(sim.diseases)}"
+    assert len(sim.connectors) == 2, f"Expected 2 connectors, got {len(sim.connectors)}"
 
 def test_basic_functionality():
     """Test that basic v2 functionality works correctly"""

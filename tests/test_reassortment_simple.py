@@ -17,7 +17,7 @@ def test_basic_creation():
     # Test connector creation
     connector = RotaReassortmentConnector()
     print(f"✓ Created connector: {type(connector).__name__}")
-    print(f"  Rate parameter: {connector.pars.reassortment_rate}")
+    print(f"  Probability parameter: {connector.pars.reassortment_prob}")
     
     # Test Rotasim creation with no connectors (should avoid the issue)
     print("\n=== Rotasim with No Connectors ===")

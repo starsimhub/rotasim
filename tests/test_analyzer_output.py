@@ -8,6 +8,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from rotasim import Sim, StrainStats
+import starsim as ss
 import numpy as np
 import pandas as pd
 
@@ -24,8 +25,7 @@ def test_small_simulation_run():
         n_agents=200,
         start='2020-01-01',
         stop='2021-01-01',  # 1 year
-        unit='day',
-        dt=1,       # Daily timesteps
+        dt=ss.days(1),       # Daily timesteps
     )
     
     print(f"Running simulation: {sim.pars.n_agents} agents, {sim.pars.start}-{sim.pars.stop}")
@@ -36,9 +36,10 @@ def test_small_simulation_run():
     
     print("✓ Simulation completed successfully")
     
-    # Test analyzer results
+    # Test analyzer results - access through sim.analyzers after run
     print("\n1. Testing analyzer results structure:")
-    df = analyzer.to_df()
+    sim_analyzer = sim.analyzers[0]  # Get analyzer from simulation
+    df = sim_analyzer.to_df()
     print(f"   DataFrame shape: {df.shape}")
     print(f"   Columns: {len(df.columns)}")
     print(f"   Rows (timesteps): {df.shape[0]}")
@@ -85,7 +86,11 @@ def test_small_simulation_run():
         print(f"   Total counts: min={total_counts.min():.0f}, max={total_counts.max():.0f}, mean={total_counts.mean():.1f}")
     
     print()
-    return df
+    
+    # Basic validation assertions
+    assert df.shape[0] > 0, "DataFrame should have at least one timestep"
+    assert df.shape[1] > 0, "DataFrame should have at least one column"
+    assert '(1, 8) count' in df.columns, "Should have (1, 8) count column"
 
 
 def test_csv_export_compatibility():
@@ -100,17 +105,17 @@ def test_csv_export_compatibility():
         n_agents=100,
         start='2020-01-01',
         stop='2021-01-01',
-        unit='day',
-        dt=1  # Daily timesteps
+        dt=ss.days(1)  # Daily timesteps
     )
     
     sim.run()
-    df = analyzer.to_df()
+    sim_analyzer = sim.analyzers[0]  # Get analyzer from simulation
+    df = sim_analyzer.to_df()
     
     print("1. Testing CSV export:")
     
     # Save to temporary CSV
-    temp_csv = '/tmp/test_strain_stats.csv'
+    temp_csv = 'test_strain_stats.csv'
     df.to_csv(temp_csv, index=False)
     print(f"   ✓ Exported to {temp_csv}")
     
@@ -151,12 +156,9 @@ def test_csv_export_compatibility():
     print(f"\n3. Example data (first 3 rows):")
     print(df.head(3).to_string())
     
-    # Clean up
-    try:
-        os.remove(temp_csv)
-        print(f"\n✓ Cleaned up temporary file")
-    except:
-        pass
+    # Clean up - ensure file is deleted
+    os.remove(temp_csv)
+    print(f"\n✓ Cleaned up temporary file")
     
     print()
 
@@ -173,8 +175,7 @@ def test_strain_summary_feature():
         n_agents=500,
         start='2020-01-01',
         stop='2021-01-01',
-        unit='day',
-        dt=1,
+        dt=ss.days(1),
         connectors=[]  # No connectors for simpler testing
     )
     
@@ -182,7 +183,8 @@ def test_strain_summary_feature():
     sim.run()
     
     # Test strain summary
-    summary = analyzer.get_strain_summary()
+    sim_analyzer = sim.analyzers[0]  # Get analyzer from simulation
+    summary = sim_analyzer.get_strain_summary()
     print(f"✓ Generated strain summary")
     
     print(f"\n1. Summary overview:")
@@ -227,12 +229,12 @@ def test_multiple_strain_scenarios():
             n_agents=200,
             start='2020-01-01',
             stop='2021-01-01',
-            unit='day',
-            dt=1
+            dt=ss.days(1)
         )
         
         sim.run()
-        df = analyzer.to_df()
+        sim_analyzer = sim.analyzers[0]  # Get analyzer from simulation
+        df = sim_analyzer.to_df()
         
         # Count strain-related columns
         strain_cols = [col for col in df.columns if '(' in col and ')' in col]
@@ -251,7 +253,7 @@ if __name__ == "__main__":
     print("Running analyzer output validation tests...\n")
     
     try:
-        df = test_small_simulation_run()
+        test_small_simulation_run()
         test_csv_export_compatibility()
         test_strain_summary_feature()
         test_multiple_strain_scenarios()

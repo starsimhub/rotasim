@@ -39,17 +39,15 @@ def test_single_strain_simulation():
     """Test that a single Rotavirus strain can run in a basic simulation"""
     print("Testing single strain simulation...")
     
-    # Create simple simulation with one strain
-    rota = Rotavirus(G=1, P=8, init_prev=0.01)
+    # Create simple simulation with one strain using rs.Sim
+    from rotasim import Sim as RotaSim
     
-    sim = ss.Sim(
-        diseases=[rota],
-        networks='random',
+    sim = RotaSim(
+        initial_strains=[(1, 8)],
         n_agents=1000,
         start='2020-01-01',
         stop='2021-01-01',
-        unit='day',
-        dt=1,  # Daily timestep
+        dt=ss.days(1),
         verbose=0
     )
     
@@ -58,56 +56,45 @@ def test_single_strain_simulation():
     
     # Basic checks
     assert sim.complete, "Simulation should have completed"
-    assert rota.name in sim.diseases, f"Disease {rota.name} should be in sim.diseases"
+    assert len(sim.diseases) > 0, "Should have diseases"
     
     # Check that some transmission occurred
-    print(f"Available results: {list(rota.results.keys())}")
-    
-    # Use a result that should exist (number of infected people over time)
-    if hasattr(rota, 'infected') and len(rota.infected.uids) > 0:
-        current_infected = len(rota.infected.uids)
-        print(f"✓ Single strain simulation completed with {current_infected} currently infected")
-    else:
-        # Check if any results exist that indicate activity
-        available_results = list(rota.results.keys())
-        if available_results:
-            print(f"✓ Single strain simulation completed, results available: {available_results}")
-        else:
-            print("✓ Single strain simulation completed (no specific infection data available yet)")
+    total_infections = sum(disease.results.cum_infections[-1] for disease in sim.diseases.values())
+    print(f"✓ Single strain simulation completed with {total_infections} total infections")
 
 
 def test_multi_strain_basic():
     """Test that multiple Rotavirus strains can coexist without interference"""
     print("Testing multi-strain basic functionality...")
     
-    # Create multiple strains
-    rota1 = Rotavirus(G=1, P=8, init_prev=0.005)
-    rota2 = Rotavirus(G=2, P=4, init_prev=0.005) 
-    rota3 = Rotavirus(G=3, P=6, init_prev=0.005)
+    # Create simulation with multiple strains using rs.Sim
+    from rotasim import Sim as RotaSim
     
-    sim = ss.Sim(
-        diseases=[rota1, rota2, rota3],
-        networks='random',
+    initial_strains = [(1, 8), (2, 4), (3, 6)]
+    sim = RotaSim(
+        initial_strains=initial_strains,
         n_agents=2000,
         start='2020-01-01',
         stop='2021-01-01',
-        unit='day',
-        dt=1,
+        dt=ss.days(1),
         verbose=0
     )
     
     sim.run()
     
-    # Check all strains are present and active
-    for rota in [rota1, rota2, rota3]:
-        assert rota.name in sim.diseases, f"Disease {rota.name} should be in sim.diseases"
-        
-        # Check for current infections or any activity
-        if hasattr(rota, 'infected'):
-            current_infected = len(rota.infected.uids) if hasattr(rota.infected, 'uids') else 0
-            print(f"  {rota.name}: {current_infected} currently infected")
-        else:
-            print(f"  {rota.name}: Disease instance created successfully")
+    # Check that diseases were created for each initial strain
+    disease_names = list(sim.diseases.keys())
+    expected_names = [f"G{g}P{p}" for g, p in initial_strains]
+    
+    for expected_name in expected_names:
+        assert expected_name in disease_names, f"Disease {expected_name} should be in sim.diseases"
+        disease = sim.diseases[expected_name]
+        infections = disease.results.cum_infections[-1] if len(disease.results.cum_infections) > 0 else 0
+        print(f"  {expected_name}: {infections} cumulative infections")
+    
+    total_infections = sum(disease.results.cum_infections[-1] for disease in sim.diseases.values())
+    print(f"✓ Multi-strain simulation completed with {total_infections} total infections")
+    print(f"  Created {len(sim.diseases)} total diseases (including reassortants)")
     
     print("✓ Multi-strain basic test passed")
 

@@ -5,174 +5,241 @@ Provides convenient functions for generating strain combinations and fitness sce
 import itertools
 
 INITIAL_STRAIN_SCENARIOS = {
-    'default': [(1, 8), (2, 4), (3, 8)],  # Default initial strains
-    'high_diversity': [(1, 8), (2, 4), (3, 8), (4, 8), (9, 8), (12, 8), (9, 6), (12, 6), (9, 4), (1, 6), (2, 8), (2, 6)],
-    'low_diversity': [(1, 8), (2, 4), (3, 8), (4, 8)],
+    'default': {
+        'description': 'Default initial strains - common global strains',
+        'strains': [(1, 8), (2, 4), (3, 8)]
+    },
+    'high_diversity': {
+        'description': 'High diversity scenario with 12 different G,P combinations',
+        'strains': [(1, 8), (2, 4), (3, 8), (4, 8), (9, 8), (12, 8), (9, 6), (12, 6), (9, 4), (1, 6), (2, 8), (2, 6)]
+    },
+    'low_diversity': {
+        'description': 'Low diversity scenario with 4 main strains',
+        'strains': [(1, 8), (2, 4), (3, 8), (4, 8)]
+    },
 }
 
 # Built-in fitness scenarios based on v1 fitness hypotheses
 FITNESS_HYPOTHESES = {
     'default': {
-        'default': 1.0,  # Default fitness multiplier if not specified
+        'description': 'Default scenario - all strains equal fitness',
+        'fitness': {
+            'default': 1.0,  # Default fitness multiplier if not specified
+        }
     },
     '1': {
-        'default': 1,  # Default fitness multiplier if not specified
+        'description': 'Fitness hypothesis 1 - default fitness 1.0',
+        'fitness': {
+            'default': 1,  # Default fitness multiplier if not specified
+        }
     },
     '2': {
-        'default': 0.9,  # Default fitness multiplier if not specified
-        (1, 1): 0.93,
-        (2, 2): 0.93,
-        (3, 3): 0.93,
-        (4, 4): 0.93,
+        'description': 'Fitness hypothesis 2 - default fitness 0.9, some strains at 0.93',
+        'fitness': {
+            'default': 0.9,  # Default fitness multiplier if not specified
+            (1, 1): 0.93,
+            (2, 2): 0.93,
+            (3, 3): 0.93,
+            (4, 4): 0.93,
+        }
     },
     '3': {
-        'default': 0.87,
-        (1, 1): 0.93,
-        (2, 2): 0.93,
-        (3, 3): 0.90,
-        (4, 4): 0.90,
+        'description': 'Fitness hypothesis 3 - default fitness 0.87, varied strain fitness',
+        'fitness': {
+            'default': 0.87,
+            (1, 1): 0.93,
+            (2, 2): 0.93,
+            (3, 3): 0.90,
+            (4, 4): 0.90,
+        }
     },
     '4': {
-        'default': 1,
-        (1, 1): 1,
-        (2, 2): 0.2,
+        'description': 'Fitness hypothesis 4 - G1P1 dominant, G2P2 weak',
+        'fitness': {
+            'default': 1,
+            (1, 1): 1,
+            (2, 2): 0.2,
+        }
     },
     '5': {
-        'default': 0.2,  # Default fitness multiplier if not specified
-        (1, 1): 1,
-        (2, 1): 0.5,
-        (1, 3): 0.5,
+        'description': 'Fitness hypothesis 5 - G1P1 dominant, partial hetero protection',
+        'fitness': {
+            'default': 0.2,  # Default fitness multiplier if not specified
+            (1, 1): 1,
+            (2, 1): 0.5,
+            (1, 3): 0.5,
+        }
     },
     '6': {
-        'default': 0.05,  # Default fitness multiplier if not specified
-        (1, 8): 1,
-        (2, 4): 0.2,
-        (3, 8): 0.4,
-        (4, 8): 0.5,
+        'description': 'Fitness hypothesis 6 - G1P8 dominant, realistic strain competition',
+        'fitness': {
+            'default': 0.05,  # Default fitness multiplier if not specified
+            (1, 8): 1,
+            (2, 4): 0.2,
+            (3, 8): 0.4,
+            (4, 8): 0.5,
+        }
     },
     '7': {
-        'default': 0.05,  # Default fitness multiplier if not specified
-        (1, 8): 1,
-        (2, 4): 0.3,
-        (3, 8): 0.7,
-        (4, 8): 0.6,
+        'description': 'Fitness hypothesis 7 - G1P8 dominant, moderate competition',
+        'fitness': {
+            'default': 0.05,  # Default fitness multiplier if not specified
+            (1, 8): 1,
+            (2, 4): 0.3,
+            (3, 8): 0.7,
+            (4, 8): 0.6,
+        }
     },
     '8': {
-        'default': 0.05,  # Default fitness multiplier if not specified
-        (1, 8): 1,
-        (2, 4): 0.4,
-        (3, 8): 0.9,
-        (4, 8): 0.8,
+        'description': 'Fitness hypothesis 8 - G1P8 dominant, strong competition',
+        'fitness': {
+            'default': 0.05,  # Default fitness multiplier if not specified
+            (1, 8): 1,
+            (2, 4): 0.4,
+            (3, 8): 0.9,
+            (4, 8): 0.8,
+        }
     },
     '9': {
-        'default': 0.2,  # Default fitness multiplier if not specified
-        (1, 8): 1,
-        (2, 4): 0.6,
-        (3, 8): 0.9,
-        (4, 8): 0.9,
+        'description': 'Fitness hypothesis 9 - G1P8 dominant, balanced competition',
+        'fitness': {
+            'default': 0.2,  # Default fitness multiplier if not specified
+            (1, 8): 1,
+            (2, 4): 0.6,
+            (3, 8): 0.9,
+            (4, 8): 0.9,
+        }
     },
     '10': {
-        'default': 0.4,  # Default fitness multiplier if not specified
-        (1, 8): 1,
-        (2, 4): 0.6,
-        (3, 8): 0.9,
-        (4, 8): 0.9,
+        'description': 'Fitness hypothesis 10 - G1P8 dominant, higher background fitness',
+        'fitness': {
+            'default': 0.4,  # Default fitness multiplier if not specified
+            (1, 8): 1,
+            (2, 4): 0.6,
+            (3, 8): 0.9,
+            (4, 8): 0.9,
+        }
     },
     '11': {
-        'default': 0.5,  # Default fitness multiplier if not specified
-        (1, 8): 0.98,
-        (2, 4): 0.7,
-        (3, 8): 0.8,
-        (4, 8): 0.8,
+        'description': 'Fitness hypothesis 11 - G1P8 slightly reduced, balanced strains',
+        'fitness': {
+            'default': 0.5,  # Default fitness multiplier if not specified
+            (1, 8): 0.98,
+            (2, 4): 0.7,
+            (3, 8): 0.8,
+            (4, 8): 0.8,
+        }
     },
     '12': {
-        'default': 0.5,  # Default fitness multiplier if not specified
-        (1, 8): 0.98,
-        (2, 4): 0.7,
-        (3, 8): 0.9,
-        (4, 8): 0.9,
+        'description': 'Fitness hypothesis 12 - G1P8 slightly reduced, strong G3P8',
+        'fitness': {
+            'default': 0.5,  # Default fitness multiplier if not specified
+            (1, 8): 0.98,
+            (2, 4): 0.7,
+            (3, 8): 0.9,
+            (4, 8): 0.9,
+        }
     },
     '13': {
-        'default': 0.7,  # Default fitness multiplier if not specified
-        (1, 8): 0.98,
-        (2, 4): 0.8,
-        (3, 8): 0.9,
-        (4, 8): 0.9,
+        'description': 'Fitness hypothesis 13 - Higher background fitness, competitive strains',
+        'fitness': {
+            'default': 0.7,  # Default fitness multiplier if not specified
+            (1, 8): 0.98,
+            (2, 4): 0.8,
+            (3, 8): 0.9,
+            (4, 8): 0.9,
+        }
     },
     '14': {
-        'default': 0.05,  # Default fitness multiplier if not specified
-        (1, 8): 0.98,
-        (2, 4): 0.4,
-        (3, 8): 0.7,
-        (12, 8): 0.75,
-        (9, 6): 0.58,
-        (11, 8): 0.2,
+        'description': 'Fitness hypothesis 14 - Complex multi-strain competition',
+        'fitness': {
+            'default': 0.05,  # Default fitness multiplier if not specified
+            (1, 8): 0.98,
+            (2, 4): 0.4,
+            (3, 8): 0.7,
+            (12, 8): 0.75,
+            (9, 6): 0.58,
+            (11, 8): 0.2,
+        }
     },
     '15': {
-        'default': 0.4,  # Default fitness multiplier if not specified
-        (1, 8): 1,
-        (2, 4): 0.7,
-        (3, 8): 0.93,
-        (4, 8): 0.93,
-        (9, 8): 0.95,
-        (12, 8): 0.94,
-        (9, 6): 0.3,
-        (11, 8): 0.35,
+        'description': 'Fitness hypothesis 15 - High diversity with strong G9P8, G12P8',
+        'fitness': {
+            'default': 0.4,  # Default fitness multiplier if not specified
+            (1, 8): 1,
+            (2, 4): 0.7,
+            (3, 8): 0.93,
+            (4, 8): 0.93,
+            (9, 8): 0.95,
+            (12, 8): 0.94,
+            (9, 6): 0.3,
+            (11, 8): 0.35,
+        }
     },
     '16': {
-        'default': 0.4,  # Default fitness multiplier if not specified
-        (1, 8): 1,
-        (2, 4): 0.7,
-        (3, 8): 0.85,
-        (4, 8): 0.88,
-        (9, 8): 0.95,
-        (12, 8): 0.93,
-        (9, 6): 0.85,
-        (12, 6): 0.90,
-        (9, 4): 0.90,
-        (1, 6): 0.6,
-        (2, 8): 0.6,
-        (2, 6): 0.6,
+        'description': 'Fitness hypothesis 16 - Very high diversity, balanced competition',
+        'fitness': {
+            'default': 0.4,  # Default fitness multiplier if not specified
+            (1, 8): 1,
+            (2, 4): 0.7,
+            (3, 8): 0.85,
+            (4, 8): 0.88,
+            (9, 8): 0.95,
+            (12, 8): 0.93,
+            (9, 6): 0.85,
+            (12, 6): 0.90,
+            (9, 4): 0.90,
+            (1, 6): 0.6,
+            (2, 8): 0.6,
+            (2, 6): 0.6,
+        }
     },
     '17': {
-        'default': 0.7,  # Default fitness multiplier if not specified
-        (1, 8): 1.0,
-        (2, 4): 0.85,
-        (3, 8): 0.85,
-        (4, 8): 0.88,
-        (9, 8): 0.95,
-        (12, 8): 0.93,
-        (9, 6): 0.83,
-        (12, 6): 0.90,
-        (9, 4): 0.90,
-        (1, 6): 0.8,
-        (2, 8): 0.8,
-        (2, 6): 0.8,
+        'description': 'Fitness hypothesis 17 - High diversity with stronger background',
+        'fitness': {
+            'default': 0.7,  # Default fitness multiplier if not specified
+            (1, 8): 1.0,
+            (2, 4): 0.85,
+            (3, 8): 0.85,
+            (4, 8): 0.88,
+            (9, 8): 0.95,
+            (12, 8): 0.93,
+            (9, 6): 0.83,
+            (12, 6): 0.90,
+            (9, 4): 0.90,
+            (1, 6): 0.8,
+            (2, 8): 0.8,
+            (2, 6): 0.8,
+        }
     },
-    # below fitness hypo. 18 was used in the analysis for the high baseline diversity setting in the report
     '18': {
-        'default': 0.65,  # Default fitness multiplier if not specified
-        (1, 8): 1,
-        (2, 4): 0.92,
-        (3, 8): 0.79,
-        (4, 8): 0.81,
-        (9, 8): 0.95,
-        (12, 8): 0.89,
-        (9, 6): 0.80,
-        (12, 6): 0.86,
-        (9, 4): 0.83,
-        (1, 6): 0.75,
-        (2, 8): 0.75,
-        (2, 6): 0.75,
+        'description': 'Fitness hypothesis 18 - High baseline diversity analysis scenario',
+        'fitness': {
+            'default': 0.65,  # Default fitness multiplier if not specified
+            (1, 8): 1,
+            (2, 4): 0.92,
+            (3, 8): 0.79,
+            (4, 8): 0.81,
+            (9, 8): 0.95,
+            (12, 8): 0.89,
+            (9, 6): 0.80,
+            (12, 6): 0.86,
+            (9, 4): 0.83,
+            (1, 6): 0.75,
+            (2, 8): 0.75,
+            (2, 6): 0.75,
+        }
     },
-    # below fitness hypo 19 was used for the low baseline diversity setting analysis in the report
     '19': {
-        'default': 0.4,  # Default fitness multiplier if not specified
-        (1, 8): 1,
-        (2, 4): 0.5,
-        (3, 8): 0.55,
-        (4, 8): 0.55,
-        (9, 8): 0.6,
+        'description': 'Fitness hypothesis 19 - Low baseline diversity analysis scenario',
+        'fitness': {
+            'default': 0.4,  # Default fitness multiplier if not specified
+            (1, 8): 1,
+            (2, 4): 0.5,
+            (3, 8): 0.55,
+            (4, 8): 0.55,
+            (9, 8): 0.6,
+        }
     },
 }
 
@@ -250,7 +317,7 @@ def get_fitness_multiplier(G, P, scenario):
     if isinstance(scenario, str):
         if scenario not in FITNESS_HYPOTHESES:
             raise ValueError(f"Unknown fitness scenario '{scenario}'. Available: {list(FITNESS_HYPOTHESES.keys())}")
-        scenario = FITNESS_HYPOTHESES[scenario]
+        scenario = FITNESS_HYPOTHESES[scenario]['fitness']
     
     # Return fitness multiplier, defaulting to 1.0
     default = scenario.get('default', 1.0)
@@ -303,6 +370,16 @@ def _parse_init_prev_parameter(init_prev, initial_strains):
 
 
 
+def list_initial_strain_scenarios():
+    """
+    List available built-in initial strain scenarios
+    
+    Returns:
+        Dict mapping scenario names to descriptions
+    """
+    return {name: data['description'] for name, data in INITIAL_STRAIN_SCENARIOS.items()}
+
+
 def list_fitness_scenarios():
     """
     List available built-in fitness scenarios
@@ -310,11 +387,7 @@ def list_fitness_scenarios():
     Returns:
         Dict mapping scenario names to descriptions
     """
-    return {
-        'baseline': 'Simple baseline scenario with G1P8 dominant',
-        'high_diversity': 'High diversity scenario with many competing strains',
-        'low_diversity': 'Low diversity scenario with few dominant strains',
-    }
+    return {name: data['description'] for name, data in FITNESS_HYPOTHESES.items()}
 
 
 def validate_initial_strains(initial_strains):
@@ -339,7 +412,7 @@ def validate_initial_strains(initial_strains):
     if isinstance(initial_strains, str):
         if initial_strains not in INITIAL_STRAIN_SCENARIOS:
             raise ValueError(f"Unknown initial_strains scenario '{initial_strains}'. Available: {list(INITIAL_STRAIN_SCENARIOS.keys())}")
-        initial_strains = INITIAL_STRAIN_SCENARIOS[initial_strains]
+        initial_strains = INITIAL_STRAIN_SCENARIOS[initial_strains]['strains']
         
     for i, strain in enumerate(initial_strains):
         if not isinstance(strain, (list, tuple)) or len(strain) != 2:

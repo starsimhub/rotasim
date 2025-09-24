@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from rotasim import (generate_gp_reassortments, get_fitness_multiplier, 
-                     list_fitness_scenarios, validate_initial_strains, FITNESS_HYPOTHESES)
+                     list_fitness_scenarios, list_initial_strain_scenarios, validate_initial_strains, FITNESS_HYPOTHESES)
 from rotasim import Sim
 
 
@@ -134,15 +134,22 @@ def test_fitness_scenarios():
     """Test fitness scenarios"""
     print("Testing fitness scenarios...")
     
-    # Test that all built-in scenarios exist
-    scenarios = list_fitness_scenarios()
-    assert 'baseline' in scenarios
-    assert 'high_diversity' in scenarios
-    assert 'low_diversity' in scenarios
+    # Test that all built-in fitness scenarios exist
+    fitness_scenarios = list_fitness_scenarios()
+    assert 'default' in fitness_scenarios
+    assert '1' in fitness_scenarios
+    assert '2' in fitness_scenarios
+    assert len(fitness_scenarios) >= 10  # Should have many numbered scenarios
     
     # Test that FITNESS_HYPOTHESES dict is populated
-    assert len(FITNESS_HYPOTHESES) >= 3
+    assert len(FITNESS_HYPOTHESES) >= 10
     assert 'default' in FITNESS_HYPOTHESES
+    
+    # Test that initial strain scenarios exist (separate function)
+    initial_scenarios = list_initial_strain_scenarios()
+    assert 'default' in initial_scenarios
+    assert 'high_diversity' in initial_scenarios
+    assert 'low_diversity' in initial_scenarios
     
     print("Fitness scenarios tests passed")
 
