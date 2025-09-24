@@ -39,11 +39,14 @@ def test_single_strain_simulation():
     """Test that a single Rotavirus strain can run in a basic simulation"""
     print("Testing single strain simulation...")
     
-    # Create simple simulation with one strain using rs.Sim
+    # Create simple simulation with one strain using new unified API
     from rotasim import Sim as RotaSim
     
     sim = RotaSim(
-        initial_strains=[(1, 8)],
+        scenario={
+            'strains': {(1, 8): {'fitness': 1.0, 'prevalence': 0.01}},
+            'default_fitness': 1.0
+        },
         n_agents=1000,
         start='2020-01-01',
         stop='2021-01-01',
@@ -67,12 +70,12 @@ def test_multi_strain_basic():
     """Test that multiple Rotavirus strains can coexist without interference"""
     print("Testing multi-strain basic functionality...")
     
-    # Create simulation with multiple strains using rs.Sim
+    # Create simulation with multiple strains using new unified API
     from rotasim import Sim as RotaSim
     
-    initial_strains = [(1, 8), (2, 4), (3, 6)]
+    initial_strains = [(1, 8), (2, 4), (3, 8)]
     sim = RotaSim(
-        initial_strains=initial_strains,
+        # Uses default baseline scenario (3-strain)
         n_agents=2000,
         start='2020-01-01',
         stop='2021-01-01',

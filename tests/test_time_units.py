@@ -14,8 +14,15 @@ def test_time_units():
     """Test that time units are properly set to daily"""
     print("=== Testing Daily Time Units ===\n")
     
-    # Create a basic simulation
-    sim = Sim(initial_strains=[(1, 8)])
+    # Create a basic simulation using simple scenario (but only G1P8)
+    sim = Sim(
+        scenario={
+            'strains': {
+                (1, 8): {'fitness': 1.0, 'prevalence': 0.01}
+            },
+            'default_fitness': 1.0
+        }
+    )
     
     # Check simulation parameters
     print("Simulation parameters:")

@@ -68,9 +68,12 @@ def test_connector_auto_detection():
     initial_strains = [(1, 8), (2, 4), (3, 6)]
     custom_connector = RotaImmunityConnector()
     
-    # Create simulation using V2 pattern
+    # Create simulation using V2 pattern with new unified API
     sim = RotaSim(
-        initial_strains=initial_strains,
+        scenario={
+            'strains': {strain: {'fitness': 1.0, 'prevalence': 0.01} for strain in initial_strains},
+            'default_fitness': 1.0
+        },
         connectors=[custom_connector],  # Use custom connector
         n_agents=1000,
         start='2020-01-01',

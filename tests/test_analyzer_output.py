@@ -20,7 +20,7 @@ def test_small_simulation_run():
     # Create small simulation for testing
     analyzer = StrainStats()
     sim = Sim(
-        initial_strains=[(1, 8), (2, 4)], 
+        scenario='simple',
         analyzers=[analyzer],
         n_agents=200,
         start='2020-01-01',
@@ -100,7 +100,7 @@ def test_csv_export_compatibility():
     # Run simulation
     analyzer = StrainStats()
     sim = Sim(
-        initial_strains=[(1, 8), (2, 4)], 
+        scenario='simple',
         analyzers=[analyzer],
         n_agents=100,
         start='2020-01-01',
@@ -170,7 +170,7 @@ def test_strain_summary_feature():
     # Create simulation with some activity
     analyzer = StrainStats()
     sim = Sim(
-        initial_strains=[(1, 8), (2, 4)], 
+        scenario='simple',
         analyzers=[analyzer],
         n_agents=500,
         start='2020-01-01',
@@ -223,8 +223,12 @@ def test_multiple_strain_scenarios():
         print(f"{name}: {strains}")
         
         analyzer = StrainStats()
+        strain_scenario = {
+            'strains': {strain: {'fitness': 1.0, 'prevalence': 0.01} for strain in strains},
+            'default_fitness': 1.0
+        }
         sim = Sim(
-            initial_strains=strains,
+            scenario=strain_scenario,
             analyzers=[analyzer],
             n_agents=200,
             start='2020-01-01',

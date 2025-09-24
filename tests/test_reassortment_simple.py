@@ -21,7 +21,10 @@ def test_basic_creation():
     
     # Test Rotasim creation with no connectors (should avoid the issue)
     print("\n=== Rotasim with No Connectors ===")
-    sim = Sim(initial_strains=[(1, 8), (2, 4)], connectors=[])
+    sim = Sim(
+        scenario='simple', 
+        connectors=[]
+    )
     print("✓ Created Rotasim with no connectors")
     
     # Try to initialize this one
@@ -35,7 +38,10 @@ def test_basic_creation():
     print("\n=== Test Single Connector ===")
     # Try with just reassortment connector
     reassortment = RotaReassortmentConnector()
-    sim2 = Sim(initial_strains=[(1, 8), (2, 4)], connectors=[reassortment])
+    sim2 = Sim(
+        scenario='simple', 
+        connectors=[reassortment]
+    )
     print("✓ Created Rotasim with only reassortment connector")
     
     try:

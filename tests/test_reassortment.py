@@ -33,7 +33,7 @@ def test_reassortment_with_rotasim():
     
     # Create Rotasim with default connectors (should include reassortment)
     print("1. Testing default connectors (includes reassortment):")
-    sim = Sim(initial_strains=[(1, 8), (2, 4)])
+    sim = Sim(scenario='simple')
     print(f"[OK] Created Rotasim with default connectors")
     
     # Check strain summary 
@@ -45,7 +45,10 @@ def test_reassortment_with_rotasim():
     
     # Create Rotasim with no connectors
     print("2. Testing without connectors:")
-    sim_no_connectors = Sim(initial_strains=[(1, 8), (2, 4)], connectors=[])
+    sim_no_connectors = Sim(
+        scenario='simple', 
+        connectors=[]
+    )
     print(f"[OK] Created Rotasim without connectors")
     print()
     
@@ -53,7 +56,7 @@ def test_reassortment_with_rotasim():
     print("3. Testing with custom reassortment connector:")
     custom_reassortment = RotaReassortmentConnector(reassortment_prob=0.2)
     sim_custom = Sim(
-        initial_strains=[(1, 8), (2, 4)], 
+        scenario='simple', 
         connectors=[custom_reassortment]
     )
     print(f"[OK] Created Rotasim with custom reassortment connector")
@@ -66,7 +69,7 @@ def test_reassortment_analysis():
     
     # Test 1: Verify reassortment connector is included by default
     print("1. Verify reassortment connector included in defaults:")
-    sim = Sim(initial_strains=[(1, 8), (2, 4), (3, 6)])
+    sim = Sim()
     summary = sim.get_strain_summary()
     
     # Calculate expected reassortants: from 3 strains (G1P8, G2P4, G3P6)
@@ -128,7 +131,16 @@ def test_reassortment_analysis():
     ]
     
     for name, strains, exp_total, exp_active, exp_dormant in scenarios:
-        test_sim = Sim(initial_strains=strains)
+        if name == "Two strains" and strains == [(1, 8), (2, 4)]:
+            # Use simple scenario for the two-strain case
+            test_sim = Sim(scenario='simple')
+        else:
+            test_sim = Sim(
+                scenario={
+                    'strains': {strain: {'fitness': 1.0, 'prevalence': 0.01} for strain in strains},
+                    'default_fitness': 1.0
+                }
+            )
         test_summary = test_sim.get_strain_summary()
         
         actual_total = test_summary['total_diseases']

@@ -4,243 +4,88 @@ Provides convenient functions for generating strain combinations and fitness sce
 """
 import itertools
 
-INITIAL_STRAIN_SCENARIOS = {
-    'default': {
-        'description': 'Default initial strains - common global strains',
-        'strains': [(1, 8), (2, 4), (3, 8)]
+# Unified scenario system - contains strains, fitness, and prevalence all in one place
+SCENARIOS = {
+    'simple': {
+        'description': 'Simple two-strain scenario - G1P8 and G2P4 with equal fitness and prevalence',
+        'strains': {
+            (1, 8): {'fitness': 1.0, 'prevalence': 0.01},
+            (2, 4): {'fitness': 1.0, 'prevalence': 0.01}
+        },
+        'default_fitness': 1.0
     },
+    
+    'baseline': {
+        'description': 'Baseline scenario - common global strains with equal fitness',
+        'strains': {
+            (1, 8): {'fitness': 1.0, 'prevalence': 0.015},
+            (2, 4): {'fitness': 1.0, 'prevalence': 0.008}, 
+            (3, 8): {'fitness': 1.0, 'prevalence': 0.007}
+        },
+        'default_fitness': 1.0
+    },
+    
+    'realistic_competition': {
+        'description': 'G1P8 dominant with realistic strain competition',
+        'strains': {
+            (1, 8): {'fitness': 1.0, 'prevalence': 0.015},
+            (2, 4): {'fitness': 0.2, 'prevalence': 0.008},
+            (3, 8): {'fitness': 0.4, 'prevalence': 0.007},
+            (4, 8): {'fitness': 0.5, 'prevalence': 0.005}
+        },
+        'default_fitness': 0.05
+    },
+    
+    'balanced_competition': {
+        'description': 'G1P8 dominant with moderate balanced competition',
+        'strains': {
+            (1, 8): {'fitness': 1.0, 'prevalence': 0.015},
+            (2, 4): {'fitness': 0.6, 'prevalence': 0.008},
+            (3, 8): {'fitness': 0.9, 'prevalence': 0.007},
+            (4, 8): {'fitness': 0.9, 'prevalence': 0.005}
+        },
+        'default_fitness': 0.2
+    },
+    
     'high_diversity': {
-        'description': 'High diversity scenario with 12 different G,P combinations',
-        'strains': [(1, 8), (2, 4), (3, 8), (4, 8), (9, 8), (12, 8), (9, 6), (12, 6), (9, 4), (1, 6), (2, 8), (2, 6)]
+        'description': 'High diversity with 12 strains and varied fitness',
+        'strains': {
+            (1, 8): {'fitness': 1.0, 'prevalence': 0.012},
+            (2, 4): {'fitness': 0.7, 'prevalence': 0.007},
+            (3, 8): {'fitness': 0.85, 'prevalence': 0.005},
+            (4, 8): {'fitness': 0.88, 'prevalence': 0.004},
+            (9, 8): {'fitness': 0.95, 'prevalence': 0.003},
+            (12, 8): {'fitness': 0.93, 'prevalence': 0.003},
+            (9, 6): {'fitness': 0.85, 'prevalence': 0.002},
+            (12, 6): {'fitness': 0.90, 'prevalence': 0.002},
+            (9, 4): {'fitness': 0.90, 'prevalence': 0.002},
+            (1, 6): {'fitness': 0.6, 'prevalence': 0.002},
+            (2, 8): {'fitness': 0.6, 'prevalence': 0.002},
+            (2, 6): {'fitness': 0.6, 'prevalence': 0.002}
+        },
+        'default_fitness': 0.4
     },
+    
     'low_diversity': {
-        'description': 'Low diversity scenario with 4 main strains',
-        'strains': [(1, 8), (2, 4), (3, 8), (4, 8)]
+        'description': 'Low diversity with 4 main competitive strains',
+        'strains': {
+            (1, 8): {'fitness': 0.98, 'prevalence': 0.020},
+            (2, 4): {'fitness': 0.7, 'prevalence': 0.012},
+            (3, 8): {'fitness': 0.8, 'prevalence': 0.008},
+            (4, 8): {'fitness': 0.8, 'prevalence': 0.005}
+        },
+        'default_fitness': 0.5
     },
-}
-
-# Built-in fitness scenarios based on v1 fitness hypotheses
-FITNESS_HYPOTHESES = {
-    'default': {
-        'description': 'Default scenario - all strains equal fitness',
-        'fitness': {
-            'default': 1.0,  # Default fitness multiplier if not specified
-        }
-    },
-    '1': {
-        'description': 'Fitness hypothesis 1 - default fitness 1.0',
-        'fitness': {
-            'default': 1,  # Default fitness multiplier if not specified
-        }
-    },
-    '2': {
-        'description': 'Fitness hypothesis 2 - default fitness 0.9, some strains at 0.93',
-        'fitness': {
-            'default': 0.9,  # Default fitness multiplier if not specified
-            (1, 1): 0.93,
-            (2, 2): 0.93,
-            (3, 3): 0.93,
-            (4, 4): 0.93,
-        }
-    },
-    '3': {
-        'description': 'Fitness hypothesis 3 - default fitness 0.87, varied strain fitness',
-        'fitness': {
-            'default': 0.87,
-            (1, 1): 0.93,
-            (2, 2): 0.93,
-            (3, 3): 0.90,
-            (4, 4): 0.90,
-        }
-    },
-    '4': {
-        'description': 'Fitness hypothesis 4 - G1P1 dominant, G2P2 weak',
-        'fitness': {
-            'default': 1,
-            (1, 1): 1,
-            (2, 2): 0.2,
-        }
-    },
-    '5': {
-        'description': 'Fitness hypothesis 5 - G1P1 dominant, partial hetero protection',
-        'fitness': {
-            'default': 0.2,  # Default fitness multiplier if not specified
-            (1, 1): 1,
-            (2, 1): 0.5,
-            (1, 3): 0.5,
-        }
-    },
-    '6': {
-        'description': 'Fitness hypothesis 6 - G1P8 dominant, realistic strain competition',
-        'fitness': {
-            'default': 0.05,  # Default fitness multiplier if not specified
-            (1, 8): 1,
-            (2, 4): 0.2,
-            (3, 8): 0.4,
-            (4, 8): 0.5,
-        }
-    },
-    '7': {
-        'description': 'Fitness hypothesis 7 - G1P8 dominant, moderate competition',
-        'fitness': {
-            'default': 0.05,  # Default fitness multiplier if not specified
-            (1, 8): 1,
-            (2, 4): 0.3,
-            (3, 8): 0.7,
-            (4, 8): 0.6,
-        }
-    },
-    '8': {
-        'description': 'Fitness hypothesis 8 - G1P8 dominant, strong competition',
-        'fitness': {
-            'default': 0.05,  # Default fitness multiplier if not specified
-            (1, 8): 1,
-            (2, 4): 0.4,
-            (3, 8): 0.9,
-            (4, 8): 0.8,
-        }
-    },
-    '9': {
-        'description': 'Fitness hypothesis 9 - G1P8 dominant, balanced competition',
-        'fitness': {
-            'default': 0.2,  # Default fitness multiplier if not specified
-            (1, 8): 1,
-            (2, 4): 0.6,
-            (3, 8): 0.9,
-            (4, 8): 0.9,
-        }
-    },
-    '10': {
-        'description': 'Fitness hypothesis 10 - G1P8 dominant, higher background fitness',
-        'fitness': {
-            'default': 0.4,  # Default fitness multiplier if not specified
-            (1, 8): 1,
-            (2, 4): 0.6,
-            (3, 8): 0.9,
-            (4, 8): 0.9,
-        }
-    },
-    '11': {
-        'description': 'Fitness hypothesis 11 - G1P8 slightly reduced, balanced strains',
-        'fitness': {
-            'default': 0.5,  # Default fitness multiplier if not specified
-            (1, 8): 0.98,
-            (2, 4): 0.7,
-            (3, 8): 0.8,
-            (4, 8): 0.8,
-        }
-    },
-    '12': {
-        'description': 'Fitness hypothesis 12 - G1P8 slightly reduced, strong G3P8',
-        'fitness': {
-            'default': 0.5,  # Default fitness multiplier if not specified
-            (1, 8): 0.98,
-            (2, 4): 0.7,
-            (3, 8): 0.9,
-            (4, 8): 0.9,
-        }
-    },
-    '13': {
-        'description': 'Fitness hypothesis 13 - Higher background fitness, competitive strains',
-        'fitness': {
-            'default': 0.7,  # Default fitness multiplier if not specified
-            (1, 8): 0.98,
-            (2, 4): 0.8,
-            (3, 8): 0.9,
-            (4, 8): 0.9,
-        }
-    },
-    '14': {
-        'description': 'Fitness hypothesis 14 - Complex multi-strain competition',
-        'fitness': {
-            'default': 0.05,  # Default fitness multiplier if not specified
-            (1, 8): 0.98,
-            (2, 4): 0.4,
-            (3, 8): 0.7,
-            (12, 8): 0.75,
-            (9, 6): 0.58,
-            (11, 8): 0.2,
-        }
-    },
-    '15': {
-        'description': 'Fitness hypothesis 15 - High diversity with strong G9P8, G12P8',
-        'fitness': {
-            'default': 0.4,  # Default fitness multiplier if not specified
-            (1, 8): 1,
-            (2, 4): 0.7,
-            (3, 8): 0.93,
-            (4, 8): 0.93,
-            (9, 8): 0.95,
-            (12, 8): 0.94,
-            (9, 6): 0.3,
-            (11, 8): 0.35,
-        }
-    },
-    '16': {
-        'description': 'Fitness hypothesis 16 - Very high diversity, balanced competition',
-        'fitness': {
-            'default': 0.4,  # Default fitness multiplier if not specified
-            (1, 8): 1,
-            (2, 4): 0.7,
-            (3, 8): 0.85,
-            (4, 8): 0.88,
-            (9, 8): 0.95,
-            (12, 8): 0.93,
-            (9, 6): 0.85,
-            (12, 6): 0.90,
-            (9, 4): 0.90,
-            (1, 6): 0.6,
-            (2, 8): 0.6,
-            (2, 6): 0.6,
-        }
-    },
-    '17': {
-        'description': 'Fitness hypothesis 17 - High diversity with stronger background',
-        'fitness': {
-            'default': 0.7,  # Default fitness multiplier if not specified
-            (1, 8): 1.0,
-            (2, 4): 0.85,
-            (3, 8): 0.85,
-            (4, 8): 0.88,
-            (9, 8): 0.95,
-            (12, 8): 0.93,
-            (9, 6): 0.83,
-            (12, 6): 0.90,
-            (9, 4): 0.90,
-            (1, 6): 0.8,
-            (2, 8): 0.8,
-            (2, 6): 0.8,
-        }
-    },
-    '18': {
-        'description': 'Fitness hypothesis 18 - High baseline diversity analysis scenario',
-        'fitness': {
-            'default': 0.65,  # Default fitness multiplier if not specified
-            (1, 8): 1,
-            (2, 4): 0.92,
-            (3, 8): 0.79,
-            (4, 8): 0.81,
-            (9, 8): 0.95,
-            (12, 8): 0.89,
-            (9, 6): 0.80,
-            (12, 6): 0.86,
-            (9, 4): 0.83,
-            (1, 6): 0.75,
-            (2, 8): 0.75,
-            (2, 6): 0.75,
-        }
-    },
-    '19': {
-        'description': 'Fitness hypothesis 19 - Low baseline diversity analysis scenario',
-        'fitness': {
-            'default': 0.4,  # Default fitness multiplier if not specified
-            (1, 8): 1,
-            (2, 4): 0.5,
-            (3, 8): 0.55,
-            (4, 8): 0.55,
-            (9, 8): 0.6,
-        }
-    },
+    
+    'emergence_scenario': {
+        'description': 'Scenario for studying strain emergence with weak background',
+        'strains': {
+            (1, 8): {'fitness': 1.0, 'prevalence': 0.015},
+            (2, 4): {'fitness': 0.4, 'prevalence': 0.005},
+            (3, 8): {'fitness': 0.7, 'prevalence': 0.003}
+        },
+        'default_fitness': 0.05  # Very low fitness for new emerging strains
+    }
 }
 
 # Preferred partners for reassortment. Dict key is G, value is list of preferred P partners
@@ -293,136 +138,137 @@ def generate_gp_reassortments(initial_strains, use_preferred_partners=False, ver
     return all_reassortments
 
 
-def get_fitness_multiplier(G, P, scenario):
+def list_scenarios():
     """
-    Get fitness multiplier for a G,P combination
+    List available built-in simulation scenarios
+    
+    Returns:
+        Dict mapping scenario names to descriptions
+    """
+    return {name: data['description'] for name, data in SCENARIOS.items()}
+
+
+def get_scenario(scenario_name):
+    """
+    Get a scenario by name
     
     Args:
-        G: G genotype
-        P: P genotype  
-        scenario: Dict of fitness multipliers or string name of built-in scenario
+        scenario_name: Name of the scenario to retrieve
         
     Returns:
-        Float fitness multiplier (defaults to 1.0 if not found)
-        
-    Example:
-        >>> get_fitness_multiplier(1, 1, '4')
-        1.0
-        >>> get_fitness_multiplier(2, 2, '4')
-        0.8
-        >>> get_fitness_multiplier(3, 6, '4')  # Not in dict
-        1.0
+        Dict containing scenario data
     """
-    # Handle string scenario names
+    if scenario_name not in SCENARIOS:
+        raise ValueError(f"Unknown scenario '{scenario_name}'. Available scenarios: {list(SCENARIOS.keys())}")
+    return SCENARIOS[scenario_name]
+
+
+def validate_scenario(scenario):
+    """
+    Validate scenario format and content
+    
+    Args:
+        scenario: Either a string (scenario name) or dict (custom scenario)
+        
+    Returns:
+        Dict containing validated scenario data
+    """
     if isinstance(scenario, str):
-        if scenario not in FITNESS_HYPOTHESES:
-            raise ValueError(f"Unknown fitness scenario '{scenario}'. Available: {list(FITNESS_HYPOTHESES.keys())}")
-        scenario = FITNESS_HYPOTHESES[scenario]['fitness']
-    
-    # Return fitness multiplier, defaulting to 1.0
-    default = scenario.get('default', 1.0)
-    return scenario.get((G, P), default)
-
-
-def _parse_init_prev_parameter(init_prev, initial_strains):
-    """
-    Parse init_prev parameter into a standardized dict format
-    
-    Args:
-        init_prev: Float or dict specifying initial prevalence
-        initial_strains: List of (G,P) tuples for validation
+        # Built-in scenario
+        return get_scenario(scenario)
+    elif isinstance(scenario, dict):
+        # Custom scenario - validate structure
+        if 'strains' not in scenario:
+            raise ValueError("Custom scenario must contain 'strains' key")
         
-    Returns:
-        Dict mapping (G,P) tuples to prevalence values
+        if not isinstance(scenario['strains'], dict):
+            raise ValueError("Scenario 'strains' must be a dictionary")
+            
+        if len(scenario['strains']) == 0:
+            raise ValueError("Scenario must contain at least one strain")
+            
+        # Validate each strain entry
+        for strain, data in scenario['strains'].items():
+            if not isinstance(strain, tuple) or len(strain) != 2:
+                raise ValueError(f"Strain key must be a (G,P) tuple, got {strain}")
+                
+            G, P = strain
+            if not isinstance(G, int) or not isinstance(P, int):
+                raise ValueError(f"G and P must be integers, got G={G}, P={P}")
+                
+            if G <= 0 or P <= 0:
+                raise ValueError(f"G and P must be positive, got G={G}, P={P}")
+                
+            if not isinstance(data, dict):
+                raise ValueError(f"Strain data must be dict, got {type(data)} for strain {strain}")
+                
+            if 'fitness' not in data or 'prevalence' not in data:
+                raise ValueError(f"Strain data must contain 'fitness' and 'prevalence' keys for strain {strain}")
         
-    Raises:
-        ValueError: If format is invalid or values are out of range
-    """
-
-    def _parse_dict(d):
-        # Dict format: {(G,P): prevalence}
-        result = {}
-        for strain, prev in d.items():
-            if not isinstance(strain, (tuple, list)) or len(strain) != 2:
-                raise ValueError(f"Dict keys must be (G,P) tuples, got {strain}")
-            if not isinstance(prev, (int, float)) or prev < 0 or prev > 1:
-                raise ValueError(f"Prevalence values must be between 0 and 1, got {prev} for strain {strain}")
-            result[tuple(strain)] = float(prev)
-        return result
-
-    if isinstance(init_prev, (int, float)):
-        # Float format: same prevalence for all initial strains
-        if init_prev < 0 or init_prev > 1:
-            raise ValueError(f"init_prev must be between 0 and 1, got {init_prev}")
-        return {strain: float(init_prev) for strain in initial_strains}
-
-    elif isinstance(init_prev, dict):
-        return _parse_dict(init_prev)  # Validate format
-
-    elif isinstance(init_prev, str):
-        # String format: use predefined prevalence scenarios
-        if init_prev not in PREVALENCE_SCENARIOS:
-            raise ValueError(f"Unknown prevalence scenario '{init_prev}'. Available: {list(PREVALENCE_SCENARIOS.keys())}")
-        return _parse_dict(PREVALENCE_SCENARIOS[init_prev])
+        # Set default fitness if not provided
+        if 'default_fitness' not in scenario:
+            scenario['default_fitness'] = 1.0
+            
+        return scenario
     else:
-        raise ValueError(f"init_prev must be float or dict, got {type(init_prev)}")
+        raise ValueError(f"Scenario must be string or dict, got {type(scenario)}")
 
 
-
-
-def list_initial_strain_scenarios():
+def apply_scenario_overrides(scenario, override_fitness=None, override_prevalence=None, override_strains=None):
     """
-    List available built-in initial strain scenarios
-    
-    Returns:
-        Dict mapping scenario names to descriptions
-    """
-    return {name: data['description'] for name, data in INITIAL_STRAIN_SCENARIOS.items()}
-
-
-def list_fitness_scenarios():
-    """
-    List available built-in fitness scenarios
-    
-    Returns:
-        Dict mapping scenario names to descriptions
-    """
-    return {name: data['description'] for name, data in FITNESS_HYPOTHESES.items()}
-
-
-def validate_initial_strains(initial_strains):
-    """
-    Validate initial_strains format and content
+    Apply override parameters to a scenario
     
     Args:
-        initial_strains: List of (G,P) tuples
-        
-    Raises:
-        ValueError: If format is invalid
+        scenario: Base scenario dict
+        override_fitness: Override fitness values - float (all strains) or dict {(G,P): fitness}
+        override_prevalence: Override prevalence values - float (all strains) or dict {(G,P): prevalence}
+        override_strains: Add/modify strains - dict {(G,P): {'fitness': X, 'prevalence': Y}}
         
     Returns:
-        True if valid
+        Dict containing modified scenario
     """
-    if not initial_strains:
-        raise ValueError("initial_strains cannot be empty")
-        
-    if not isinstance(initial_strains, (list, tuple, str)):
-        raise ValueError("initial_strains must be a list, tuple, or scenario name string")
-
-    if isinstance(initial_strains, str):
-        if initial_strains not in INITIAL_STRAIN_SCENARIOS:
-            raise ValueError(f"Unknown initial_strains scenario '{initial_strains}'. Available: {list(INITIAL_STRAIN_SCENARIOS.keys())}")
-        initial_strains = INITIAL_STRAIN_SCENARIOS[initial_strains]['strains']
-        
-    for i, strain in enumerate(initial_strains):
-        if not isinstance(strain, (list, tuple)) or len(strain) != 2:
-            raise ValueError(f"Strain {i} must be a (G,P) tuple, got {strain}")
-            
-        G, P = strain
-        if not isinstance(G, int) or not isinstance(P, int):
-            raise ValueError(f"G and P must be integers, got G={G} (type {type(G)}), P={P} (type {type(P)})")
-            
-        if G <= 0 or P <= 0:
-            raise ValueError(f"G and P must be positive integers, got G={G}, P={P}")
+    import copy
+    result = copy.deepcopy(scenario)
     
-    return True
+    # Apply strain overrides first (adds/modifies strains)
+    if override_strains is not None:
+        if not isinstance(override_strains, dict):
+            raise ValueError("override_strains must be a dict")
+        for strain, data in override_strains.items():
+            if not isinstance(strain, tuple) or len(strain) != 2:
+                raise ValueError(f"Strain key must be (G,P) tuple, got {strain}")
+            if not isinstance(data, dict):
+                raise ValueError(f"Strain data must be dict, got {type(data)}")
+            if 'fitness' not in data or 'prevalence' not in data:
+                raise ValueError(f"Strain data must contain 'fitness' and 'prevalence' for {strain}")
+            result['strains'][strain] = data.copy()
+    
+    # Apply fitness overrides
+    if override_fitness is not None:
+        if isinstance(override_fitness, (int, float)):
+            # Apply to all strains
+            for strain in result['strains']:
+                result['strains'][strain]['fitness'] = float(override_fitness)
+        elif isinstance(override_fitness, dict):
+            # Apply to specific strains
+            for strain, fitness in override_fitness.items():
+                if strain in result['strains']:
+                    result['strains'][strain]['fitness'] = float(fitness)
+        else:
+            raise ValueError("override_fitness must be number or dict")
+    
+    # Apply prevalence overrides
+    if override_prevalence is not None:
+        if isinstance(override_prevalence, (int, float)):
+            # Apply to all strains
+            for strain in result['strains']:
+                result['strains'][strain]['prevalence'] = float(override_prevalence)
+        elif isinstance(override_prevalence, dict):
+            # Apply to specific strains
+            for strain, prevalence in override_prevalence.items():
+                if strain in result['strains']:
+                    result['strains'][strain]['prevalence'] = float(prevalence)
+        else:
+            raise ValueError("override_prevalence must be number or dict")
+    
+    return result

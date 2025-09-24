@@ -7,9 +7,8 @@ with sc.timer():
     sim = rs.Sim(
         verbose=True,
         n_agents=50000,
-        initial_strains='high_diversity', # see utils.py for options
-        fitness_scenario='default', # see utils.py for options
-        init_prev=.002, # percent of population initially infected with each strain
+        scenario='high_diversity', # see utils.py for unified scenarios
+        override_prevalence=0.002, # percent of population initially infected with each strain
         start='2000-01-01', # simulation start date
         stop='2003-06-01', # simulation end date
         dt=ss.days(1), # timestep size

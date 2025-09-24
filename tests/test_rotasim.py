@@ -16,10 +16,10 @@ def test_default():
     """Test basic v2 simulation with default parameters"""
     sc.heading("Testing v2 default parameters")
     
-    # Test basic simulation setup and run
+    # Test basic simulation setup and run using new unified API
     with sc.timer() as T:
         sim = rs.Sim(
-            initial_strains=[(1, 8), (2, 4)],
+            scenario='simple',
             n_agents=N, 
             start='2020-01-01',
             stop='2020-04-01',  # Just 3 months for testing
@@ -49,13 +49,12 @@ def test_alt():
     """Test v2 simulation with alternate parameters"""
     sc.heading("Testing v2 alternate parameters")
     
-    # Test with custom fitness scenario and different parameters
+    # Test with baseline scenario and overrides
     with sc.timer() as T:
         sim = rs.Sim(
-            initial_strains=[(1, 8), (2, 4)],  # Use 2 strains instead of 3 for speed
-            fitness_scenario='default',  # Use valid default scenario
+            # Use default baseline scenario
+            override_prevalence=0.02,  # Override all prevalence values
             base_beta=0.15,
-            init_prev=0.02,
             n_agents=N,
             start='2020-01-01', 
             stop='2020-04-01',  # Just 3 months for testing
@@ -66,8 +65,8 @@ def test_alt():
     
     print(f"V2 alternate simulation completed in {T.elapsed:.2f} seconds")
     
-    # Validation
-    assert len(sim.diseases) == 4  # 2 initial strains = 2x2 reassortants
+    # Validation - baseline scenario has 3 strains, so 3x3=9 total diseases but 6 unique (G,P) combinations
+    assert len(sim.diseases) == 6  # baseline scenario has 3 initial strains
     
     total_infections = sum(disease.results.cum_infections[-1] for disease in sim.diseases.values())
     assert total_infections > 0, "No infections occurred in alternate simulation"
@@ -75,20 +74,23 @@ def test_alt():
     print(f"Total cumulative infections (alternate): {total_infections}")
     
     # Additional validation for alternate simulation
-    assert len(sim.diseases) == 4, f"Expected 4 diseases, got {len(sim.diseases)}"
+    assert len(sim.diseases) == 6, f"Expected 6 diseases, got {len(sim.diseases)}"
     assert len(sim.connectors) == 2, f"Expected 2 connectors, got {len(sim.connectors)}"
 
 def test_basic_functionality():
     """Test that basic v2 functionality works correctly"""
     sc.heading("Testing v2 basic functionality")
     
-    # Test strain generation
-    sim = rs.Sim(initial_strains=[(1, 8)])
+    # Test strain generation with single strain
+    sim = rs.Sim(scenario={
+        'strains': {(1, 8): {'fitness': 1.0, 'prevalence': 0.01}},
+        'default_fitness': 1.0
+    })
     strain_summary = sim.get_strain_summary()
     assert strain_summary['total_diseases'] == 1  # Single strain = no reassortants
     
     # Test multi-strain setup  
-    sim = rs.Sim(initial_strains=[(1, 8), (2, 4)])
+    sim = rs.Sim(scenario='simple')
     strain_summary = sim.get_strain_summary()
     assert strain_summary['total_diseases'] == 4  # 2x2 reassortants
     
