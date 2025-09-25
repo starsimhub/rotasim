@@ -5,6 +5,7 @@ These analyzers work with the new v2 architecture where each strain is a separat
 Rotavirus disease, but provide the same output format as v1 for backwards compatibility
 with existing analysis scripts and data processing workflows.
 """
+# Third-party imports
 import numpy as np
 import starsim as ss
 
@@ -103,7 +104,7 @@ class StrainStats(ss.Analyzer):
         
         for disease, strain_name in zip(self._rotavirus_diseases, self._strain_names):
             # Count currently infected agents for this disease
-            count = len(disease.infected.uids)  # Number of infected agents
+            count = disease.infected.sum()  # Number of infected agents
             strain_counts[strain_name] = count
             total_count += count
         
@@ -314,7 +315,7 @@ class AgeStats(ss.Analyzer):
         """Initialize age statistics analyzer"""
         super().__init__(**kwargs)
         
-        # V1 age bins and labels (from v1_legacy code)
+        # Standard age bins and labels for age distribution analysis
         self.age_bins = [2/12, 4/12, 6/12, 12/12, 24/12, 36/12, 48/12, 60/12, 100]
         self.age_labels = ["0-2", "2-4", "4-6", "6-12", "12-24", "24-36", "36-48", "48-60", "60+"]
         

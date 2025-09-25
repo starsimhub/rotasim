@@ -3,10 +3,13 @@ Sim convenience class for multi-strain simulations
 For starsim v2, the class must be named "Sim", not "Rotasim"
 Provides an easy-to-use interface for researchers while maintaining flexibility
 """
+# Third-party imports
 import starsim as ss
-# All utility functions now handled through unified scenario system
+
+# Local imports
 from .immunity import RotaImmunityConnector
 from .reassortment import RotaReassortmentConnector
+from .utils import validate_scenario, apply_scenario_overrides
 
 
 class Sim(ss.Sim):
@@ -74,8 +77,6 @@ class Sim(ss.Sim):
             # Add new strain
             sim = Sim(scenario='baseline', override_strains={(9,6): {'fitness': 0.7, 'prevalence': 0.003}})
         """
-        from .utils import validate_scenario, apply_scenario_overrides
-        
         # Validate and process scenario
         validated_scenario = validate_scenario(scenario)
         

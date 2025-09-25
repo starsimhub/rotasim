@@ -2,8 +2,14 @@
 High-performance immunity connector for Rotavirus v2 architecture
 Uses bitmask vectorization for cross-strain immunity calculations
 """
+# Standard library imports
+# (none needed for this module)
+
+# Third-party imports
 import numpy as np
 import starsim as ss
+
+# Local imports
 from .rotavirus import Rotavirus
 
 class PathogenMatch:
@@ -23,7 +29,22 @@ class RotaImmunityConnector(ss.Connector):
     """
     
     def __init__(self, pars=None, **kwargs):
-        """Initialize immunity connector with default parameters"""
+        """
+        Initialize immunity connector with default parameters
+        
+        Args:
+            pars (dict, optional): Parameters dict to override defaults
+            **kwargs: Additional parameters
+            
+        Default parameters:
+            homotypic_immunity_efficacy (0.9): Protection from same G,P strain
+            partial_heterotypic_immunity_efficacy (0.5): Protection from shared G or P
+            complete_heterotypic_immunity_efficacy (0.3): Protection from different G,P  
+            naive_immunity_efficacy (0.0): Baseline immunity for naive individuals
+            full_waning_rate: Immunity waning rate (~273 days mean, 365/273 per year)
+            immunity_waning_delay (0 days): Delay before immunity decay starts
+            cotransmission_prob (2%): Probability of co-transmitting multiple strains
+        """
         super().__init__()
         
         # Define immunity parameters
@@ -160,62 +181,25 @@ class RotaImmunityConnector(ss.Connector):
         if len(self.rota_diseases) == 0:
             return
             
-        # 1. Apply vectorized immunity waning (some agents will lose all immunity over time)
-        # self._apply_full_waning() #disabled because not biologically accurate
-
-        # 2. Update cross-immunity protection for all diseases
+        # Update cross-immunity protection for all diseases
         self._update_cross_immunity()
         
-        # 3. Apply fitness-weighted transmission for coinfected agents
-        # self._apply_strain_selection()
-        # self._apply_fitness_weighted_transmission()
-        
-    def _apply_full_waning(self):
-        """Vectorized immunity waning - clear entire immunity portfolios based on oldest infection"""
-        if not self.has_immunity.any():
-            return
-            
-        # Number of people to lose immunity this timestep (Poisson process)
-        n_waning = np.random.poisson(self.pars.full_waning_rate * self.t.dt * self.has_immunity.sum())
-        
-        if n_waning > 0:
-            # Get UIDs of people who have immunity
-            immune_uids = self.has_immunity.uids
-            
-            # Find oldest infections (longest time since first infection)
-            oldest_times = self.oldest_infection[immune_uids]
-            
-            # Select n_waning people with oldest infections
-            waning_indices = np.argpartition(oldest_times, min(n_waning, len(oldest_times) - 1))[:n_waning]
-            waning_uids = immune_uids[waning_indices]
-            
-            # Clear all immunity bitmasks for these people
-            self.exposed_GP_bitmask[waning_uids] = 0
-            self.exposed_G_bitmask[waning_uids] = 0
-            self.exposed_P_bitmask[waning_uids] = 0
-            self.has_immunity[waning_uids] = False
-            self.oldest_infection[waning_uids] = np.nan
-            self.num_recovered_infections[waning_uids] = 0.0  # Reset infection history - full waning makes agents immunologically naive
-            
-            if len(waning_uids) > 0 and self.sim.pars.verbose > 1:
-                print(f"  Immunity waning: {len(waning_uids)} people lost all immunity")
-            self.results.n_waned[self.ti] += len(waning_uids)
-
-            for disease in self.rota_diseases:
-                disease.susceptible[waning_uids] = True
-                
     def _update_cross_immunity(self):
         """Fully vectorized cross-immunity using bitwise operations - NO UID LOOPS"""
-
-        # Reset G and P max decay factors to 0.0 each timestep for fresh calculation
+        # Reset decay factors and update immunity for all diseases
+        self._reset_decay_factors()
+        self._update_immunity_decay_factors()
+        self._calculate_disease_susceptibilities()
+        
+    def _reset_decay_factors(self):
+        """Reset G and P max decay factors to 0.0 each timestep for fresh calculation"""
         for g in self.unique_G:
             self.G_max_decayed_immunity_factors[g][:] = 0.0
         for p in self.unique_P:
             self.P_max_decayed_immunity_factors[p][:] = 0.0
             
-        # immune_mask = self.has_immunity
-        
-        # PHASE 1: Update all immunity decay factors for all diseases
+    def _update_immunity_decay_factors(self):
+        """Update immunity decay factors for all diseases based on recovery times"""
         for disease in self.rota_diseases:
             # Update max decay factors for agents recovered from this specific strain
             recovered_from_strain = (disease.infected==False) & (disease.ti_recovered > 0)
@@ -244,17 +228,9 @@ class RotaImmunityConnector(ss.Connector):
                     
                     self.G_max_decayed_immunity_factors[disease.G][waning_started_uids] = np.maximum(current_G_decay, decay_factor)
                     self.P_max_decayed_immunity_factors[disease.P][waning_started_uids] = np.maximum(current_P_decay, decay_factor)
-
-        # Get infection history susceptibility scaling factor (same for all diseases)
-        # infection_history_susceptibility_factor = np.ones(len(self.sim.people), dtype=float)
-        # for n_inf, rel_sus_factor in self.pars.infection_history_susceptibility_factors.items():
-        #     if n_inf < 3:
-        #         mask = (self.num_recovered_infections == n_inf)
-        #     else:  # 3+ infections use same scalar as 3
-        #         mask = (self.num_recovered_infections >= 3)
-        #     infection_history_susceptibility_factor[mask] = rel_sus_factor
-
-        # PHASE 2: Calculate rel_sus for all diseases using complete decay information
+                    
+    def _calculate_disease_susceptibilities(self):
+        """Calculate disease susceptibilities based on immunity matching and decay factors"""
         for disease in self.rota_diseases:
             disease_G_mask = self.disease_G_masks[disease.name]
             disease_P_mask = self.disease_P_masks[disease.name]
@@ -316,128 +292,7 @@ class RotaImmunityConnector(ss.Connector):
             # * infection_history_susceptibility_factor scales susceptibility based on total prior infections. It does not decay over time.
 
 
-            disease.rel_sus[:] = (1- strain_match_immunity_efficacy * final_decayed_immunity_factor) # * infection_history_susceptibility_factor
-            
-    
-    def _apply_strain_selection(self):
-        """
-        NOTE: This is a holdover from V1. It explicitly modifies strain transmission in ways that shouldn't be necessary in V2.
-
-        Apply strain selection for coinfected transmission using vectorized operations
-
-        Most of the time we want to transmit only a single strain of the virus, even if the host
-        is coinfected with multiple strains. We accomplish this by adjusting the relative transmissibility
-        of the various strains for each host. There is also a possibility that multiple strains will transmit.
-
-        """
-        # Build infection matrix and fitness values
-        infection_matrix = np.zeros((len(self.sim.people), len(self.rota_diseases)), dtype=bool)
-        fitness_values = np.zeros(len(self.rota_diseases), dtype=float)
-        
-        for i, disease in enumerate(self.rota_diseases):
-            infection_matrix[:, i] = disease.infected[:]
-            fitness_values[i] = disease.pars.beta.mean()  # Use beta as fitness metric
-        
-        # Find coinfected agents (>1 strain)
-        infections_per_agent = infection_matrix.sum(axis=1)
-        coinfected_uids = np.where(infections_per_agent > 1)[0]
-        
-        if len(coinfected_uids) == 0:
-            return  # No coinfected agents
-        
-        # Filter out cotransmission agents
-        cotransmission_mask = self.pars.cotransmission_prob.rvs(coinfected_uids)
-        strain_selection_uids = coinfected_uids[~cotransmission_mask]
-        
-        if len(strain_selection_uids) == 0:
-            return  # All coinfected agents are cotransmission
-        
-        # Vectorized strain selection
-        coinfected_infections = infection_matrix[strain_selection_uids, :]  # Shape: (n_agents, n_strains)
-        
-        # For each agent, find maximum fitness among their infected strains
-        agent_fitness_matrix = coinfected_infections * fitness_values[np.newaxis, :]  # Broadcast fitness
-        agent_fitness_matrix[~coinfected_infections] = -np.inf  # Mask uninfected strains
-        max_fitness_per_agent = np.max(agent_fitness_matrix, axis=1, keepdims=True)
-        
-        # Create mask for dominant strains (fitness == max_fitness for each agent)
-        dominant_mask = (agent_fitness_matrix == max_fitness_per_agent) & coinfected_infections
-        
-        # Randomly select one strain among tied dominant strains per agent
-        selected_strains = np.zeros_like(dominant_mask, dtype=bool)
-        for i, uid in enumerate(strain_selection_uids):
-            dominant_indices = np.where(dominant_mask[i, :])[0]
-            if len(dominant_indices) > 0:
-                selected_idx = np.random.choice(dominant_indices)
-                selected_strains[i, selected_idx] = True
-        
-        # Set rel_trans: 0 for non-selected strains, 1 for selected strains
-        for strain_idx, disease in enumerate(self.rota_diseases):
-            # Reset rel_trans to 1 for all strain_selection_uids first
-            disease.rel_trans[ss.uids(strain_selection_uids)] = 1.0
-            
-            # Set to 0 for infected but non-selected strains
-            infected_but_not_selected = coinfected_infections[:, strain_idx] & ~selected_strains[:, strain_idx]
-            disease.rel_trans[ss.uids(strain_selection_uids[infected_but_not_selected])] = 0.0
-    
-    def _apply_fitness_weighted_transmission(self):
-        """
-        NOTE: This is a holdover from V1. It explicitly modifies strain transmission in ways that shouldn't be necessary in V2.
-
-        Apply fitness-weighted transmission for coinfected agents using vectorized operations
-        
-        For coinfected agents, set rel_trans for all strains such that their sum equals 1,
-        with weights proportional to fitness (beta values). This allows multiple strains
-        to transmit but with probabilities based on their relative fitness.
-        """
-        # Build infection matrix and fitness values
-        infection_matrix = np.zeros((len(self.sim.people), len(self.rota_diseases)), dtype=bool)
-        fitness_values = np.zeros(len(self.rota_diseases), dtype=float)
-        
-        for i, disease in enumerate(self.rota_diseases):
-            infection_matrix[:, i] = disease.infected[:]
-            fitness_values[i] = disease.pars.beta.mean()  # Use beta as fitness metric
-        
-        # Find coinfected agents (>1 strain)
-        infections_per_agent = infection_matrix.sum(axis=1)
-        coinfected_uids = np.where(infections_per_agent > 1)[0]
-        
-        if len(coinfected_uids) == 0:
-            return  # No coinfected agents
-        
-        # Filter out cotransmission agents
-        cotransmission_mask = self.pars.cotransmission_prob.rvs(coinfected_uids)
-        fitness_weighted_uids = coinfected_uids[~cotransmission_mask]
-        
-        if len(fitness_weighted_uids) == 0:
-            return  # All coinfected agents are cotransmission
-        
-        # Vectorized fitness-weighted transmission
-        coinfected_infections = infection_matrix[fitness_weighted_uids, :]  # Shape: (n_agents, n_strains)
-        
-        # Calculate fitness weights for each agent's infected strains
-        agent_fitness_matrix = coinfected_infections * fitness_values[np.newaxis, :]  # Broadcast fitness
-        agent_fitness_matrix[~coinfected_infections] = 0.0  # Zero out uninfected strains
-        
-        # Calculate sum of fitness for each coinfected agent
-        fitness_sums = agent_fitness_matrix.sum(axis=1, keepdims=True)  # Shape: (n_agents, 1)
-        fitness_sums[fitness_sums == 0] = 1.0  # Avoid division by zero
-        
-        # Normalize to sum to 1 for each agent
-        normalized_weights = agent_fitness_matrix / fitness_sums  # Shape: (n_agents, n_strains)
-        
-        # Set rel_trans for each strain based on normalized weights
-        for strain_idx, disease in enumerate(self.rota_diseases):
-            # Get normalized weights for this strain
-            strain_weights = normalized_weights[:, strain_idx]
-            
-            # Only update agents that are infected with this strain
-            infected_with_strain = coinfected_infections[:, strain_idx]
-            uids_to_update = fitness_weighted_uids[infected_with_strain]
-            weights_to_apply = strain_weights[infected_with_strain]
-            
-            if len(uids_to_update) > 0:
-                disease.rel_trans[ss.uids(uids_to_update)] = weights_to_apply
+            disease.rel_sus[:] = (1- strain_match_immunity_efficacy * final_decayed_immunity_factor)
 
     def record_infection(self, disease, new_infected_uids):
         self.num_current_infections[new_infected_uids] += 1.0

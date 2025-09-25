@@ -2,6 +2,7 @@
 Rotavirus disease class for v2 architecture
 Individual strain-specific disease instances following traditional Starsim patterns
 """
+# Third-party imports
 import starsim as ss
 
 
@@ -22,7 +23,13 @@ class Rotavirus(ss.Infection):
             G (int): G genotype (antigenic segment)
             P (int): P genotype (antigenic segment) 
             pars (dict, optional): Parameters dict
-            **kwargs: Standard ss.Infection parameters (init_prev, beta, name, etc.)
+            **kwargs: Standard ss.Infection parameters + custom parameters including:
+                init_prev: Initial prevalence (default: 1% bernoulli)
+                beta: Transmission rate per day (default: 0.1/day)  
+                dur_inf: Infection duration (default: 7 days lognormal)
+                dur_waning: Immunity waning duration (default: 180 days poisson)
+                waning_delay: Delay before waning starts (default: 0 days)
+                dt_jump_size: Performance tuning for large populations (default: 15000)
         """
         # Store G,P genotypes as attributes
         self.G = G
@@ -38,7 +45,7 @@ class Rotavirus(ss.Infection):
             init_prev = ss.bernoulli(p=0.01),     # Initial prevalence
             beta = ss.perday(0.1),               # Transmission rate (will be modified by fitness)
             dur_inf = ss.lognorm_ex(mean=7),      # Duration of infection (~7 days)
-            dur_waning = ss.poisson(lam=180), # Duration of waning immunity (~100 days)
+            dur_waning = ss.poisson(lam=180), # Duration of waning immunity (180 days mean for poisson)
             waning_delay = ss.days(0)
         )
 
@@ -61,8 +68,6 @@ class Rotavirus(ss.Infection):
     def init_results(self):
         super().init_results()
         self.define_results(ss.Result('new_recovered', label='New recoveries this timestep', dtype=int, scale=True))
-
-        return
 
         
     def set_prognoses(self, uids, sources=None):

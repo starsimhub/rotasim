@@ -1,10 +1,12 @@
 """
 Rotavirus vaccination intervention for multi-strain simulations
 """
+# Standard library imports
+from typing import Union, List, Optional, Dict
+
+# Third-party imports
 import numpy as np
 import starsim as ss
-import sciris as sc
-from typing import Union, List, Optional, Dict
 
 
 class RotaVaccination(ss.Intervention):

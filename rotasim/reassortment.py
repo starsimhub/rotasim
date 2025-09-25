@@ -6,7 +6,10 @@ Implements the v1 reassortment logic using v2 architecture:
 - Activates pre-populated dormant diseases instead of dynamic creation
 - Uses vectorized operations for performance
 """
+# Standard library imports
 import itertools
+
+# Third-party imports
 import numpy as np
 import starsim as ss
 
