@@ -34,8 +34,8 @@ class RotaImmunityConnector(ss.Connector):
             naive_immunity_efficacy = 0.0,               # Baseline immunity for naive individuals (0.0 = fully susceptible)
             full_waning_rate = ss.freqperyear(365/273),    # Rate of immunity waning (omega parameter, ~273 days)
             immunity_waning_delay = ss.days(0),               # Time delay before immunity decay starts (years)
-            infection_history_susceptibility_factors = {0: 1, 1: 1, 2: 1, 3: 1},  # Susceptibility scaling based on total infection history
-            cotransmission_prob = ss.bernoulli(p=0.02),  # Probability of transmitting all strains instead of dominant strain selection (2%)
+            # infection_history_susceptibility_factors = {0: 1, 1: 1, 2: 1, 3: 1},  # Susceptibility scaling based on total infection history. We may want to remove this feature later.
+            cotransmission_prob = ss.bernoulli(p=0.02),  # Probability of transmitting all strains instead of dominant strain selection (2%). We may want to remove this feature later.
         )
         
         # Update with user parameters
@@ -65,6 +65,9 @@ class RotaImmunityConnector(ss.Connector):
         # G and P max decay tracking (populated in init_post)
         self.G_max_decayed_immunity_factors = {}  # Will store ss.FloatArr for each G type
         self.P_max_decayed_immunity_factors = {}  # Will store ss.FloatArr for each P type
+        
+        # Reusable array for decay factor calculations to reduce allocations
+        self._temp_decay_array = None
 
     def init_results(self):
         """Initialize results storage for immunity-related outputs"""
@@ -147,7 +150,7 @@ class RotaImmunityConnector(ss.Connector):
             self.disease_G_masks[disease.name] = 1 << self.G_to_bit[disease.G]
             self.disease_P_masks[disease.name] = 1 << self.P_to_bit[disease.P]
             self.disease_GP_masks[disease.name] = 1 << self.GP_to_bit[(disease.G, disease.P)]
-            
+        
         if self.sim.pars.verbose > 1:
             print(f"  - Pre-computed bitmasks for {len(self.rota_diseases)} diseases")
         
@@ -243,13 +246,13 @@ class RotaImmunityConnector(ss.Connector):
                     self.P_max_decayed_immunity_factors[disease.P][waning_started_uids] = np.maximum(current_P_decay, decay_factor)
 
         # Get infection history susceptibility scaling factor (same for all diseases)
-        infection_history_susceptibility_factor = np.ones(len(self.sim.people), dtype=float)
-        for n_inf, rel_sus_factor in self.pars.infection_history_susceptibility_factors.items():
-            if n_inf < 3:
-                mask = (self.num_recovered_infections == n_inf)
-            else:  # 3+ infections use same scalar as 3
-                mask = (self.num_recovered_infections >= 3)
-            infection_history_susceptibility_factor[mask] = rel_sus_factor
+        # infection_history_susceptibility_factor = np.ones(len(self.sim.people), dtype=float)
+        # for n_inf, rel_sus_factor in self.pars.infection_history_susceptibility_factors.items():
+        #     if n_inf < 3:
+        #         mask = (self.num_recovered_infections == n_inf)
+        #     else:  # 3+ infections use same scalar as 3
+        #         mask = (self.num_recovered_infections >= 3)
+        #     infection_history_susceptibility_factor[mask] = rel_sus_factor
 
         # PHASE 2: Calculate rel_sus for all diseases using complete decay information
         for disease in self.rota_diseases:
@@ -283,7 +286,12 @@ class RotaImmunityConnector(ss.Connector):
             )
 
             # Calculate appropriate decay factor based on immunity type. Default is 0.0 (no immunity).
-            final_decayed_immunity_factor = np.zeros(len(self.sim.people), dtype=float)
+            # Optimized: Reuse array to reduce allocations
+            if self._temp_decay_array is None or len(self._temp_decay_array) != len(self.sim.people):
+                self._temp_decay_array = np.zeros(len(self.sim.people), dtype=float)
+            else:
+                self._temp_decay_array.fill(0.0)  # Reset to zero faster than creating new array
+            final_decayed_immunity_factor = self._temp_decay_array
             
             # Homotypic: use per-strain decay
             final_decayed_immunity_factor[has_exact_match] = self.homotypic_immunity_decay_factor.values[has_exact_match]
@@ -293,7 +301,7 @@ class RotaImmunityConnector(ss.Connector):
             final_decayed_immunity_factor[(has_P_match & ~has_G_match)] = self.P_max_decayed_immunity_factors[disease.P].values[(has_P_match & ~has_G_match)]
 
             # For partial matches coming from both G and P, take the maximum decay from either G or P.
-            g_and_p_match = has_G_match & has_P_match # homotypic has already been filtered out, so we can safely do this
+            g_and_p_match = has_G_match & has_P_match # homotypic has already been filtered out, so we can safely use & here
             final_decayed_immunity_factor[g_and_p_match] = np.maximum(
                 self.G_max_decayed_immunity_factors[disease.G].values[g_and_p_match],
                 self.P_max_decayed_immunity_factors[disease.P].values[g_and_p_match]
@@ -308,11 +316,13 @@ class RotaImmunityConnector(ss.Connector):
             # * infection_history_susceptibility_factor scales susceptibility based on total prior infections. It does not decay over time.
 
 
-            disease.rel_sus[:] = (1- strain_match_immunity_efficacy * final_decayed_immunity_factor) * infection_history_susceptibility_factor
+            disease.rel_sus[:] = (1- strain_match_immunity_efficacy * final_decayed_immunity_factor) # * infection_history_susceptibility_factor
             
     
     def _apply_strain_selection(self):
         """
+        NOTE: This is a holdover from V1. It explicitly modifies strain transmission in ways that shouldn't be necessary in V2.
+
         Apply strain selection for coinfected transmission using vectorized operations
 
         Most of the time we want to transmit only a single strain of the virus, even if the host
@@ -372,6 +382,8 @@ class RotaImmunityConnector(ss.Connector):
     
     def _apply_fitness_weighted_transmission(self):
         """
+        NOTE: This is a holdover from V1. It explicitly modifies strain transmission in ways that shouldn't be necessary in V2.
+
         Apply fitness-weighted transmission for coinfected agents using vectorized operations
         
         For coinfected agents, set rel_trans for all strains such that their sum equals 1,

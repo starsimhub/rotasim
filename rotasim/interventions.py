@@ -15,13 +15,16 @@ class RotaVaccination(ss.Intervention):
     - Multi-dose vaccination schedule (1-3 doses typical)
     - Age-based eligibility criteria
     - Probability-based uptake
-    - G and P antigen-specific protection
+    - G and P antigen-specific protection with cross-protection
     - Dose-specific vaccine effectiveness
+    - Cross-strain protection (homotypic, partial heterotypic, complete heterotypic)
     - Immunity waning reset for protected strains
     
     The vaccination works by modifying the rel_sus parameter for covered strains, providing
     protection that wanes over time. The intervention tracks its own waning protection factor
     and applies it to rel_sus only when it provides better protection than existing immunity.
+    
+    Cross-protection efficacies are precomputed during initialization for optimal performance.
     
     Args:
         start_date (str or ss.date): Date to start vaccination program
@@ -36,6 +39,9 @@ class RotaVaccination(ss.Intervention):
         uptake_prob (float): Probability that eligible agents receive vaccine (default: 0.8)
         eligible_only_once (bool): Whether agents are only eligible once (default: True)
         vaccine_waning_rate (ss.Dist): Distribution for vaccine waning time (default: ss.lognorm_ex(mean=365))
+        homotypic_efficacy (float): Efficacy multiplier for exact G+P matches (default: 1.0)
+        partial_heterotypic_efficacy (float): Efficacy multiplier for shared G or P (default: 0.6)
+        complete_heterotypic_efficacy (float): Efficacy multiplier for no shared G,P (default: 0.3)
         verbose (bool): Print vaccination events (default: False)
     
     Examples:
@@ -122,6 +128,19 @@ class RotaVaccination(ss.Intervention):
         if self.n_doses < 1 or self.n_doses > 10:
             raise ValueError(f"n_doses must be between 1 and 10, got {self.n_doses}")
         
+        # Cross-protection efficacy parameters (matching immunity.py pattern)
+        self.homotypic_efficacy = float(homotypic_efficacy)
+        self.partial_heterotypic_efficacy = float(partial_heterotypic_efficacy)
+        self.complete_heterotypic_efficacy = float(complete_heterotypic_efficacy)
+        
+        # Validation for cross-protection parameters
+        if not (0 <= self.homotypic_efficacy <= 1):
+            raise ValueError(f"homotypic_efficacy must be between 0 and 1, got {self.homotypic_efficacy}")
+        if not (0 <= self.partial_heterotypic_efficacy <= 1):
+            raise ValueError(f"partial_heterotypic_efficacy must be between 0 and 1, got {self.partial_heterotypic_efficacy}")
+        if not (0 <= self.complete_heterotypic_efficacy <= 1):
+            raise ValueError(f"complete_heterotypic_efficacy must be between 0 and 1, got {self.complete_heterotypic_efficacy}")
+        
         # Vaccine waning parameters
         if vaccine_waning_rate is None:
             self.vaccine_waning_rate = ss.lognorm_ex(mean=365)  # Default: 1 year mean waning time
@@ -161,17 +180,20 @@ class RotaVaccination(ss.Intervention):
         if not self.rotavirus_diseases:
             raise RuntimeError("No Rotavirus diseases found in simulation")
         
-        # Determine which diseases are covered by vaccine
-        self.covered_diseases = []
+        # With cross-protection, ALL rotavirus diseases are covered (with different efficacy levels)
+        self.covered_diseases = self.rotavirus_diseases.copy()
         self.vaccine_protection_states = {}  # Maps disease name to protection level state
         self.vaccine_waning_states = {}      # Maps disease name to waning time state
+        
+        # Precompute match efficacies for all diseases (performance optimization)
+        self.disease_match_efficacies = {}
+        for disease in self.covered_diseases:
+            self.disease_match_efficacies[disease.name] = self._compute_match_efficacy(disease)
         
         # Create dynamic states for covered diseases BEFORE calling super().init_pre()
         dynamic_states = []
         
-        for disease in self.rotavirus_diseases:
-            if disease.G in self.G_antigens or disease.P in self.P_antigens:
-                self.covered_diseases.append(disease)
+        for disease in self.covered_diseases:
                 
                 # Create individual states for this disease's vaccine protection
                 protection_state_name = f'vax_protection_{disease.name}'
@@ -312,6 +334,27 @@ class RotaVaccination(ss.Intervention):
             for dose_display, info in sorted(dose_counts.items()):
                 print(f"  Dose {dose_display}/{self.n_doses}: {info['count']} agents (effectiveness={info['effectiveness']:.1%})")
             
+    def _is_homotypic_match(self, disease):
+        """Check if disease strain has exact G+P match with vaccine"""
+        return disease.G in self.G_antigens and disease.P in self.P_antigens
+    
+    def _is_partial_heterotypic_match(self, disease):
+        """Check if disease strain has partial match (shared G or P) with vaccine"""
+        return (disease.G in self.G_antigens or disease.P in self.P_antigens) and not self._is_homotypic_match(disease)
+    
+    def _is_complete_heterotypic_match(self, disease):
+        """Check if disease strain has no match with vaccine"""
+        return not (disease.G in self.G_antigens or disease.P in self.P_antigens)
+    
+    def _compute_match_efficacy(self, disease):
+        """Compute and return match efficacy for a disease (called once during initialization)"""
+        if self._is_homotypic_match(disease):
+            return self.homotypic_efficacy
+        elif self._is_partial_heterotypic_match(disease):
+            return self.partial_heterotypic_efficacy
+        else:  # complete heterotypic
+            return self.complete_heterotypic_efficacy
+
     def _apply_vaccine_protection(self, sim, uids, current_doses):
         """
         Apply vaccine protection by updating vaccine states (vectorized)
@@ -339,13 +382,19 @@ class RotaVaccination(ss.Intervention):
             protection_state = self.vaccine_protection_states[disease.name]
             waning_state = self.vaccine_waning_states[disease.name]
             
+            # Use precomputed match efficacy for this disease (performance optimization)
+            match_efficacy = self.disease_match_efficacies[disease.name]
+            
+            # Calculate disease-specific effectiveness (dose effectiveness * match efficacy)
+            disease_effectiveness = effectiveness_values * match_efficacy
+            
             # Update protection level (takes maximum of current and new protection)
-            current_protection = protection_state[uids]
-            new_protection = np.maximum(current_protection, effectiveness_values)
-            protection_state[uids] = new_protection
+            current_protection = protection_state[ss.uids(uids)]
+            new_protection = np.maximum(current_protection, disease_effectiveness)
+            protection_state[ss.uids(uids)] = new_protection
             
             # Update waning time (set to latest waning time)
-            waning_state[uids] = new_waning_times
+            waning_state[ss.uids(uids)] = new_waning_times
                         
         if self.verbose:
             covered_strains = [(d.G, d.P) for d in self.covered_diseases]

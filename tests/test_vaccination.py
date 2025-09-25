@@ -7,6 +7,32 @@ import starsim as ss
 import rotasim as rs
 
 
+def create_multi_strain_sim():
+    """Helper to create multi-strain simulation for testing"""
+    from rotasim.rotavirus import Rotavirus
+    from rotasim.immunity import RotaImmunityConnector
+    
+    # Create multiple strains
+    g1p8 = Rotavirus(G=1, P=8)
+    g2p4 = Rotavirus(G=2, P=4)
+    
+    # Create immunity connector
+    immunity = RotaImmunityConnector()
+    
+    sim = ss.Sim(
+        n_agents=100,
+        start=0,
+        stop=2,
+        dt=ss.days(7),
+        diseases=[g1p8, g2p4],
+        connectors=[immunity],
+        networks='random',
+        verbose=0
+    )
+    
+    return sim
+
+
 class TestRotaVaccinationBasic:
     """Test basic vaccination intervention functionality"""
     
@@ -498,6 +524,26 @@ class TestRotaVaccinationMultiDose:
 class TestRotaVaccinationSummary:
     """Test vaccination summary and reporting functions"""
     
+    def create_test_sim(self):
+        """Helper to create test simulation"""
+        vax = rs.RotaVaccination(
+            start_date='2020-01-01',
+            uptake_prob=0.5,  # Moderate uptake
+            verbose=False
+        )
+        
+        sim = rs.Sim(
+            scenario='simple',
+            n_agents=200,
+            start='2020-01-01',
+            stop='2021-01-01',
+            dt=ss.days(7),
+            interventions=[vax],
+            verbose=0
+        )
+        
+        return sim
+        
     def test_vaccination_summary(self):
         """Test vaccination summary generation"""
         sim = self.create_test_sim()
@@ -538,6 +584,191 @@ class TestRotaVaccinationSummary:
             
         # Should not crash with some vaccinations
         vax.print_vaccination_summary()
+
+
+class TestRotaVaccinationCrossProtection:
+    """Test cross-protection functionality"""
+    
+    def test_strain_matching_functions(self):
+        """Test strain matching helper functions"""
+        vax = rs.RotaVaccination(
+            start_date='2025-01-01',
+            G_antigens=[1, 2],
+            P_antigens=[8, 4]
+        )
+        
+        # Create mock disease objects for testing
+        class MockDisease:
+            def __init__(self, G, P, name):
+                self.G = G
+                self.P = P
+                self.name = name
+        
+        # Homotypic matches
+        g1p8 = MockDisease(1, 8, 'G1P8')
+        g2p4 = MockDisease(2, 4, 'G2P4')
+        assert vax._is_homotypic_match(g1p8)
+        assert vax._is_homotypic_match(g2p4)
+        assert not vax._is_partial_heterotypic_match(g1p8)
+        assert not vax._is_complete_heterotypic_match(g1p8)
+        
+        # Partial heterotypic matches
+        g1p6 = MockDisease(1, 6, 'G1P6')  # Shared G
+        g3p8 = MockDisease(3, 8, 'G3P8')  # Shared P
+        assert vax._is_partial_heterotypic_match(g1p6)
+        assert vax._is_partial_heterotypic_match(g3p8)
+        assert not vax._is_homotypic_match(g1p6)
+        assert not vax._is_complete_heterotypic_match(g1p6)
+        
+        # Complete heterotypic matches
+        g3p6 = MockDisease(3, 6, 'G3P6')  # No shared G or P
+        assert vax._is_complete_heterotypic_match(g3p6)
+        assert not vax._is_homotypic_match(g3p6)
+        assert not vax._is_partial_heterotypic_match(g3p6)
+    
+    def test_cross_protection_efficacy_parameters(self):
+        """Test cross-protection efficacy parameter validation"""
+        # Valid parameters
+        vax = rs.RotaVaccination(
+            start_date='2025-01-01',
+            homotypic_efficacy=1.0,
+            partial_heterotypic_efficacy=0.6,
+            complete_heterotypic_efficacy=0.3
+        )
+        assert vax.homotypic_efficacy == 1.0
+        assert vax.partial_heterotypic_efficacy == 0.6
+        assert vax.complete_heterotypic_efficacy == 0.3
+        
+        # Invalid parameters should raise ValueError
+        with pytest.raises(ValueError, match="homotypic_efficacy must be between 0 and 1"):
+            rs.RotaVaccination(start_date='2025-01-01', homotypic_efficacy=1.5)
+        
+        with pytest.raises(ValueError, match="partial_heterotypic_efficacy must be between 0 and 1"):
+            rs.RotaVaccination(start_date='2025-01-01', partial_heterotypic_efficacy=-0.1)
+        
+        with pytest.raises(ValueError, match="complete_heterotypic_efficacy must be between 0 and 1"):
+            rs.RotaVaccination(start_date='2025-01-01', complete_heterotypic_efficacy=1.2)
+    
+    def test_all_diseases_covered_with_cross_protection(self):
+        """Test that all rotavirus diseases are covered with cross-protection"""
+        vax = rs.RotaVaccination(
+            start_date='2020-01-01',
+            G_antigens=[1],  # Only covers G1
+            P_antigens=[8],  # Only covers P8
+            homotypic_efficacy=1.0,
+            partial_heterotypic_efficacy=0.6,
+            complete_heterotypic_efficacy=0.3,
+            verbose=False
+        )
+        
+        sim = rs.Sim(
+            scenario='simple',
+            n_agents=100,
+            start='2020-01-01',
+            stop='2021-01-01',
+            dt=ss.days(7),
+            interventions=[vax],
+            verbose=0
+        )
+        
+        sim.init()
+        
+        # Get the actual vaccination intervention from the sim
+        vax = sim.interventions[0]
+        
+        # With cross-protection, ALL rotavirus diseases should be covered
+        assert len(vax.covered_diseases) == len(vax.rotavirus_diseases)
+        assert len(vax.covered_diseases) > 0
+        
+        # Should have created protection states for all diseases
+        assert len(vax.vaccine_protection_states) == len(vax.covered_diseases)
+        assert len(vax.vaccine_waning_states) == len(vax.covered_diseases)
+    
+    def test_cross_protection_effectiveness_calculation(self):
+        """Test that cross-protection applies correct effectiveness levels"""
+        vax = rs.RotaVaccination(
+            start_date='2020-01-01',
+            n_doses=1,
+            G_antigens=[1],
+            P_antigens=[8], 
+            dose_effectiveness=[0.8],  # 80% base effectiveness
+            homotypic_efficacy=1.0,     # 100% for G1P8 
+            partial_heterotypic_efficacy=0.6,  # 60% for partial matches
+            complete_heterotypic_efficacy=0.3,   # 30% for no matches
+            verbose=False
+        )
+        
+        sim = rs.Sim(
+            scenario='simple',
+            n_agents=100,
+            start='2020-01-01',
+            stop='2021-01-01',
+            dt=ss.days(7),
+            interventions=[vax],
+            verbose=0
+        )
+        
+        sim.init()
+        
+        # Get the actual vaccination intervention from the sim
+        vax = sim.interventions[0]
+        
+        # Vaccinate a test agent
+        test_uids = [0]
+        current_doses = [0]  # First dose (0-indexed)
+        
+        vax._apply_vaccine_protection(sim, test_uids, current_doses)
+        
+        # Check protection levels for different diseases
+        for disease in vax.covered_diseases:
+            protection_state = vax.vaccine_protection_states[disease.name]
+            protection_level = protection_state[0]  # Agent 0
+            
+            # Use precomputed match efficacy
+            match_efficacy = vax.disease_match_efficacies[disease.name]
+            expected = 0.8 * match_efficacy  # 80% base effectiveness * match efficacy
+            
+            assert abs(protection_level - expected) < 1e-6, f"Disease {disease.name} (G{disease.G}P{disease.P}): expected {expected}, got {protection_level}"
+    
+    def test_precomputed_match_efficacies(self):
+        """Test that precomputed match efficacies are correctly calculated"""
+        vax = rs.RotaVaccination(
+            start_date='2020-01-01',
+            G_antigens=[1, 2],
+            P_antigens=[8, 4],
+            homotypic_efficacy=1.0,
+            partial_heterotypic_efficacy=0.6,
+            complete_heterotypic_efficacy=0.3,
+            verbose=False
+        )
+        
+        sim = rs.Sim(
+            scenario='simple',
+            n_agents=50,
+            start='2020-01-01',
+            stop='2021-01-01',
+            dt=ss.days(7),
+            interventions=[vax],
+            verbose=0
+        )
+        
+        sim.init()
+        vax = sim.interventions[0]
+        
+        # Verify that precomputed efficacies match individual function calls
+        for disease in vax.covered_diseases:
+            precomputed = vax.disease_match_efficacies[disease.name]
+            manual_calculation = vax._compute_match_efficacy(disease)
+            
+            assert precomputed == manual_calculation, f"Mismatch for {disease.name}: precomputed={precomputed}, manual={manual_calculation}"
+            
+            # Verify the specific expected values for known strain patterns
+            if disease.G in vax.G_antigens and disease.P in vax.P_antigens:
+                assert precomputed == 1.0, f"Homotypic {disease.name} should have efficacy 1.0"
+            elif disease.G in vax.G_antigens or disease.P in vax.P_antigens:
+                assert precomputed == 0.6, f"Partial heterotypic {disease.name} should have efficacy 0.6"
+            else:
+                assert precomputed == 0.3, f"Complete heterotypic {disease.name} should have efficacy 0.3"
         
     def create_test_sim(self):
         """Helper to create test simulation"""
