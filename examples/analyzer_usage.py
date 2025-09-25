@@ -30,12 +30,11 @@ def analyzer_usage_example():
     sim = rs.Sim(
         people=pop,
         networks=net,
-        initial_strains=[(1, 8), (2, 4)],  # Two initial strains 
+        scenario='simple',  # Two-strain scenario (G1P8, G2P4)
         analyzers=[strain_analyzer, event_analyzer, age_analyzer],
         start='2020-01-01', 
         stop='2020-03-01',  # Short simulation for demo
-        unit='day',
-        dt=1          # Daily timesteps
+        dt=ss.days(1)     # Daily timesteps
     )
 
     print("✓ Simulation created successfully")

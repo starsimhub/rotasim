@@ -7,6 +7,7 @@ import os
 # Add rotasim to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+import starsim as ss
 from rotasim import Sim, StrainStats
 import numpy as np
 
@@ -19,9 +20,9 @@ def test_analyzer_creation():
     analyzer = StrainStats()
     print(f"✓ Created StrainStats analyzer: {type(analyzer).__name__}")
     
-    # Test integration with Rotasim
+    # Test integration with Rotasim using simple scenario
     sim = Sim(
-        initial_strains=[(1, 8), (2, 4)], 
+        scenario='simple',
         analyzers=[analyzer]
     )
     print(f"✓ Created Rotasim with StrainStats analyzer")
@@ -33,10 +34,9 @@ def test_analyzer_initialization():
     """Test analyzer initialization and strain detection"""
     print("=== Testing Analyzer Initialization ===\n")
     
-    # Create simulation with analyzer
+    # Create simulation with analyzer using new unified API
     analyzer = StrainStats()
     sim = Sim(
-        initial_strains=[(1, 8), (2, 4), (3, 6)], 
         analyzers=[analyzer],
         n_agents=1000
     )
@@ -58,16 +58,15 @@ def test_v1_format_compatibility():
     """Test that output format matches v1 exactly"""
     print("=== Testing V1 Format Compatibility ===\n")
     
-    # Create simple simulation to test format
+    # Create simple simulation to test format using simple scenario
     analyzer = StrainStats()
     sim = Sim(
-        initial_strains=[(1, 8), (2, 4)], 
+        scenario='simple',
         analyzers=[analyzer],
         n_agents=100,
         start='2020-01-01',
         stop='2021-01-01',  # Just 1 year for testing
-        unit='day',
-        dt=1  # Daily timesteps
+        dt=ss.days(1)  # Daily timesteps
     )
     
     print("1. Testing column name format:")
@@ -113,8 +112,12 @@ def test_strain_counting_logic():
         print(f"  {description}")
         
         analyzer = StrainStats()
+        strain_scenario = {
+            'strains': {strain: {'fitness': 1.0, 'prevalence': 0.01} for strain in strains},
+            'default_fitness': 1.0
+        }
         sim = Sim(
-            initial_strains=strains, 
+            scenario=strain_scenario,
             analyzers=[analyzer],
             n_agents=500
         )

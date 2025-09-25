@@ -6,7 +6,10 @@ Implements the v1 reassortment logic using v2 architecture:
 - Activates pre-populated dormant diseases instead of dynamic creation
 - Uses vectorized operations for performance
 """
+# Standard library imports
 import itertools
+
+# Third-party imports
 import numpy as np
 import starsim as ss
 
@@ -33,7 +36,7 @@ class RotaReassortmentConnector(ss.Connector):
     4. Activate dormant diseases using set_prognoses
     """
     
-    def __init__(self, reassortment_prob=0.1, **kwargs):
+    def __init__(self, reassortment_prob=0.05, **kwargs):
         """
         Initialize reassortment connector
         
@@ -74,14 +77,22 @@ class RotaReassortmentConnector(ss.Connector):
         if n_diseases == 0:
             raise ValueError("RotaReassortmentConnector requires at least one Rotavirus disease")
         
-        print(f"RotaReassortmentConnector: Found {n_diseases} Rotavirus diseases")
-        if n_diseases >= 10:
-            print(f"  First 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[:5]]}")
-            print(f"  Last 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[-5:]]}")
-        else:
-            print(f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}")
-        
-        print(f"  Reassortment rate: {self.pars.reassortment_prob} per day per co-infected host")
+        if sim.pars.verbose > 1:
+            print(f"RotaReassortmentConnector: Found {n_diseases} Rotavirus diseases")
+            if n_diseases >= 10:
+                print(f"  First 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[:5]]}")
+                print(f"  Last 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[-5:]]}")
+            else:
+                print(f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}")
+            
+            print(f"  Reassortment rate: {self.pars.reassortment_prob} per day per co-infected host")
+
+    def init_results(self):
+        """Initialize results tracking if needed"""
+        super().init_results()
+
+        self.define_results(ss.Result('n_reassortments', label='Number of reassortment events', dtype=int, scale=True, summarize_by='sum'))
+        return
         
     def step(self):
         """
@@ -109,7 +120,8 @@ class RotaReassortmentConnector(ss.Connector):
         
         n_events = len(reassorting_uids)
         n_coinfected = len(co_infected_uids)
-        print(f"Reassortment: {n_events}/{n_coinfected} co-infected hosts reassorting")
+        if self.sim.pars.verbose > 1:
+            print(f"Reassortment: {n_events}/{n_coinfected} co-infected hosts reassorting")
         
         # Step 3-5: For each reassorting host, generate and activate reassortants
         total_new_infections = 0
@@ -117,8 +129,9 @@ class RotaReassortmentConnector(ss.Connector):
             new_infections = self._reassort_host(uid)
             total_new_infections += new_infections
         
-        if total_new_infections > 0:
-            print(f"  → {total_new_infections} new reassortant infections created")
+        if total_new_infections > 0 and self.sim.pars.verbose > 1:
+            print(f"  {total_new_infections} new reassortant infections created")
+        self.results.n_reassortments[self.ti] += total_new_infections
     
     def _get_coinfected_hosts(self):
         """
@@ -128,16 +141,12 @@ class RotaReassortmentConnector(ss.Connector):
             np.array: UIDs of co-infected hosts
         """
         # Count active rotavirus infections per host
-        infection_counts = np.zeros(len(self.sim.people), dtype=int)
+        immunity_connector = self.sim.get_connector_by_type('RotaImmunityConnector')
+        if not immunity_connector:
+            return np.array([], dtype=int)  # No immunity connector found
         
-        for disease in self._rotavirus_diseases:
-            # Add 1 for each host infected with this disease
-            infected_uids = disease.infected.uids  # Get UIDs of infected agents
-            infection_counts[infected_uids] += 1
-        
-        # Find hosts with ≥2 infections
-        coinfected_mask = infection_counts >= 2
-        coinfected_uids = np.where(coinfected_mask)[0]
+        infection_counts = immunity_connector.num_current_infections
+        coinfected_uids = (infection_counts >= 2).uids
         
         return coinfected_uids
     
