@@ -56,6 +56,7 @@ class Rotavirus(ss.Infection):
             ss.BoolState('recovered', label='Recovered'),
             ss.FloatArr('ti_recovered', label='Time of recovery'),
             ss.FloatArr('ti_waned', label='Time of waned immunity'),
+            ss.FloatArr('waning_decay_rate', default=0.0, label='Individual decay rate for immunity waning'),
             ss.FloatArr('n_infections', default=0, label='Total number of infections'),
         )
         
@@ -121,7 +122,10 @@ class Rotavirus(ss.Infection):
         self.infected[recovering] = False
         self.recovered[recovering] = True
         self.susceptible[recovering] = True # When recovered, become susceptible again (SIRS), but with modified susceptibility via connector
-        self.ti_waned[recovering] = sim.ti + self.pars.dur_waning.rvs(recovering)
+        waning_durations = self.pars.dur_waning.rvs(recovering)
+        self.ti_waned[recovering] = sim.ti + waning_durations
+        # Store individual decay rates: 1/duration for exponential decay
+        self.waning_decay_rate[recovering] = 1.0 / waning_durations
 
         self.results['new_recovered'][self.ti] = len(recovering)
 

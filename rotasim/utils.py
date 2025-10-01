@@ -125,11 +125,15 @@ def generate_gp_reassortments(initial_strains, use_preferred_partners=False, ver
     if use_preferred_partners:
         for g in unique_G:
             if g not in PREFERRED_PARTNERS:
-                raise ValueError(f"No preferred partners defined for G genotype {g}")
+                if verbose:
+                    print(f"Warning: No preferred partners defined for G genotype {g}. Skipping.")
+                continue
+                # raise ValueError(f"No preferred partners defined for G genotype {g}")
             for p in unique_P:
                 if p not in PREFERRED_PARTNERS[g]:
                     if verbose:
-                        print(f"Warning: P genotype {p} is not a preferred partner for G genotype {g}")
+                        print(f"Warning: P genotype {p} is not a preferred partner for G genotype {g}. Skipping.")
+                    continue
                 all_reassortments.append((g, p))
 
     else:

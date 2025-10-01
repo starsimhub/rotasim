@@ -41,7 +41,7 @@ class RotaImmunityConnector(ss.Connector):
             partial_heterotypic_immunity_efficacy (0.5): Protection from shared G or P
             complete_heterotypic_immunity_efficacy (0.3): Protection from different G,P  
             naive_immunity_efficacy (0.0): Baseline immunity for naive individuals
-            full_waning_rate: Immunity waning rate (~273 days mean, 365/273 per year)
+            # full_waning_rate: Immunity waning rate (~273 days mean, 365/273 per year)
             immunity_waning_delay (0 days): Delay before immunity decay starts
             cotransmission_prob (2%): Probability of co-transmitting multiple strains
         """
@@ -49,11 +49,11 @@ class RotaImmunityConnector(ss.Connector):
         
         # Define immunity parameters
         self.define_pars(
-            homotypic_immunity_efficacy = .9,        # Protection from same G,P strain
+            homotypic_immunity_efficacy = 0.9,        # Protection from same G,P strain
             partial_heterotypic_immunity_efficacy = 0.5,  # Protection from shared G or P
             complete_heterotypic_immunity_efficacy = 0.3, # Protection from different G,P (or no prior exposure to any strain)
             naive_immunity_efficacy = 0.0,               # Baseline immunity for naive individuals (0.0 = fully susceptible)
-            full_waning_rate = ss.freqperyear(365/273),    # Rate of immunity waning (omega parameter, ~273 days)
+            # full_waning_rate = ss.freqperyear(365/273),    # Rate of immunity waning (omega parameter, ~273 days)
             immunity_waning_delay = ss.days(0),               # Time delay before immunity decay starts (years)
             # infection_history_susceptibility_factors = {0: 1, 1: 1, 2: 1, 3: 1},  # Susceptibility scaling based on total infection history. We may want to remove this feature later.
             cotransmission_prob = ss.bernoulli(p=0.02),  # Probability of transmitting all strains instead of dominant strain selection (2%). We may want to remove this feature later.
@@ -216,7 +216,8 @@ class RotaImmunityConnector(ss.Connector):
                     waning_started_uids = recovered_uids[waning_started]
                     # Calculate decay factor for agents past the delay period
                     decay_time = time_since_recovery[waning_started] - self.pars.immunity_waning_delay.value
-                    decay_rate = 1/disease.ti_waned[waning_started_uids]
+                    # Use pre-computed decay rates stored when agents recovered
+                    decay_rate = disease.waning_decay_rate[waning_started_uids]
                     decay_factor = np.exp(-decay_rate * decay_time)
                     
                     # Update per-strain decay factor (for homotypic immunity)

@@ -39,7 +39,6 @@ class RotaVaccination(ss.Intervention):
         min_age (int or ss.days): Minimum age for vaccination (default: ss.days(42) = 6 weeks)
         max_age (int or ss.days): Maximum age for vaccination (default: ss.days(365) = 1 year)
         uptake_prob (float): Probability that eligible agents receive vaccine (default: 0.8)
-        eligible_only_once (bool): Whether agents are only eligible once (default: True)
         vaccine_waning_rate (ss.Dist): Distribution for vaccine waning time (default: ss.lognorm_ex(mean=365))
         homotypic_efficacy (float): Efficacy multiplier for exact G+P matches (default: 1.0)
         partial_heterotypic_efficacy (float): Efficacy multiplier for shared G or P (default: 0.6)
@@ -77,7 +76,7 @@ class RotaVaccination(ss.Intervention):
     
     def __init__(self, start_date, end_date=None, n_doses=2, dose_interval=None,
                  G_antigens=None, P_antigens=None, dose_effectiveness=None,
-                 min_age=None, max_age=None, uptake_prob=0.8, eligible_only_once=True,
+                 min_age=None, max_age=None, uptake_prob=0.8,
                  vaccine_waning_rate=None, homotypic_efficacy=1.0, 
                  partial_heterotypic_efficacy=0.6, complete_heterotypic_efficacy=0.3,
                  verbose=False, **kwargs):
@@ -117,7 +116,6 @@ class RotaVaccination(ss.Intervention):
         self.min_age = min_age
         self.max_age = max_age
         self.uptake_prob = ss.bernoulli(p = uptake_prob)
-        self.eligible_only_once = bool(eligible_only_once)
         self.verbose = bool(verbose)
         
         # Validation
@@ -152,9 +150,9 @@ class RotaVaccination(ss.Intervention):
         # Define states for vaccination tracking
         self.define_states(
             ss.IntArr('doses_received', default=0),  # Number of doses received
+            ss.IntArr('doses_eligible', default=0),  # Number of doses agent has been eligible for
             ss.FloatArr('last_dose_time', default=-np.inf),  # Time of last dose
             ss.FloatArr('next_dose_due', default=-np.inf),  # When next dose is due
-            ss.BoolArr('ever_eligible', default=False),  # Whether agent was ever eligible
             ss.BoolArr('completed_schedule', default=False),  # Whether completed all doses
         )
         
@@ -163,12 +161,12 @@ class RotaVaccination(ss.Intervention):
         # Convert dates to simulation time indices
         start_date_obj = ss.date(self.start_date)
         # Find first timevec index greater than start date
-        self.start_ti = np.argmax(sim.timevec > start_date_obj.years)
+        self.start_ti = np.argmax(sim.t.yearvec > start_date_obj.years)
         
         if self.end_date is not None:
             end_date_obj = ss.date(self.end_date)
             # Find last timevec index less than or equal to end date
-            valid_indices = np.where(sim.timevec <= end_date_obj.years)[0]
+            valid_indices = np.where(sim.t.yearvec <= end_date_obj.years)[0]
             self.end_ti = valid_indices[-1] if len(valid_indices) > 0 else 0
         else:
             self.end_ti = np.inf
@@ -253,14 +251,6 @@ class RotaVaccination(ss.Intervention):
         # Age eligibility
         age_eligible = (people.age >= self.min_age.value) & (people.age <= self.max_age.value)
 
-        # If eligible_only_once, exclude those who were ever eligible for first dose
-        # but allow subsequent doses for multi-dose schedules
-        if self.eligible_only_once:
-            # For first dose: exclude if ever eligible before
-            # For subsequent doses: allow if they're in the middle of a schedule
-            first_dose_restriction = (self.doses_received == 0) & self.ever_eligible
-            age_eligible = age_eligible & ~first_dose_restriction
-            
         # Exclude those who completed the schedule
         age_eligible = age_eligible & ~self.completed_schedule
         
@@ -282,6 +272,17 @@ class RotaVaccination(ss.Intervention):
         eligible_uids = self.sim.people.uid[eligible_agents]
         
         if len(eligible_uids) > 0:
+            # Track eligibility: increment doses_eligible and update next_dose_due for all eligible agents
+            self.doses_eligible[eligible_uids] += 1
+            
+            # Update next_dose_due for agents who will need more doses
+            still_need_doses = self.doses_eligible[eligible_uids] < self.n_doses
+            self.next_dose_due[eligible_uids] = np.where(
+                still_need_doses,
+                self.ti + self.dose_interval.value,
+                self.next_dose_due[eligible_uids]  # Keep existing value if no more doses needed
+            )
+            
             # Random uptake
             uptake = self.uptake_prob.rvs(eligible_uids)
             vaccinated_uids = eligible_uids[uptake]
@@ -305,15 +306,6 @@ class RotaVaccination(ss.Intervention):
         # Update vaccination tracking (vectorized)
         self.doses_received[uids] += 1
         self.last_dose_time[uids] = self.ti
-        self.ever_eligible[uids] = True
-        
-        # Schedule next doses
-        still_need_doses = self.doses_received[uids] < self.n_doses
-        self.next_dose_due[uids] = np.where(
-            still_need_doses,
-            self.ti + self.dose_interval.value,
-            self.next_dose_due[uids]  # Keep existing value if no more doses needed
-        )
         
         # Mark completed schedules
         completed_mask = self.doses_received[uids] >= self.n_doses
@@ -447,7 +439,7 @@ class RotaVaccination(ss.Intervention):
         
         summary = {
             'total_agents': total_agents,
-            'ever_eligible': np.sum(self.ever_eligible),
+            'doses_eligible': np.sum(self.doses_eligible > 0),
             'received_any_dose': np.sum(self.doses_received > 0),
             'completed_schedule': np.sum(self.completed_schedule),
             'doses_by_number': {},
@@ -466,7 +458,7 @@ class RotaVaccination(ss.Intervention):
         
         print(f"\n=== RotaVaccination Summary ===")
         print(f"Total agents: {summary['total_agents']:,}")
-        print(f"Ever eligible: {summary['ever_eligible']:,} ({100*summary['ever_eligible']/summary['total_agents']:.1f}%)")
+        print(f"Ever eligible: {summary['doses_eligible']:,} ({100*summary['doses_eligible']/summary['total_agents']:.1f}%)")
         print(f"Received any dose: {summary['received_any_dose']:,} ({100*summary['received_any_dose']/summary['total_agents']:.1f}%)")
         print(f"Completed schedule: {summary['completed_schedule']:,} ({100*summary['completed_schedule']/summary['total_agents']:.1f}%)")
         print(f"Mean doses (among vaccinated): {summary['mean_doses']:.2f}")
