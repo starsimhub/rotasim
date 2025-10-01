@@ -45,6 +45,3 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]
 version = {attr = "rotasim.version.__version__"}
-
-[tool.uv.sources]
-starsim = { path = "../starsim", editable = true }
