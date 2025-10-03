@@ -14,12 +14,18 @@ def test_time_units():
     """Test that time units are properly set to daily"""
     print("=== Testing Daily Time Units ===\n")
     
-    # Create a basic simulation
-    sim = Sim(initial_strains=[(1, 8)])
+    # Create a basic simulation using simple scenario (but only G1P8)
+    sim = Sim(
+        scenario={
+            'strains': {
+                (1, 8): {'fitness': 1.0, 'prevalence': 0.01}
+            },
+            'default_fitness': 1.0
+        }
+    )
     
     # Check simulation parameters
     print("Simulation parameters:")
-    print(f"  Unit: {sim.pars.unit}")
     print(f"  dt: {sim.pars.dt}")
     print(f"  Start: {sim.pars.start}")
     print(f"  Stop: {sim.pars.stop}")
@@ -34,7 +40,7 @@ def test_time_units():
     # Check immunity parameters (create directly to inspect)
     immunity = RotaImmunityConnector()
     print("Immunity parameters:")
-    print(f"  Waning rate: {immunity.pars.waning_rate} per day")
+    print(f"  Full waning rate: {immunity.pars.full_waning_rate} per day")
     print(f"  Expected daily probability: {1/273:.6f}")
     print(f"  Half-life: ~{273 * 0.693:.0f} days ({273 * 0.693 / 365:.1f} years)")
     print()

@@ -3,73 +3,104 @@ Sim convenience class for multi-strain simulations
 For starsim v2, the class must be named "Sim", not "Rotasim"
 Provides an easy-to-use interface for researchers while maintaining flexibility
 """
+# Third-party imports
 import starsim as ss
-from .utils import create_strain_diseases, validate_initial_strains, list_fitness_scenarios
+
+# Local imports
 from .immunity import RotaImmunityConnector
 from .reassortment import RotaReassortmentConnector
+from .utils import validate_scenario, apply_scenario_overrides
 
 
 class Sim(ss.Sim):
     """
-    Convenience class for multi-strain Rotavirus simulations
+    Unified Rotavirus simulation class using scenario-based configuration
     
-    This class automatically generates all possible strain reassortants from initial strains
-    and applies fitness multipliers. Standard ss.Sim arguments like connectors and analyzers
-    can be passed as kwargs.
+    This class uses predefined scenarios that contain strain definitions, fitness values, 
+    and prevalence settings all in one place. Easy override parameters allow customization.
+    Automatically generates all possible strain reassortants.
     
     Example usage:
-        # Simple case
-        sim = Sim(initial_strains=[(1,8), (2,4)])
+        # Simple predefined scenario
+        sim = Sim(scenario='realistic_competition')
         sim.run()
         
-        # Custom fitness scenario and prevalence
-        sim = Sim(initial_strains=[(1,8), (2,4)], 
-                      fitness_scenario='high_diversity',
-                      base_beta=0.15,
-                      init_prev=0.02)
+        # Override prevalence for all strains
+        sim = Sim(scenario='baseline', override_prevalence=0.02)
         
-        # Strain-specific initial prevalence
-        sim = Sim(initial_strains=[(1,8), (2,4)],
-                      init_prev={(1,8): 0.02, (2,4): 0.005})
+        # Override specific strain fitness
+        sim = Sim(scenario='baseline', override_fitness={(1,8): 0.95, (2,4): 0.8})
         
-        # Custom connectors and analyzers
-        sim = Sim(initial_strains=[(1,8), (2,4)], 
-                      connectors=[RotaImmunityConnector()],
-                      analyzers=[MyAnalyzer()])
+        # Add new strain to existing scenario
+        sim = Sim(scenario='baseline', override_strains={(9,6): {'fitness': 0.7, 'prevalence': 0.003}})
+        
+        # Custom scenario
+        sim = Sim(scenario={
+            'strains': {
+                (1, 8): {'fitness': 1.0, 'prevalence': 0.015},
+                (2, 4): {'fitness': 0.8, 'prevalence': 0.010}
+            },
+            'default_fitness': 0.5
+        })
+        
+        # Custom connectors and analyzers still supported
+        sim = Sim(scenario='baseline', connectors=[RotaImmunityConnector()], analyzers=[MyAnalyzer()])
     """
     
-    def __init__(self, initial_strains, fitness_scenario='baseline', base_beta=0.1, init_prev=0.01, **kwargs):
+    def __init__(self, scenario='baseline', base_beta=0.1, override_fitness=None, override_prevalence=None, 
+                 override_strains=None, use_preferred_partners=False, **kwargs):
         """
-        Initialize Rotasim simulation
+        Initialize Rotasim simulation using unified scenario system
         
         Args:
-            initial_strains: List of (G,P) tuples representing starting strains, e.g. [(1,8), (2,4)]
-            fitness_scenario: String name of built-in scenario or dict of custom fitness multipliers
+            scenario: String name of built-in scenario or dict containing custom scenario data
             base_beta: Base transmission rate before fitness adjustment (default: 0.1)
-            init_prev: Initial prevalence for active strains. Can be:
-                       - Float: Same prevalence for all initial strains (default: 0.01)
-                       - Dict: {(G,P): prevalence} for strain-specific values
+            override_fitness: Override fitness values - float (all strains) or dict {(G,P): fitness}
+            override_prevalence: Override prevalence values - float (all strains) or dict {(G,P): prevalence}
+            override_strains: Add/modify strains - dict {(G,P): {'fitness': X, 'prevalence': Y}}
+            use_preferred_partners: Whether to filter reassortments by preferred partners (default: False)
             **kwargs: Additional arguments passed to ss.Sim (n_agents, start, stop, connectors, analyzers, etc.)
             
         Raises:
-            ValueError: If initial_strains format is invalid or fitness_scenario is unknown
+            ValueError: If scenario is invalid or override parameters are malformed
+            
+        Examples:
+            # Simple usage
+            sim = Sim(scenario='realistic_competition')
+            
+            # Override all prevalence values
+            sim = Sim(scenario='baseline', override_prevalence=0.02)
+            
+            # Override specific strain fitness
+            sim = Sim(scenario='baseline', override_fitness={(1,8): 0.95, (2,4): 0.8})
+            
+            # Add new strain
+            sim = Sim(scenario='baseline', override_strains={(9,6): {'fitness': 0.7, 'prevalence': 0.003}})
         """
-        # Validate inputs
-        validate_initial_strains(initial_strains)
+        # Validate and process scenario
+        validated_scenario = validate_scenario(scenario)
+        
+        # Apply any overrides
+        final_scenario = apply_scenario_overrides(
+            validated_scenario,
+            override_fitness=override_fitness,
+            override_prevalence=override_prevalence, 
+            override_strains=override_strains
+        )
         
         # Store configuration for reference
-        self._initial_strains = initial_strains
-        self._fitness_scenario = fitness_scenario  
+        self._scenario = scenario
+        self._final_scenario = final_scenario
         self._base_beta = base_beta
-        self._init_prev = init_prev
+        self._use_preferred_partners = use_preferred_partners
         
         print("Rotasim: Setting up multi-strain simulation")
-        print(f"  Initial strains: {initial_strains}")
-        print(f"  Fitness scenario: {fitness_scenario if isinstance(fitness_scenario, str) else 'custom'}")
+        scenario_name = scenario if isinstance(scenario, str) else 'custom'
+        print(f"  Scenario: {scenario_name}")
         print(f"  Base beta: {base_beta}")
+        print(f"  Strains: {len(final_scenario['strains'])}")
         
-        # Generate all strain diseases using utility function
-        diseases = create_strain_diseases(initial_strains, fitness_scenario, base_beta, init_prev)
+        diseases = self._create_strain_diseases(final_scenario, base_beta, use_preferred_partners, verbose=kwargs.get('verbose', False))
         
         # Add default connectors if none provided
         if 'connectors' not in kwargs:
@@ -86,8 +117,7 @@ class Sim(ss.Sim):
         
         # Set reasonable defaults for rotavirus simulations if not provided  
         rotasim_defaults = {
-            'unit': 'day',
-            'dt': 1,  # Daily timesteps
+            'dt': ss.days(1),  # Daily timesteps
         }
         
         # Apply defaults only if not explicitly provided
@@ -95,21 +125,26 @@ class Sim(ss.Sim):
             if key not in kwargs:
                 kwargs[key] = default_value
         
-        print(f"  Time units: {kwargs.get('unit', 'day')}, dt={kwargs.get('dt', 1)}")
-        print(f"  Total diseases: {len(diseases)} ({len(initial_strains)} active + {len(diseases)-len(initial_strains)} dormant)")
+        print(f"  Time units: day, dt={kwargs.get('dt', ss.days(1))}")
+        active_strains = len(final_scenario['strains'])
+        print(f"  Total diseases: {len(diseases)} ({active_strains} active + {len(diseases)-active_strains} dormant)")
+
+        if 'networks' not in kwargs:
+            kwargs['networks'] = 'random'
+            print("  Networks: Using default random network")
         
         # Initialize parent Sim class
         super().__init__(diseases=diseases, **kwargs)
         
     @property
-    def initial_strains(self):
-        """Get the initial strains used to create this simulation"""
-        return self._initial_strains
+    def scenario(self):
+        """Get the scenario used to create this simulation"""
+        return self._scenario
         
     @property
-    def fitness_scenario(self):
-        """Get the fitness scenario used"""
-        return self._fitness_scenario
+    def initial_strains(self):
+        """Get the initial strains from the final scenario"""
+        return list(self._final_scenario['strains'].keys())
         
     @property
     def base_beta(self):
@@ -117,9 +152,9 @@ class Sim(ss.Sim):
         return self._base_beta
         
     @property
-    def init_prev(self):
-        """Get the initial prevalence parameter used"""
-        return self._init_prev
+    def final_scenario(self):
+        """Get the final processed scenario with all overrides applied"""
+        return self._final_scenario
         
     def get_strain_summary(self):
         """
@@ -132,11 +167,12 @@ class Sim(ss.Sim):
         if not hasattr(self, 'diseases'):
             # Use utility function to get expected strain information
             from .utils import generate_gp_reassortments
-            expected_combinations = generate_gp_reassortments(self._initial_strains)
+            initial_strains = list(self._final_scenario['strains'].keys())
+            expected_combinations = generate_gp_reassortments(initial_strains, use_preferred_partners=self._use_preferred_partners)
             
             summary = {
                 'total_diseases': len(expected_combinations),
-                'initial_strains': self._initial_strains,
+                'initial_strains': initial_strains,
                 'active_strains': [],
                 'dormant_strains': [],
             }
@@ -150,7 +186,7 @@ class Sim(ss.Sim):
                     'strain': (G, P),
                 }
                 
-                if (G, P) in self._initial_strains:
+                if (G, P) in self._final_scenario['strains']:
                     summary['active_strains'].append(strain_info)
                 else:
                     summary['dormant_strains'].append(strain_info)
@@ -160,7 +196,7 @@ class Sim(ss.Sim):
         # If initialized, use actual diseases
         summary = {
             'total_diseases': len(self.diseases),
-            'initial_strains': self._initial_strains,
+            'initial_strains': list(self._final_scenario['strains'].keys()) if hasattr(self, '_final_scenario') else [],
             'active_strains': [],
             'dormant_strains': [],
         }
@@ -174,8 +210,9 @@ class Sim(ss.Sim):
                     'strain': disease.strain,
                 }
                 
-                # Check if this was an initial strain
-                if (disease.G, disease.P) in self._initial_strains:
+                # Check if this was an initial strain (has prevalence > 0)
+                initial_strains = list(self._final_scenario['strains'].keys()) if hasattr(self, '_final_scenario') else []
+                if (disease.G, disease.P) in initial_strains:
                     summary['active_strains'].append(strain_info)
                 else:
                     summary['dormant_strains'].append(strain_info)
@@ -202,15 +239,119 @@ class Sim(ss.Sim):
             if len(summary['dormant_strains']) > 10:
                 print(f"  ... and {len(summary['dormant_strains']) - 10} more")
         
-    @staticmethod
-    def list_fitness_scenarios():
-        """List available built-in fitness scenarios"""
-        return list_fitness_scenarios()
+    def _create_strain_diseases(self, scenario, base_beta=0.1, use_preferred_partners=False, verbose=False):
+        """
+        Create all Rotavirus disease instances from unified scenario data
         
+        This method generates all possible reassortant strains from the scenario's initial strains,
+        applies fitness and prevalence values, and creates Rotavirus disease instances ready for simulation.
+        
+        Args:
+            scenario: Dict containing scenario data with 'strains' and 'default_fitness'
+            base_beta: Base transmission rate before fitness adjustment
+            use_preferred_partners: Whether to filter reassortments by preferred partners
+            verbose: Verbose level for printing setup information
+            
+        Returns:
+            List of Rotavirus disease instances for all possible reassortants
+        """
+        from .utils import generate_gp_reassortments
+        from .rotavirus import Rotavirus
+        
+        if not scenario['strains']:
+            raise ValueError("Scenario must contain at least one strain")
+
+        # Extract initial strains from scenario
+        initial_strains = list(scenario['strains'].keys())
+            
+        # Generate all possible G,P combinations
+        gp_combinations = generate_gp_reassortments(initial_strains, use_preferred_partners, verbose)
+        
+        # Strain creation details (debug verbose)
+        if verbose > 1:
+            print(f"Creating {len(gp_combinations)} strain diseases from {len(initial_strains)} initial strains")
+            print(f"  Initial strains: {initial_strains}")
+            print(f"  All combinations: {gp_combinations}")
+            print(f"  Default fitness: {scenario.get('default_fitness', 1.0)}")
+        
+        diseases = []
+        active_count = 0
+        dormant_count = 0
+        
+        for G, P in gp_combinations:
+            strain_key = (G, P)
+            
+            # Get strain data from scenario (if it exists) or use defaults
+            if strain_key in scenario['strains']:
+                strain_data = scenario['strains'][strain_key]
+                strain_fitness = strain_data['fitness']
+                strain_prevalence = strain_data['prevalence']
+            else:
+                # Dormant reassortant - use default fitness and zero prevalence
+                strain_fitness = scenario.get('default_fitness', 1.0)
+                strain_prevalence = 0.0
+            
+            # Apply fitness multiplier to base beta
+            adjusted_beta = base_beta * strain_fitness
+            
+            # Create disease instance with proper Starsim parameter format
+            disease = Rotavirus(G=G, P=P, 
+                              init_prev=ss.bernoulli(p=strain_prevalence), 
+                              beta=ss.perday(adjusted_beta),
+                              dur_inf = ss.lognorm_ex(mean=4),)
+            diseases.append(disease)
+            
+            if strain_prevalence > 0:
+                active_count += 1
+                # Individual strain details (debug verbose)
+                if verbose > 1:
+                    print(f"    {disease.name}: beta={adjusted_beta:.3f} (x{strain_fitness:.2f}), prevalence={strain_prevalence} [ACTIVE]")
+            else:
+                dormant_count += 1
+                
+        # Summary (basic verbose)
+        if verbose:
+            print(f"  Created {active_count} active strains and {dormant_count} dormant reassortants")
+        
+        return diseases
+
+
+    def get_connector_by_type(self, connector_type, warn_if_multiple=True):
+        """
+        Find a connector by type, with warning if not exactly one found
+        
+        Args:
+            connector_type: Class type or string name of the connector to find
+            warn_if_multiple: Whether to warn if multiple connectors found (default: True)
+            
+        Returns:
+            Connector instance or None if not found
+        """
+        # Handle string type names by checking class names
+        if isinstance(connector_type, str):
+            matching_connectors = [c for c in self.connectors.values() 
+                                  if c.__class__.__name__ == connector_type]
+            type_name = connector_type
+        else:
+            matching_connectors = [c for c in self.connectors.values() 
+                                  if isinstance(c, connector_type)]
+            type_name = connector_type.__name__
+        
+        if len(matching_connectors) == 0:
+            if self.pars.verbose:
+                print(f"Warning: No {type_name} found in simulation")
+            return None
+        elif len(matching_connectors) > 1 and warn_if_multiple:
+            if self.pars.verbose:
+                print(f"Warning: Multiple {type_name}s found ({len(matching_connectors)}), using first one")
+        
+        return matching_connectors[0]
+
     def __repr__(self):
         """String representation of Rotasim instance"""
-        return (f"Sim(initial_strains={self._initial_strains}, "
-                f"fitness_scenario={self._fitness_scenario}, "
+        scenario_name = self._scenario if isinstance(self._scenario, str) else 'custom'
+        return (f"Sim(scenario={scenario_name}, "
+                f"strains={len(self._final_scenario['strains'])}, "
                 f"n_agents={self.pars.n_agents})")
 
 

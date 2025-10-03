@@ -5,6 +5,7 @@ These analyzers work with the new v2 architecture where each strain is a separat
 Rotavirus disease, but provide the same output format as v1 for backwards compatibility
 with existing analysis scripts and data processing workflows.
 """
+# Third-party imports
 import numpy as np
 import starsim as ss
 
@@ -51,23 +52,24 @@ class StrainStats(ss.Analyzer):
             if hasattr(disease, 'G') and hasattr(disease, 'P'):
                 self._rotavirus_diseases.append(disease)
                 
-                # Create strain name in v1 format: (G, P, A, B) tuple as string
-                # V2 only uses G,P, so we use (1,1) for A,B backbone to match v1 format
-                strain_tuple = (disease.G, disease.P, 1, 1)
+                # Create strain name in v1 format: (G, P) tuple as string
+                strain_tuple = (disease.G, disease.P)
                 strain_name = str(strain_tuple)
                 self._strain_names.append(strain_name)
         
         n_diseases = len(self._rotavirus_diseases)
         if n_diseases == 0:
-            print("Warning: StrainStats analyzer found no Rotavirus diseases")
+            if self.sim.pars.verbose:
+                print("Warning: StrainStats analyzer found no Rotavirus diseases")
             return
             
-        print(f"StrainStats: Tracking {n_diseases} Rotavirus strains")
-        if n_diseases >= 10:
-            print(f"  First 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[:5]]}")
-            print(f"  Last 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[-5:]]}")
-        else:
-            print(f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}")
+        if self.sim.pars.verbose:
+            print(f"StrainStats: Tracking {n_diseases} Rotavirus strains")
+            if n_diseases >= 10:
+                print(f"  First 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[:5]]}")
+                print(f"  Last 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[-5:]]}")
+            else:
+                print(f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}")
         
         # Create results for each strain - matching v1 format exactly
         for strain_name in self._strain_names:
@@ -85,7 +87,7 @@ class StrainStats(ss.Analyzer):
             self.results += ss.Result(
                 f'{strain_name} count', 
                 dtype=float, 
-                scale=False,
+                scale=True,
                 module='strainstats', 
                 shape=self.timevec.shape, 
                 timevec=self.timevec
@@ -102,7 +104,7 @@ class StrainStats(ss.Analyzer):
         
         for disease, strain_name in zip(self._rotavirus_diseases, self._strain_names):
             # Count currently infected agents for this disease
-            count = len(disease.infected.uids)  # Number of infected agents
+            count = disease.infected.sum()  # Number of infected agents
             strain_counts[strain_name] = count
             total_count += count
         
@@ -127,7 +129,8 @@ class StrainStats(ss.Analyzer):
         
         # Handle case where results.to_df() returns None
         if df is None:
-            print("Warning: StrainStats results.to_df() returned None - no data collected")
+            if self.sim.pars.verbose:
+                print("Warning: StrainStats results.to_df() returned None - no data collected")
             return None
         
         # Remove duplicate timevec columns (same logic as v1)
@@ -178,108 +181,110 @@ class StrainStats(ss.Analyzer):
 
 class EventStats(ss.Analyzer):
     """
-    V2 analyzer to track simulation events - compatible with v1 event_counts_*.csv format
+    Convenience analyzer to track simulation events
     
-    This analyzer tracks key simulation events per timestep matching the v1 format:
+    This analyzer collects key simulation events per timestep:
     - births: Population births
     - deaths: Population deaths  
     - recoveries: Disease recoveries across all strains
-    - contacts: Transmission events across all strains
+    - new_infections: Transmission events across all strains
     - wanings: Immunity waning events
     - reassortments: Genetic reassortment events
-    
-    The output format matches v1 event_counts_*.csv for backwards compatibility.
+    - infected_agents: Number of currently infected agents (any strain)
+    - coinfected_agents: Number of agents infected with >1 strain
     
     Example usage:
         analyzer = EventStats()
         sim = Sim(initial_strains=[(1,8), (2,4)], analyzers=[analyzer])
         sim.run()
-        df = analyzer.to_df()  # Same format as v1 event_counts
     """
     
     def __init__(self, **kwargs):
         """Initialize event statistics analyzer"""
         super().__init__(**kwargs)
+        self.event_types = [
+            'births',
+            'deaths',
+            'recoveries',
+            'new_infections',
+            'wanings',
+            'reassortments',
+            'infected_agents',
+            'coinfected_agents'
+        ]
         
     def init_results(self):
         """Initialize results storage for event tracking"""
         super().init_results()
-        
-        # Create results for each event type - matching v1 format exactly
-        event_types = [
-            'births',
-            'deaths', 
-            'recoveries',
-            'contacts',
-            'wanings',
-            'reassortments'
-        ]
-        
-        for event_type in event_types:
+
+        # Create results for each event type
+        self.events = {}
+        for event_type in self.event_types:
+            self.events[event_type] = 0
             self.results += ss.Result(
                 event_type,
                 dtype=int,
-                scale=False,
+                scale=True,
                 module='eventstats',
                 shape=self.timevec.shape,
                 timevec=self.timevec
             )
-            
-        print(f"EventStats: Tracking {len(event_types)} event types")
-        print(f"  Events: {', '.join(event_types)}")
+
+        print(f"EventStats: Tracking {len(self.event_types)} event types")
+        print(f"  Events: {', '.join(self.event_types)}")
         
     def step(self):
         """Collect event statistics at each timestep"""
         
         # Initialize all events to 0 for this timestep
-        events = {
-            'births': 0,
-            'deaths': 0,
-            'recoveries': 0, 
-            'contacts': 0,
-            'wanings': 0,
-            'reassortments': 0
-        }
+        for event in self.events:
+            self.events[event] = 0
         
-        # Get population changes (births/deaths) from demographics
-        if hasattr(self.sim, 'people'):
-            # In v2, we can track births/deaths through people module
-            # For now, set to 0 since we don't have dynamic demographics
-            events['births'] = 0  # Would need demographics module
-            events['deaths'] = 0  # Would need demographics module
+        # Get population changes (births/deaths) from demographics modules
+        # Check for births
+        self.events['births'] += self.sim.results.births.new[self.sim.ti]
+        # Check for deaths
+        self.events['deaths'] += self.sim.results.deaths.new[self.sim.ti]
         
-        # Count recoveries across all Rotavirus diseases
+        # Count recoveries and new infections across all Rotavirus diseases
         for disease in self.sim.diseases.values():
             if hasattr(disease, 'G') and hasattr(disease, 'P'):  # Is Rotavirus
                 # Count agents who recovered this timestep
-                if hasattr(disease, 'recovered'):
-                    # This would need to track new recoveries vs total recovered
-                    # For now, approximate as 0 (would need proper event tracking)
-                    events['recoveries'] += 0
-        
-        # Count transmission contacts (new infections across all strains)
-        for disease in self.sim.diseases.values():
-            if hasattr(disease, 'G') and hasattr(disease, 'P'):  # Is Rotavirus
-                # Count new infections this timestep
-                if hasattr(disease, 'infected'):
-                    # This would need to track new vs existing infections
-                    # For now, approximate as 0 (would need proper event tracking)
-                    events['contacts'] += 0
+                if hasattr(disease.results, 'new_recovered'):
+                    self.events['recoveries'] += disease.results.new_recovered[self.sim.ti]
+                
+                # Count new infections this timestep (built into ss.Infection)
+                if hasattr(disease.results, 'new_infections'):
+                    self.events['new_infections'] += disease.results.new_infections[self.sim.ti]
         
         # Count immunity waning events
-        # Would need to track waning events from immunity connector
-        events['wanings'] = 0  # Would need immunity connector event tracking
+        immunity_connector = self.sim.get_connector_by_type('RotaImmunityConnector')
+        # if immunity_connector:
+        #     self.events['wanings'] = immunity_connector.results.n_waned[self.sim.ti]
         
-        # Count reassortment events  
-        # Would need to track reassortment events from reassortment connector
-        events['reassortments'] = 0  # Would need reassortment connector event tracking
+        # Count reassortment events from reassortment connector
+        reassortment_connector = self.sim.get_connector_by_type('RotaReassortmentConnector')
+        if reassortment_connector:
+            self.events['reassortments'] = reassortment_connector.results.n_reassortments[self.sim.ti]
+
+        # Count total infected agents and coinfected agents
+        infection_counts = np.zeros(len(self.sim.people), dtype=int)
+        for disease in self.sim.diseases.values():
+            if hasattr(disease, 'G') and hasattr(disease, 'P'):  # Is Rotavirus
+                infection_counts += disease.infected[:].astype(int)
         
+        self.events['infected_agents'] = int(np.sum(infection_counts > 0))  # Agents infected with any strain
+        self.events['coinfected_agents'] = int(np.sum(infection_counts > 1))  # Agents infected with >1 strain
+
+        if self.sim.pars.verbose:
+            print(self.events)
+
         # Store results
-        for event_type, count in events.items():
+        for event_type, count in self.events.items():
             self.results[event_type][self.sim.ti] = count
             
     def to_df(self):
-        """Convert results to dataframe - matches v1 format exactly"""
+        """Convert results to dataframe"""
         df = self.results.to_df()
         
         # Remove duplicate timevec columns (same logic as v1)
@@ -310,7 +315,7 @@ class AgeStats(ss.Analyzer):
         """Initialize age statistics analyzer"""
         super().__init__(**kwargs)
         
-        # V1 age bins and labels (from v1_legacy code)
+        # Standard age bins and labels for age distribution analysis
         self.age_bins = [2/12, 4/12, 6/12, 12/12, 24/12, 36/12, 48/12, 60/12, 100]
         self.age_labels = ["0-2", "2-4", "4-6", "6-12", "12-24", "24-36", "36-48", "48-60", "60+"]
         
@@ -323,14 +328,15 @@ class AgeStats(ss.Analyzer):
             self.results += ss.Result(
                 age_label,
                 dtype=int,
-                scale=False,
+                scale=True,
                 module='agestats',
                 shape=self.timevec.shape,
                 timevec=self.timevec
             )
             
-        print(f"AgeStats: Tracking {len(self.age_labels)} age bins")
-        print(f"  Age bins: {self.age_labels}")
+        if self.sim.pars.verbose:
+            print(f"AgeStats: Tracking {len(self.age_labels)} age bins")
+            print(f"  Age bins: {self.age_labels}")
         
     def step(self):
         """Collect age distribution statistics at each timestep"""

@@ -2,45 +2,104 @@
 Utility functions for multi-strain Rotavirus simulations
 Provides convenient functions for generating strain combinations and fitness scenarios
 """
+# Standard library imports
 import itertools
-import starsim as ss
-from .rotavirus import Rotavirus
 
-
-# Built-in fitness scenarios based on v1 fitness hypotheses
-FITNESS_SCENARIOS = {
+# Unified scenario system - contains strains, fitness, and prevalence all in one place
+SCENARIOS = {
+    'simple': {
+        'description': 'Simple two-strain scenario - G1P8 and G2P4 with equal fitness and prevalence',
+        'strains': {
+            (1, 8): {'fitness': 1.0, 'prevalence': 0.01},
+            (2, 4): {'fitness': 1.0, 'prevalence': 0.01}
+        },
+        'default_fitness': 1.0
+    },
+    
     'baseline': {
-        (1, 8): 1.0,
-        (2, 4): 0.8,
+        'description': 'Baseline scenario - common global strains with equal fitness',
+        'strains': {
+            (1, 8): {'fitness': 1.0, 'prevalence': 0.015},
+            (2, 4): {'fitness': 1.0, 'prevalence': 0.008}, 
+            (3, 8): {'fitness': 1.0, 'prevalence': 0.007}
+        },
+        'default_fitness': 1.0
     },
+    
+    'realistic_competition': {
+        'description': 'G1P8 dominant with realistic strain competition',
+        'strains': {
+            (1, 8): {'fitness': 1.0, 'prevalence': 0.015},
+            (2, 4): {'fitness': 0.2, 'prevalence': 0.008},
+            (3, 8): {'fitness': 0.4, 'prevalence': 0.007},
+            (4, 8): {'fitness': 0.5, 'prevalence': 0.005}
+        },
+        'default_fitness': 0.05
+    },
+    
+    'balanced_competition': {
+        'description': 'G1P8 dominant with moderate balanced competition',
+        'strains': {
+            (1, 8): {'fitness': 1.0, 'prevalence': 0.015},
+            (2, 4): {'fitness': 0.6, 'prevalence': 0.008},
+            (3, 8): {'fitness': 0.9, 'prevalence': 0.007},
+            (4, 8): {'fitness': 0.9, 'prevalence': 0.005}
+        },
+        'default_fitness': 0.2
+    },
+    
     'high_diversity': {
-        (1, 8): 0.98,
-        (2, 4): 0.4,
-        (3, 8): 0.7,
-        (4, 8): 0.6,
-        (9, 8): 0.7,
-        (12, 8): 0.75,
-        (9, 6): 0.58,
-        (11, 8): 0.2,
+        'description': 'High diversity with 12 strains and varied fitness',
+        'strains': {
+            (1, 8): {'fitness': 1.0, 'prevalence': 0.012},
+            (2, 4): {'fitness': 0.7, 'prevalence': 0.007},
+            (3, 8): {'fitness': 0.85, 'prevalence': 0.005},
+            (4, 8): {'fitness': 0.88, 'prevalence': 0.004},
+            (9, 8): {'fitness': 0.95, 'prevalence': 0.003},
+            (12, 8): {'fitness': 0.93, 'prevalence': 0.003},
+            (9, 6): {'fitness': 0.85, 'prevalence': 0.002},
+            (12, 6): {'fitness': 0.90, 'prevalence': 0.002},
+            (9, 4): {'fitness': 0.90, 'prevalence': 0.002},
+            (1, 6): {'fitness': 0.6, 'prevalence': 0.002},
+            (2, 8): {'fitness': 0.6, 'prevalence': 0.002},
+            (2, 6): {'fitness': 0.6, 'prevalence': 0.002}
+        },
+        'default_fitness': 0.4
     },
+    
     'low_diversity': {
-        (1, 8): 1.0,
-        (2, 4): 0.85,
-        (3, 8): 0.85,
-        (4, 8): 0.88,
-        (9, 8): 0.95,
-        (12, 8): 0.93,
-        (9, 6): 0.85,
-        (12, 6): 0.90,
-        (9, 4): 0.90,
-        (1, 6): 0.6,
-        (2, 8): 0.6,
-        (2, 6): 0.6,
+        'description': 'Low diversity with 4 main competitive strains',
+        'strains': {
+            (1, 8): {'fitness': 0.98, 'prevalence': 0.020},
+            (2, 4): {'fitness': 0.7, 'prevalence': 0.012},
+            (3, 8): {'fitness': 0.8, 'prevalence': 0.008},
+            (4, 8): {'fitness': 0.8, 'prevalence': 0.005}
+        },
+        'default_fitness': 0.5
     },
+    
+    'emergence_scenario': {
+        'description': 'Scenario for studying strain emergence with weak background',
+        'strains': {
+            (1, 8): {'fitness': 1.0, 'prevalence': 0.015},
+            (2, 4): {'fitness': 0.4, 'prevalence': 0.005},
+            (3, 8): {'fitness': 0.7, 'prevalence': 0.003}
+        },
+        'default_fitness': 0.05  # Very low fitness for new emerging strains
+    }
 }
 
+# Preferred partners for reassortment. Dict key is G, value is list of preferred P partners
+PREFERRED_PARTNERS = {
+    1: [6, 8],
+    2: [4, 6, 8],
+    3: [6, 8],
+    4: [8],
+    9: [4, 6, 8],
+    12: [6, 8],
+}
 
-def generate_gp_reassortments(initial_strains):
+def generate_gp_reassortments(initial_strains, use_preferred_partners=False, verbose=False):
     """
     Generate all possible G,P combinations from initial strains
     
@@ -56,194 +115,165 @@ def generate_gp_reassortments(initial_strains):
     """
     if not initial_strains:
         raise ValueError("initial_strains cannot be empty")
-        
+
     # Extract unique G and P genotypes
     unique_G = sorted(set(g for g, p in initial_strains))
     unique_P = sorted(set(p for g, p in initial_strains))
-    
-    # Generate all possible combinations
-    all_combinations = list(itertools.product(unique_G, unique_P))
-    
-    return all_combinations
 
+    all_reassortments = []
+    # Optionally filter P genotypes to preferred partners
+    if use_preferred_partners:
+        for g in unique_G:
+            if g not in PREFERRED_PARTNERS:
+                if verbose:
+                    print(f"Warning: No preferred partners defined for G genotype {g}. Skipping.")
+                continue
+                # raise ValueError(f"No preferred partners defined for G genotype {g}")
+            for p in unique_P:
+                if p not in PREFERRED_PARTNERS[g]:
+                    if verbose:
+                        print(f"Warning: P genotype {p} is not a preferred partner for G genotype {g}. Skipping.")
+                    continue
+                all_reassortments.append((g, p))
 
-def get_fitness_multiplier(G, P, scenario):
-    """
-    Get fitness multiplier for a G,P combination
-    
-    Args:
-        G: G genotype
-        P: P genotype  
-        scenario: Dict of fitness multipliers or string name of built-in scenario
-        
-    Returns:
-        Float fitness multiplier (defaults to 1.0 if not found)
-        
-    Example:
-        >>> get_fitness_multiplier(1, 8, 'baseline')
-        1.0
-        >>> get_fitness_multiplier(2, 4, 'baseline') 
-        0.8
-        >>> get_fitness_multiplier(3, 6, 'baseline')  # Not in dict
-        1.0
-    """
-    # Handle string scenario names
-    if isinstance(scenario, str):
-        if scenario not in FITNESS_SCENARIOS:
-            raise ValueError(f"Unknown fitness scenario '{scenario}'. Available: {list(FITNESS_SCENARIOS.keys())}")
-        scenario = FITNESS_SCENARIOS[scenario]
-    
-    # Return fitness multiplier, defaulting to 1.0
-    return scenario.get((G, P), 1.0)
-
-
-def _parse_init_prev_parameter(init_prev, initial_strains):
-    """
-    Parse init_prev parameter into a standardized dict format
-    
-    Args:
-        init_prev: Float or dict specifying initial prevalence
-        initial_strains: List of (G,P) tuples for validation
-        
-    Returns:
-        Dict mapping (G,P) tuples to prevalence values
-        
-    Raises:
-        ValueError: If format is invalid or values are out of range
-    """
-    if isinstance(init_prev, (int, float)):
-        # Float format: same prevalence for all initial strains
-        if init_prev < 0 or init_prev > 1:
-            raise ValueError(f"init_prev must be between 0 and 1, got {init_prev}")
-        return {strain: float(init_prev) for strain in initial_strains}
-    
-    elif isinstance(init_prev, dict):
-        # Dict format: {(G,P): prevalence}
-        result = {}
-        for strain, prev in init_prev.items():
-            if not isinstance(strain, (tuple, list)) or len(strain) != 2:
-                raise ValueError(f"Dict keys must be (G,P) tuples, got {strain}")
-            if not isinstance(prev, (int, float)) or prev < 0 or prev > 1:
-                raise ValueError(f"Prevalence values must be between 0 and 1, got {prev} for strain {strain}")
-            result[tuple(strain)] = float(prev)
-        return result
-    
     else:
-        raise ValueError(f"init_prev must be float or dict, got {type(init_prev)}")
+        # Generate all possible combinations
+        all_reassortments = list(itertools.product(unique_G, unique_P))
+
+    return all_reassortments
 
 
-def create_strain_diseases(initial_strains, fitness_scenario='baseline', base_beta=0.1, init_prev=0.01):
+def list_scenarios():
     """
-    Create all Rotavirus disease instances for multi-strain simulation
-    
-    This is the main user-facing function that generates all possible reassortant
-    strains from the initial strains, applies fitness multipliers, and creates
-    Rotavirus disease instances ready for simulation.
-    
-    Args:
-        initial_strains: List of (G,P) tuples, e.g. [(1,8), (2,4)]
-        fitness_scenario: Dict of fitness multipliers or string name ('baseline', 'high_diversity', 'low_diversity')
-        base_beta: Base transmission rate before fitness adjustment
-        init_prev: Initial prevalence for active strains. Can be:
-                   - Float: Same prevalence for all initial strains (default: 0.01)
-                   - Dict: {(G,P): prevalence} for strain-specific values
-        
-    Returns:
-        List of Rotavirus disease instances for all possible reassortants
-        
-    Examples:
-        >>> # Uniform initial prevalence
-        >>> diseases = create_strain_diseases([(1,8), (2,4)], init_prev=0.02)
-        
-        >>> # Strain-specific prevalence
-        >>> diseases = create_strain_diseases([(1,8), (2,4)], 
-        ...                                  init_prev={(1,8): 0.02, (2,4): 0.005})
-    """
-    if not initial_strains:
-        raise ValueError("initial_strains cannot be empty")
-        
-    # Parse init_prev parameter into a dict format
-    init_prev_dict = _parse_init_prev_parameter(init_prev, initial_strains)
-        
-    # Generate all possible G,P combinations
-    gp_combinations = generate_gp_reassortments(initial_strains)
-    
-    print(f"Creating {len(gp_combinations)} strain diseases from {len(initial_strains)} initial strains")
-    print(f"  Initial strains: {initial_strains}")
-    print(f"  All combinations: {gp_combinations}")
-    print(f"  Fitness scenario: {fitness_scenario if isinstance(fitness_scenario, str) else 'custom'}")
-    
-    diseases = []
-    active_count = 0
-    dormant_count = 0
-    
-    for G, P in gp_combinations:
-        # Get initial prevalence for this strain (0.0 for dormant reassortants)
-        strain_init_prev = init_prev_dict.get((G, P), 0.0)
-        
-        # Apply fitness multiplier to base beta
-        fitness_mult = get_fitness_multiplier(G, P, fitness_scenario)
-        adjusted_beta = base_beta * fitness_mult
-        
-        # Create disease instance with proper Starsim parameter format
-        disease = Rotavirus(G=G, P=P, 
-                          init_prev=ss.bernoulli(p=strain_init_prev), 
-                          beta=ss.rate_prob(adjusted_beta))
-        diseases.append(disease)
-        
-        if strain_init_prev > 0:
-            active_count += 1
-            print(f"    {disease.name}: beta={adjusted_beta:.3f} (x{fitness_mult:.2f}), init_prev={strain_init_prev} [ACTIVE]")
-        else:
-            dormant_count += 1
-            
-    print(f"  Created {active_count} active strains and {dormant_count} dormant reassortants")
-    
-    return diseases
-
-
-def list_fitness_scenarios():
-    """
-    List available built-in fitness scenarios
+    List available built-in simulation scenarios
     
     Returns:
         Dict mapping scenario names to descriptions
     """
-    return {
-        'baseline': 'Simple baseline scenario with G1P8 dominant',
-        'high_diversity': 'High diversity scenario with many competing strains',
-        'low_diversity': 'Low diversity scenario with few dominant strains',
-    }
+    return {name: data['description'] for name, data in SCENARIOS.items()}
 
 
-def validate_initial_strains(initial_strains):
+def get_scenario(scenario_name):
     """
-    Validate initial_strains format and content
+    Get a scenario by name
     
     Args:
-        initial_strains: List of (G,P) tuples
-        
-    Raises:
-        ValueError: If format is invalid
+        scenario_name: Name of the scenario to retrieve
         
     Returns:
-        True if valid
+        Dict containing scenario data
     """
-    if not initial_strains:
-        raise ValueError("initial_strains cannot be empty")
-        
-    if not isinstance(initial_strains, (list, tuple)):
-        raise ValueError("initial_strains must be a list or tuple")
-        
-    for i, strain in enumerate(initial_strains):
-        if not isinstance(strain, (list, tuple)) or len(strain) != 2:
-            raise ValueError(f"Strain {i} must be a (G,P) tuple, got {strain}")
-            
-        G, P = strain
-        if not isinstance(G, int) or not isinstance(P, int):
-            raise ValueError(f"G and P must be integers, got G={G} (type {type(G)}), P={P} (type {type(P)})")
-            
-        if G <= 0 or P <= 0:
-            raise ValueError(f"G and P must be positive integers, got G={G}, P={P}")
+    if scenario_name not in SCENARIOS:
+        raise ValueError(f"Unknown scenario '{scenario_name}'. Available scenarios: {list(SCENARIOS.keys())}")
+    return SCENARIOS[scenario_name]
+
+
+def validate_scenario(scenario):
+    """
+    Validate scenario format and content
     
-    return True
+    Args:
+        scenario: Either a string (scenario name) or dict (custom scenario)
+        
+    Returns:
+        Dict containing validated scenario data
+    """
+    if isinstance(scenario, str):
+        # Built-in scenario
+        return get_scenario(scenario)
+    elif isinstance(scenario, dict):
+        # Custom scenario - validate structure
+        if 'strains' not in scenario:
+            raise ValueError("Custom scenario must contain 'strains' key")
+        
+        if not isinstance(scenario['strains'], dict):
+            raise ValueError("Scenario 'strains' must be a dictionary")
+            
+        if len(scenario['strains']) == 0:
+            raise ValueError("Scenario must contain at least one strain")
+            
+        # Validate each strain entry
+        for strain, data in scenario['strains'].items():
+            if not isinstance(strain, tuple) or len(strain) != 2:
+                raise ValueError(f"Strain key must be a (G,P) tuple, got {strain}")
+                
+            G, P = strain
+            if not isinstance(G, int) or not isinstance(P, int):
+                raise ValueError(f"G and P must be integers, got G={G}, P={P}")
+                
+            if G <= 0 or P <= 0:
+                raise ValueError(f"G and P must be positive, got G={G}, P={P}")
+                
+            if not isinstance(data, dict):
+                raise ValueError(f"Strain data must be dict, got {type(data)} for strain {strain}")
+                
+            if 'fitness' not in data or 'prevalence' not in data:
+                raise ValueError(f"Strain data must contain 'fitness' and 'prevalence' keys for strain {strain}")
+        
+        # Set default fitness if not provided
+        if 'default_fitness' not in scenario:
+            scenario['default_fitness'] = 1.0
+            
+        return scenario
+    else:
+        raise ValueError(f"Scenario must be string or dict, got {type(scenario)}")
+
+
+def apply_scenario_overrides(scenario, override_fitness=None, override_prevalence=None, override_strains=None):
+    """
+    Apply override parameters to a scenario
+    
+    Args:
+        scenario: Base scenario dict
+        override_fitness: Override fitness values - float (all strains) or dict {(G,P): fitness}
+        override_prevalence: Override prevalence values - float (all strains) or dict {(G,P): prevalence}
+        override_strains: Add/modify strains - dict {(G,P): {'fitness': X, 'prevalence': Y}}
+        
+    Returns:
+        Dict containing modified scenario
+    """
+    import copy
+    result = copy.deepcopy(scenario)
+    
+    # Apply strain overrides first (adds/modifies strains)
+    if override_strains is not None:
+        if not isinstance(override_strains, dict):
+            raise ValueError("override_strains must be a dict")
+        for strain, data in override_strains.items():
+            if not isinstance(strain, tuple) or len(strain) != 2:
+                raise ValueError(f"Strain key must be (G,P) tuple, got {strain}")
+            if not isinstance(data, dict):
+                raise ValueError(f"Strain data must be dict, got {type(data)}")
+            if 'fitness' not in data or 'prevalence' not in data:
+                raise ValueError(f"Strain data must contain 'fitness' and 'prevalence' for {strain}")
+            result['strains'][strain] = data.copy()
+    
+    # Apply fitness overrides
+    if override_fitness is not None:
+        if isinstance(override_fitness, (int, float)):
+            # Apply to all strains
+            for strain in result['strains']:
+                result['strains'][strain]['fitness'] = float(override_fitness)
+        elif isinstance(override_fitness, dict):
+            # Apply to specific strains
+            for strain, fitness in override_fitness.items():
+                if strain in result['strains']:
+                    result['strains'][strain]['fitness'] = float(fitness)
+        else:
+            raise ValueError("override_fitness must be number or dict")
+    
+    # Apply prevalence overrides
+    if override_prevalence is not None:
+        if isinstance(override_prevalence, (int, float)):
+            # Apply to all strains
+            for strain in result['strains']:
+                result['strains'][strain]['prevalence'] = float(override_prevalence)
+        elif isinstance(override_prevalence, dict):
+            # Apply to specific strains
+            for strain, prevalence in override_prevalence.items():
+                if strain in result['strains']:
+                    result['strains'][strain]['prevalence'] = float(prevalence)
+        else:
+            raise ValueError("override_prevalence must be number or dict")
+    
+    return result

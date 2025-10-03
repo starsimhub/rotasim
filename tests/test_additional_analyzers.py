@@ -19,9 +19,9 @@ def test_event_stats_creation():
     analyzer = EventStats()
     print(f"✓ Created EventStats analyzer: {type(analyzer).__name__}")
     
-    # Test integration with Rotasim
+    # Test integration with Rotasim using simple scenario
     sim = Sim(
-        initial_strains=[(1, 8), (2, 4)], 
+        scenario='simple',
         analyzers=[analyzer]
     )
     print(f"✓ Created Rotasim with EventStats analyzer")
@@ -39,9 +39,9 @@ def test_age_stats_creation():
     print(f"  Age bins: {analyzer.age_labels}")
     print(f"  Age bin edges: {analyzer.age_bins}")
     
-    # Test integration with Rotasim
+    # Test integration with Rotasim using simple scenario
     sim = Sim(
-        initial_strains=[(1, 8), (2, 4)], 
+        scenario='simple',
         analyzers=[analyzer]
     )
     print(f"✓ Created Rotasim with AgeStats analyzer")
@@ -64,9 +64,9 @@ def test_multi_analyzer_integration():
     analyzer_names = [type(a).__name__ for a in analyzers]
     print(f"Created analyzers: {', '.join(analyzer_names)}")
     
-    # Test integration with Rotasim
+    # Test integration with Rotasim using simple scenario
     sim = Sim(
-        initial_strains=[(1, 8), (2, 4)], 
+        scenario='simple',
         analyzers=analyzers,
         n_agents=500
     )
@@ -81,7 +81,7 @@ def test_event_stats_format():
     
     analyzer = EventStats()
     sim = Sim(
-        initial_strains=[(1, 8)],
+        scenario={'strains': {(1, 8): {'fitness': 1.0, 'prevalence': 0.01}}, 'default_fitness': 1.0},
         analyzers=[analyzer],
         n_agents=100
     )
@@ -103,7 +103,7 @@ def test_age_stats_format():
     
     analyzer = AgeStats()
     sim = Sim(
-        initial_strains=[(1, 8)],
+        scenario={'strains': {(1, 8): {'fitness': 1.0, 'prevalence': 0.01}}, 'default_fitness': 1.0},
         analyzers=[analyzer],
         n_agents=100
     )

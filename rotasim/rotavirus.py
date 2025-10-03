@@ -2,6 +2,7 @@
 Rotavirus disease class for v2 architecture
 Individual strain-specific disease instances following traditional Starsim patterns
 """
+# Third-party imports
 import starsim as ss
 
 
@@ -22,7 +23,13 @@ class Rotavirus(ss.Infection):
             G (int): G genotype (antigenic segment)
             P (int): P genotype (antigenic segment) 
             pars (dict, optional): Parameters dict
-            **kwargs: Standard ss.Infection parameters (init_prev, beta, name, etc.)
+            **kwargs: Standard ss.Infection parameters + custom parameters including:
+                init_prev: Initial prevalence (default: 1% bernoulli)
+                beta: Transmission rate per day (default: 0.1/day)  
+                dur_inf: Infection duration (default: 7 days lognormal)
+                dur_waning: Immunity waning duration (default: 180 days poisson)
+                waning_delay: Delay before waning starts (default: 0 days)
+                dt_jump_size: Performance tuning for large populations (default: 15000)
         """
         # Store G,P genotypes as attributes
         self.G = G
@@ -36,22 +43,33 @@ class Rotavirus(ss.Infection):
         
         self.define_pars(
             init_prev = ss.bernoulli(p=0.01),     # Initial prevalence
-            beta = ss.rate_prob(0.1),             # Transmission rate (will be modified by fitness)
-            dur_inf = ss.lognorm_ex(mean=7),      # Duration of infection (~7 days)
+            beta = ss.perday(0.1),               # Transmission rate (will be modified by fitness)
+            dur_inf = ss.lognorm_ex(mean=7, unit='days'),      # Duration of infection (~7 days)
+            waning_rate_dist = ss.normal(loc=180, scale=10, unit='days'), # Duration of waning immunity (180 days mean for normal)
+            waning_delay = ss.days(0)
         )
+
+
         
-        # Define disease states (following standard Starsim patterns)
+        # Define additional disease states (base ss.Infection already provides susceptible, infected, rel_sus, rel_trans, ti_infected)
         self.define_states(
-            ss.State('susceptible', default=True, label='Susceptible'),
-            ss.State('infected', label='Infected'),
-            ss.State('recovered', label='Recovered'),
-            ss.FloatArr('ti_infected', label='Time of infection'),
+            ss.BoolState('recovered', label='Recovered'),
             ss.FloatArr('ti_recovered', label='Time of recovery'),
-            ss.FloatArr('rel_sus', default=1.0, label='Relative susceptibility'),
-            ss.FloatArr('rel_trans', default=1.0, label='Relative transmission'),
+            # ss.FloatArr('ti_waned', label='Time of waned immunity'),
+            ss.FloatArr('waning_rate', default=0.0, label='Individual decay rate for immunity waning'),
+            ss.FloatArr('n_infections', default=0, label='Total number of infections'),
         )
         
         self.update_pars(pars=pars, **kwargs)
+
+        # With large populations or large numbers of strains, the default Starsim jump size of 1000
+        # is not sufficient so override it here.
+        self.pars.dur_inf.dt_jump_size = kwargs.get('dt_jump_size', 15000)
+
+    def init_results(self):
+        super().init_results()
+        self.define_results(ss.Result('new_recovered', label='New recoveries this timestep', dtype=int, scale=True))
+
         
     def set_prognoses(self, uids, sources=None):
         """
@@ -73,7 +91,11 @@ class Rotavirus(ss.Infection):
         # Update agent states: susceptible → infected
         self.susceptible[uids] = False
         self.infected[uids] = True
+        self.recovered[uids] = False
         self.ti_infected[uids] = ti
+        
+        # Increment infection count for each agent
+        self.n_infections[uids] += 1
         
         # Sample duration of infection for each agent
         # dur_inf is typically ss.lognorm_ex(mean=7) for ~7 days
@@ -81,6 +103,9 @@ class Rotavirus(ss.Infection):
         
         # Set recovery time: current time + infection duration
         self.ti_recovered[uids] = ti + dur_inf
+        immunity_connector = self.sim.get_connector_by_type('RotaImmunityConnector')
+        if immunity_connector:
+            immunity_connector.record_infection(self, uids)
         
         return
 
@@ -93,9 +118,20 @@ class Rotavirus(ss.Infection):
         """
         # Progress infected -> recovered (following SIR example pattern)
         sim = self.sim
-        recovering = (self.infected & (self.ti_recovered <= sim.ti)).uids
+        recovering = (self.infected & (self.ti_recovered <= self.ti)).uids
         self.infected[recovering] = False
         self.recovered[recovering] = True
+        self.susceptible[recovering] = True # When recovered, become susceptible again (SIRS), but with modified susceptibility via connector
+        waning_rate_denoms = self.pars.waning_rate_dist.rvs(recovering)
+        # self.ti_waned[recovering] = sim.ti + waning_durations
+        # Store individual decay rates: 1/duration for exponential decay
+        self.waning_rate[recovering] = 1.0 / waning_rate_denoms
+
+        self.results['new_recovered'][self.ti] = len(recovering)
+
+        immunity_connector = self.sim.get_connector_by_type('RotaImmunityConnector')
+        if immunity_connector:
+            immunity_connector.record_recovery(self, recovering)
         
         return
 

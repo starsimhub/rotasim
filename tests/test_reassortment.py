@@ -17,13 +17,13 @@ def test_reassortment_creation():
     
     # Test standalone creation
     reassortment = RotaReassortmentConnector()
-    print(f"✓ Created RotaReassortmentConnector")
-    print(f"  Default rate: {reassortment.pars.reassortment_rate}")
+    print(f"[OK] Created RotaReassortmentConnector")
+    print(f"  Default prob: {reassortment.pars.reassortment_prob}")
     
-    # Test custom rate
-    custom_reassortment = RotaReassortmentConnector(reassortment_rate=0.05)
-    print(f"✓ Created custom RotaReassortmentConnector")
-    print(f"  Custom rate: {custom_reassortment.pars.reassortment_rate}")
+    # Test custom prob
+    custom_reassortment = RotaReassortmentConnector(reassortment_prob=0.1)
+    print(f"[OK] Created custom RotaReassortmentConnector")
+    print(f"  Custom prob: {custom_reassortment.pars.reassortment_prob}")
     print()
 
 
@@ -33,8 +33,8 @@ def test_reassortment_with_rotasim():
     
     # Create Rotasim with default connectors (should include reassortment)
     print("1. Testing default connectors (includes reassortment):")
-    sim = Sim(initial_strains=[(1, 8), (2, 4)])
-    print(f"✓ Created Rotasim with default connectors")
+    sim = Sim(scenario='simple')
+    print(f"[OK] Created Rotasim with default connectors")
     
     # Check strain summary 
     summary = sim.get_strain_summary()
@@ -45,18 +45,21 @@ def test_reassortment_with_rotasim():
     
     # Create Rotasim with no connectors
     print("2. Testing without connectors:")
-    sim_no_connectors = Sim(initial_strains=[(1, 8), (2, 4)], connectors=[])
-    print(f"✓ Created Rotasim without connectors")
+    sim_no_connectors = Sim(
+        scenario='simple', 
+        connectors=[]
+    )
+    print(f"[OK] Created Rotasim without connectors")
     print()
     
     # Create Rotasim with custom reassortment connector
     print("3. Testing with custom reassortment connector:")
-    custom_reassortment = RotaReassortmentConnector(reassortment_rate=0.2)
+    custom_reassortment = RotaReassortmentConnector(reassortment_prob=0.2)
     sim_custom = Sim(
-        initial_strains=[(1, 8), (2, 4)], 
+        scenario='simple', 
         connectors=[custom_reassortment]
     )
-    print(f"✓ Created Rotasim with custom reassortment connector")
+    print(f"[OK] Created Rotasim with custom reassortment connector")
     print()
 
 
@@ -66,7 +69,7 @@ def test_reassortment_analysis():
     
     # Test 1: Verify reassortment connector is included by default
     print("1. Verify reassortment connector included in defaults:")
-    sim = Sim(initial_strains=[(1, 8), (2, 4), (3, 6)])
+    sim = Sim()
     summary = sim.get_strain_summary()
     
     # Calculate expected reassortants: from 3 strains (G1P8, G2P4, G3P6)
@@ -83,9 +86,9 @@ def test_reassortment_analysis():
     if (summary['total_diseases'] == expected_total and 
         len(summary['active_strains']) == expected_active and 
         len(summary['dormant_strains']) == expected_dormant):
-        print("   ✓ Correct strain distribution for reassortment")
+        print("   [OK] Correct strain distribution for reassortment")
     else:
-        print("   ❌ Unexpected strain distribution")
+        print("   [ERROR] Unexpected strain distribution")
     
     print()
     
@@ -111,9 +114,9 @@ def test_reassortment_analysis():
     # Check against actual dormant strains
     actual_dormant = [(s['G'], s['P']) for s in summary['dormant_strains']]
     if set(reassortants) == set(actual_dormant):
-        print("   ✓ Correct reassortant generation logic")
+        print("   [OK] Correct reassortant generation logic")
     else:
-        print(f"   ❌ Mismatch - actual dormant: {actual_dormant}")
+        print(f"   [ERROR] Mismatch - actual dormant: {actual_dormant}")
     
     print()
     
@@ -128,7 +131,16 @@ def test_reassortment_analysis():
     ]
     
     for name, strains, exp_total, exp_active, exp_dormant in scenarios:
-        test_sim = Sim(initial_strains=strains)
+        if name == "Two strains" and strains == [(1, 8), (2, 4)]:
+            # Use simple scenario for the two-strain case
+            test_sim = Sim(scenario='simple')
+        else:
+            test_sim = Sim(
+                scenario={
+                    'strains': {strain: {'fitness': 1.0, 'prevalence': 0.01} for strain in strains},
+                    'default_fitness': 1.0
+                }
+            )
         test_summary = test_sim.get_strain_summary()
         
         actual_total = test_summary['total_diseases']
@@ -140,9 +152,9 @@ def test_reassortment_analysis():
         print(f"     Actual: {actual_total} total ({actual_active} active + {actual_dormant} dormant)")
         
         if (actual_total == exp_total and actual_active == exp_active and actual_dormant == exp_dormant):
-            print(f"     ✓ Correct")
+            print(f"     [OK] Correct")
         else:
-            print(f"     ❌ Mismatch")
+            print(f"     [ERROR] Mismatch")
     
     print()
 
@@ -155,17 +167,17 @@ if __name__ == "__main__":
         test_reassortment_with_rotasim()
         test_reassortment_analysis()
         
-        print("🎉 All reassortment connector tests completed!")
+        print("[SUCCESS] All reassortment connector tests completed!")
         print("\nSummary:")
-        print("✅ RotaReassortmentConnector successfully implemented")
-        print("✅ Replicates v1 reassortment logic using v2 architecture")
-        print("✅ Per-host Bernoulli probability model (vs v1 population Poisson)")
-        print("✅ Activates pre-populated dormant diseases (vs v1 dynamic creation)")
-        print("✅ Uses vectorized co-infection detection for performance")
-        print("✅ Integrated as default connector in Rotasim convenience class")
+        print("[OK] RotaReassortmentConnector successfully implemented")
+        print("[OK] Replicates v1 reassortment logic using v2 architecture")
+        print("[OK] Per-host Bernoulli probability model (vs v1 population Poisson)")
+        print("[OK] Activates pre-populated dormant diseases (vs v1 dynamic creation)")
+        print("[OK] Uses vectorized co-infection detection for performance")
+        print("[OK] Integrated as default connector in Rotasim convenience class")
         
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f"[ERROR] Test failed: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
