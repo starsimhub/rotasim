@@ -7,6 +7,7 @@ from typing import Union, List, Optional, Dict
 # Third-party imports
 import numpy as np
 import starsim as ss
+from .rotavirus import Rotavirus
 
 
 class RotaVaccination(ss.Intervention):
@@ -39,7 +40,7 @@ class RotaVaccination(ss.Intervention):
         min_age (int or ss.days): Minimum age for vaccination (default: ss.days(42) = 6 weeks)
         max_age (int or ss.days): Maximum age for vaccination (default: ss.days(365) = 1 year)
         uptake_prob (float): Probability that eligible agents receive vaccine (default: 0.8)
-        vaccine_waning_rate (ss.Dist): Distribution for vaccine waning time (default: ss.lognorm_ex(mean=365))
+        waning_rate_dist (ss.Dist): Distribution for vaccine waning time (default: ss.lognorm_ex(mean=365))
         homotypic_efficacy (float): Efficacy multiplier for exact G+P matches (default: 1.0)
         partial_heterotypic_efficacy (float): Efficacy multiplier for shared G or P (default: 0.6)
         complete_heterotypic_efficacy (float): Efficacy multiplier for no shared G,P (default: 0.3)
@@ -77,7 +78,7 @@ class RotaVaccination(ss.Intervention):
     def __init__(self, start_date, end_date=None, n_doses=2, dose_interval=None,
                  G_antigens=None, P_antigens=None, dose_effectiveness=None,
                  min_age=None, max_age=None, uptake_prob=0.8,
-                 vaccine_waning_rate=None, homotypic_efficacy=1.0, 
+                 waning_rate_dist=None, waning_delay=None, homotypic_efficacy=1.0,
                  partial_heterotypic_efficacy=0.6, complete_heterotypic_efficacy=0.3,
                  verbose=False, **kwargs):
         
@@ -142,10 +143,17 @@ class RotaVaccination(ss.Intervention):
             raise ValueError(f"complete_heterotypic_efficacy must be between 0 and 1, got {self.complete_heterotypic_efficacy}")
         
         # Vaccine waning parameters
-        if vaccine_waning_rate is None:
-            self.vaccine_waning_rate = ss.lognorm_ex(mean=365)  # Default: 1 year mean waning time
+        if waning_rate_dist is None:
+            self.waning_rate_dist = ss.lognorm_ex(mean=365)  # Default: 1 year mean waning time
+        elif isinstance(waning_rate_dist, ss.Dist):
+            self.waning_rate_dist = waning_rate_dist
+        elif np.isscalar(waning_rate_dist):
+            self.waning_rate_dist = ss.constant(waning_rate_dist)
         else:
-            self.vaccine_waning_rate = vaccine_waning_rate
+            raise ValueError("waning_rate_dist must be an ss.Dist or a scalar value")
+
+        if waning_delay is None:
+            self.waning_delay = 0
         
         # Define states for vaccination tracking
         self.define_states(
@@ -174,7 +182,7 @@ class RotaVaccination(ss.Intervention):
         # Find rotavirus diseases
         self.rotavirus_diseases = []
         for disease in sim.diseases.values():
-            if hasattr(disease, 'G') and hasattr(disease, 'P'):
+            if isinstance(disease, Rotavirus):
                 self.rotavirus_diseases.append(disease)
                 
         if not self.rotavirus_diseases:
@@ -182,10 +190,10 @@ class RotaVaccination(ss.Intervention):
         
         # With cross-protection, ALL rotavirus diseases are covered (with different efficacy levels)
         self.covered_diseases = self.rotavirus_diseases.copy()
-        self.vaccine_protection_states = {}  # Maps disease name to protection level state
-        self.vaccine_waning_states = {}      # Maps disease name to waning time state
+        self.vaccine_protections = {}  # Maps disease name to protection level state
+        self.vaccine_waning_delays = {}      # Maps disease name to waning time state
         
-        # Precompute match efficacies for all diseases (performance optimization)
+        # Precompute match efficacies for all diseases (performance optimization). These are based on the antigen match types.
         self.disease_match_efficacies = {}
         for disease in self.covered_diseases:
             self.disease_match_efficacies[disease.name] = self._compute_match_efficacy(disease)
@@ -197,15 +205,15 @@ class RotaVaccination(ss.Intervention):
                 
                 # Create individual states for this disease's vaccine protection
                 protection_state_name = f'vax_protection_{disease.name}'
-                waning_state_name = f'vax_waning_{disease.name}'
+                # waning_state_name = f'vax_waning_{disease.name}'
                 
                 # Create state objects
                 protection_state = ss.FloatArr(protection_state_name, default=0.0)
-                waning_state = ss.FloatArr(waning_state_name, default=-np.inf)
+                # waning_state = ss.FloatArr(waning_state_name, default=-np.inf)
                 
                 # Store references for easy access
                 self.vaccine_protection_states[disease.name] = protection_state
-                self.vaccine_waning_states[disease.name] = waning_state
+                # self.vaccine_waning_delays[disease.name] = waning_state
                 
                 # Add to dynamic states list
                 dynamic_states.append(protection_state)
@@ -235,13 +243,14 @@ class RotaVaccination(ss.Intervention):
                 covered_strains = [(d.G, d.P) for d in self.covered_diseases]
                 print(f"  Covered strains: {covered_strains}")
                 
-    def check_eligibility(self, sim):
+    def check_eligibility(self):
         """
         Check which agents are eligible for vaccination
         
         Returns:
             np.array: Boolean array of agent eligibility
         """
+        sim = self.sim
         # Check if intervention is active
         if sim.ti < self.start_ti or sim.ti > self.end_ti:
             return np.array([False] * len(sim.people))
@@ -265,10 +274,10 @@ class RotaVaccination(ss.Intervention):
     def step(self):
         """Apply vaccination and update vaccine protection at current timestep"""
         # First, update vaccine protection for all agents (waning)
-        self._update_vaccine_protection(self.sim)
+        self._update_vaccine_protection()
         
         # Then, check for new vaccinations
-        eligible_agents = self.check_eligibility(self.sim)
+        eligible_agents = self.check_eligibility()
         eligible_uids = self.sim.people.uid[eligible_agents]
         
         if len(eligible_uids) > 0:
@@ -284,21 +293,24 @@ class RotaVaccination(ss.Intervention):
             )
             
             # Random uptake
-            uptake = self.uptake_prob.rvs(eligible_uids)
-            vaccinated_uids = eligible_uids[uptake]
+            # uptake = self.uptake_prob.rvs(eligible_uids)
+            # vaccinated_uids = eligible_uids[uptake]
+            vaccinated_uids = self.uptake_prob.filter(eligible_uids)
             
             if len(vaccinated_uids) > 0:
                 # Apply vaccination (vectorized)
-                self._vaccinate_agents(self.sim, vaccinated_uids)
+                self._vaccinate_agents(vaccinated_uids)
                 
                 if self.verbose:
                     total_eligible = np.sum(eligible_agents)
                     print(f"Day {self.sim.ti}: Vaccinated {len(vaccinated_uids)}/{total_eligible} eligible agents")
             
-    def _vaccinate_agents(self, sim, uids):
+    def _vaccinate_agents(self, uids):
         """Vaccinate multiple agents at once (vectorized)"""
         if len(uids) == 0:
             return
+
+        sim = self.sim
             
         # Get current dose numbers for all agents being vaccinated
         current_doses = self.doses_received[uids]
@@ -349,7 +361,7 @@ class RotaVaccination(ss.Intervention):
         else:  # complete heterotypic
             return self.complete_heterotypic_efficacy
 
-    def _apply_vaccine_protection(self, sim, uids, current_doses):
+    def _apply_vaccine_protection(self, uids, current_doses):
         """
         Apply vaccine protection by updating vaccine states (vectorized)
         
@@ -360,27 +372,25 @@ class RotaVaccination(ss.Intervention):
             return
             
         # Get effectiveness values for each agent based on their current dose number
-        effectiveness_values = np.array([self.dose_effectiveness[dose_num] for dose_num in current_doses])
+        dose_efficacy = self.dose_effectiveness[current_doses]
         
         # Sample waning times for each agent
-        if hasattr(self.vaccine_waning_rate, 'rvs'):
-            waning_times = self.vaccine_waning_rate.rvs(uids)
-        elif np.isscalar(self.vaccine_waning_rate):
-            waning_times = np.full(len(uids), self.vaccine_waning_rate)
-        else:
-            waning_times = np.full(len(uids), 365)  # Default fallback
-        new_waning_times = self.ti + waning_times
+        if hasattr(self.waning_rate_dist, 'rvs'): # use the disease's regular waning rate by default
+            waning_rate_denoms = self.waning_rate_dist.rvs(uids)
+        # else:
+        #     waning_rate_denoms = np.full(len(uids), 365)  # Default fallback
+        new_waning_times = self.ti + waning_rate_denoms
         
         # Update vaccine protection states for each covered disease
         for disease in self.covered_diseases:
             protection_state = self.vaccine_protection_states[disease.name]
-            waning_state = self.vaccine_waning_states[disease.name]
+            waning_state = self.vaccine_waning_delays[disease.name]
             
             # Use precomputed match efficacy for this disease (performance optimization)
             match_efficacy = self.disease_match_efficacies[disease.name]
             
             # Calculate disease-specific effectiveness (dose effectiveness * match efficacy)
-            disease_effectiveness = effectiveness_values * match_efficacy
+            disease_effectiveness = dose_efficacy * match_efficacy
             
             # Update protection level (takes maximum of current and new protection)
             current_protection = protection_state[ss.uids(uids)]
@@ -394,7 +404,7 @@ class RotaVaccination(ss.Intervention):
             covered_strains = [(d.G, d.P) for d in self.covered_diseases]
             print(f"    Applied protection to {len(uids)} agents against strains: {covered_strains}")
             
-    def _update_vaccine_protection(self, sim):
+    def _update_vaccine_protection(self):
         """
         Update vaccine protection levels due to waning and apply to rel_sus parameters
         
@@ -409,7 +419,7 @@ class RotaVaccination(ss.Intervention):
         # Update waned protection for each covered disease
         for disease in self.covered_diseases:
             protection_state = self.vaccine_protection_states[disease.name]
-            waning_state = self.vaccine_waning_states[disease.name]
+            waning_state = self.vaccine_waning_delays[disease.name]
             
             # Calculate current protection level based on waning
             time_since_vaccination = self.ti - waning_state
@@ -423,14 +433,14 @@ class RotaVaccination(ss.Intervention):
             protection_state[:] = waned_protection
             
             # Apply to disease rel_sus if vaccine protection is better
-            if hasattr(disease, 'rel_sus'):
-                # Calculate vaccine susceptibility (inverse of protection)
-                vaccine_sus = 1.0 - waned_protection
-                
-                # Use the minimum susceptibility (most protective) 
-                current_sus = disease.rel_sus[:]
-                new_sus = np.minimum(current_sus, vaccine_sus)
-                disease.rel_sus[:] = new_sus
+
+            # Calculate vaccine susceptibility (inverse of protection)
+            vaccine_sus = 1.0 - waned_protection
+
+            # Use the minimum susceptibility (most protective)
+            current_sus = disease.rel_sus[:]
+            new_sus = np.minimum(current_sus, vaccine_sus)
+            disease.rel_sus[:] = new_sus
             
 
     def get_vaccination_summary(self):
@@ -439,16 +449,16 @@ class RotaVaccination(ss.Intervention):
         
         summary = {
             'total_agents': total_agents,
-            'doses_eligible': np.sum(self.doses_eligible > 0),
-            'received_any_dose': np.sum(self.doses_received > 0),
-            'completed_schedule': np.sum(self.completed_schedule),
+            'doses_eligible': np.count_nonzero(self.doses_eligible > 0),
+            'received_any_dose': np.count_nonzero(self.doses_received > 0),
+            'completed_schedule': np.count_nonzero(self.completed_schedule),
             'doses_by_number': {},
             'mean_doses': np.mean(self.doses_received[self.doses_received > 0]) if np.any(self.doses_received > 0) else 0
         }
         
         # Count agents by dose number
-        for dose_num in range(1, self.n_doses + 1):
-            summary['doses_by_number'][dose_num] = np.sum(self.doses_received >= dose_num)
+        for dose_num in range(0, self.n_doses + 1):
+            summary['doses_by_number'][dose_num] = np.count_nonzero(self.doses_received == dose_num)
             
         return summary
         

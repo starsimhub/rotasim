@@ -44,8 +44,8 @@ class Rotavirus(ss.Infection):
         self.define_pars(
             init_prev = ss.bernoulli(p=0.01),     # Initial prevalence
             beta = ss.perday(0.1),               # Transmission rate (will be modified by fitness)
-            dur_inf = ss.lognorm_ex(mean=7),      # Duration of infection (~7 days)
-            dur_waning = ss.poisson(lam=180), # Duration of waning immunity (180 days mean for poisson)
+            dur_inf = ss.lognorm_ex(mean=7, unit='days'),      # Duration of infection (~7 days)
+            waning_rate_dist = ss.normal(loc=180, scale=10, unit='days'), # Duration of waning immunity (180 days mean for normal)
             waning_delay = ss.days(0)
         )
 
@@ -55,8 +55,8 @@ class Rotavirus(ss.Infection):
         self.define_states(
             ss.BoolState('recovered', label='Recovered'),
             ss.FloatArr('ti_recovered', label='Time of recovery'),
-            ss.FloatArr('ti_waned', label='Time of waned immunity'),
-            ss.FloatArr('waning_decay_rate', default=0.0, label='Individual decay rate for immunity waning'),
+            # ss.FloatArr('ti_waned', label='Time of waned immunity'),
+            ss.FloatArr('waning_rate', default=0.0, label='Individual decay rate for immunity waning'),
             ss.FloatArr('n_infections', default=0, label='Total number of infections'),
         )
         
@@ -118,14 +118,14 @@ class Rotavirus(ss.Infection):
         """
         # Progress infected -> recovered (following SIR example pattern)
         sim = self.sim
-        recovering = (self.infected & (self.ti_recovered <= sim.ti)).uids
+        recovering = (self.infected & (self.ti_recovered <= self.ti)).uids
         self.infected[recovering] = False
         self.recovered[recovering] = True
         self.susceptible[recovering] = True # When recovered, become susceptible again (SIRS), but with modified susceptibility via connector
-        waning_durations = self.pars.dur_waning.rvs(recovering)
-        self.ti_waned[recovering] = sim.ti + waning_durations
+        waning_rate_denoms = self.pars.waning_rate_dist.rvs(recovering)
+        # self.ti_waned[recovering] = sim.ti + waning_durations
         # Store individual decay rates: 1/duration for exponential decay
-        self.waning_decay_rate[recovering] = 1.0 / waning_durations
+        self.waning_rate[recovering] = 1.0 / waning_rate_denoms
 
         self.results['new_recovered'][self.ti] = len(recovering)
 

@@ -53,7 +53,6 @@ class RotaImmunityConnector(ss.Connector):
             partial_heterotypic_immunity_efficacy = 0.5,  # Protection from shared G or P
             complete_heterotypic_immunity_efficacy = 0.3, # Protection from different G,P (or no prior exposure to any strain)
             naive_immunity_efficacy = 0.0,               # Baseline immunity for naive individuals (0.0 = fully susceptible)
-            # full_waning_rate = ss.freqperyear(365/273),    # Rate of immunity waning (omega parameter, ~273 days)
             immunity_waning_delay = ss.days(0),               # Time delay before immunity decay starts (years)
             # infection_history_susceptibility_factors = {0: 1, 1: 1, 2: 1, 3: 1},  # Susceptibility scaling based on total infection history. We may want to remove this feature later.
             cotransmission_prob = ss.bernoulli(p=0.02),  # Probability of transmitting all strains instead of dominant strain selection (2%). We may want to remove this feature later.
@@ -63,10 +62,12 @@ class RotaImmunityConnector(ss.Connector):
         self.update_pars(pars=pars, **kwargs)
         
         # Define immunity state arrays
+
+        #  name=name, dtype=ss_int, nan=int_nan, **kwargs)
         self.define_states(
-            ss.IntArr('exposed_GP_bitmask', default=0),    # Bitmask of exposed (G,P) pairs
-            ss.IntArr('exposed_G_bitmask', default=0),     # Bitmask of exposed G types
-            ss.IntArr('exposed_P_bitmask', default=0),     # Bitmask of exposed P types  
+            ss.Arr('exposed_GP_bitmask', dtype=np.int64, nan=ss.dtypes.int_nan, default=0),    # Bitmask of exposed (G,P) pairs
+            ss.Arr('exposed_G_bitmask', dtype=np.int64, nan=ss.dtypes.int_nan, default=0),     # Bitmask of exposed G types
+            ss.Arr('exposed_P_bitmask', dtype=np.int64, nan=ss.dtypes.int_nan, default=0),     # Bitmask of exposed P types
             ss.FloatArr('oldest_infection', default=np.nan), # Time of first infection (for waning)
             ss.BoolArr('has_immunity', default=False),       # Whether agent has any immunity
             ss.FloatArr('num_recovered_infections', default=0.0),   # Total number of prior infections (for scaling susceptibility)
@@ -94,10 +95,9 @@ class RotaImmunityConnector(ss.Connector):
         """Initialize results storage for immunity-related outputs"""
         super().init_results()
 
-        self.define_results(ss.Result('n_waned', dtype=int, scale=True, summarize_by='sum', label='Number of people losing immunity each timestep'))
         return
 
-    def init_pre(self, sim):
+    def init_pre(self, sim, force=False):
         """Auto-detect Rotavirus diseases and create states before initialization"""
         # Auto-detect all Rotavirus disease instances
         self.rota_diseases = [d for d in sim.diseases.values() 
@@ -148,10 +148,10 @@ class RotaImmunityConnector(ss.Connector):
         
         # Use the genotypes calculated in init_pre() - no duplication!
         
-        # Ensure we don't exceed bitwise limits (32/64 bits)
-        max_bits = 32  # Conservative limit
+        # Ensure we don't exceed bitwise limits based on actual datatype
+        max_bits = np.iinfo(self.exposed_GP_bitmask.dtype).bits
         if len(self.unique_G) > max_bits or len(self.unique_P) > max_bits or len(self.unique_GP) > max_bits:
-            raise ValueError(f"Too many unique genotypes: {len(self.unique_G)} G types, {len(self.unique_P)} P types, {len(self.unique_GP)} GP pairs. Max {max_bits} each.")
+            raise ValueError(f"Too many unique genotypes: {len(self.unique_G)} G types, {len(self.unique_P)} P types, {len(self.unique_GP)} GP pairs. Max {max_bits} each. Either increase bitmask dtype size or reduce number of strains.")
         
         # Create mappings: genotype -> bit position
         self.G_to_bit = {g: i for i, g in enumerate(self.unique_G)}
@@ -207,18 +207,18 @@ class RotaImmunityConnector(ss.Connector):
             
             if recovered_from_strain.any():
                 # Time since recovery from this strain
-                time_since_recovery = disease.ti - disease.ti_recovered[recovered_from_strain]
+                time_since_recovery = (disease.ti - disease.ti_recovered[recovered_from_strain]) * disease.dt
                 
                 # Apply delayed exponential decay
-                waning_started = time_since_recovery > disease.pars.waning_delay.value
+                waning_started = time_since_recovery > disease.pars.waning_delay
 
                 if waning_started.any():
                     waning_started_uids = recovered_uids[waning_started]
                     # Calculate decay factor for agents past the delay period
-                    decay_time = time_since_recovery[waning_started] - self.pars.immunity_waning_delay.value
+                    decay_time = time_since_recovery[waning_started] - self.pars.immunity_waning_delay
                     # Use pre-computed decay rates stored when agents recovered
-                    decay_rate = disease.waning_decay_rate[waning_started_uids]
-                    decay_factor = np.exp(-decay_rate * decay_time)
+                    decay_rate = disease.waning_rate[waning_started_uids]
+                    decay_factor = np.exp(-decay_rate * decay_time) # todo verify decay rate in days, decay time in days when dt is different
                     
                     # Update per-strain decay factor (for homotypic immunity)
                     self.homotypic_immunity_decay_factor[waning_started_uids] = decay_factor
@@ -274,8 +274,10 @@ class RotaImmunityConnector(ss.Connector):
             final_decayed_immunity_factor[has_exact_match] = self.homotypic_immunity_decay_factor.values[has_exact_match]
             
             # Find least decayed immunity for partial matches
-            final_decayed_immunity_factor[(has_G_match & ~has_P_match)] = self.G_max_decayed_immunity_factors[disease.G].values[(has_G_match & ~has_P_match)]
-            final_decayed_immunity_factor[(has_P_match & ~has_G_match)] = self.P_max_decayed_immunity_factors[disease.P].values[(has_P_match & ~has_G_match)]
+            partial_match_G = has_G_match & ~has_P_match
+            partial_match_P = has_P_match & ~has_G_match
+            final_decayed_immunity_factor[partial_match_G] = self.G_max_decayed_immunity_factors[disease.G].values[partial_match_G]
+            final_decayed_immunity_factor[partial_match_P] = self.P_max_decayed_immunity_factors[disease.P].values[partial_match_P]
 
             # For partial matches coming from both G and P, take the maximum decay from either G or P.
             g_and_p_match = has_G_match & has_P_match # homotypic has already been filtered out, so we can safely use & here
@@ -340,33 +342,33 @@ class RotaImmunityConnector(ss.Connector):
         self.oldest_infection[recovered_uids[first_infections]] = self.sim.ti
         
     
-    @staticmethod
-    def match_strain(strain1, strain2):
-        """
-        Determine genetic match type between two strains
-        
-        Args:
-            strain1: Tuple (G,P) or Rotavirus instance  
-            strain2: Tuple (G,P) or Rotavirus instance
-            
-        Returns:
-            PathogenMatch: HOMOTYPIC, PARTIAL_HETERO, or COMPLETE_HETERO
-        """
-        # Extract G,P tuples
-        if isinstance(strain1, Rotavirus):
-            gp1 = strain1.strain
-        else:
-            gp1 = strain1[:2]  # Assume tuple format
-            
-        if isinstance(strain2, Rotavirus):
-            gp2 = strain2.strain  
-        else:
-            gp2 = strain2[:2]  # Assume tuple format
-            
-        # Compare G,P genotypes
-        if gp1 == gp2:
-            return PathogenMatch.HOMOTYPIC
-        elif gp1[0] == gp2[0] or gp1[1] == gp2[1]:  # Shared G or P
-            return PathogenMatch.PARTIAL_HETERO
-        else:
-            return PathogenMatch.COMPLETE_HETERO
+    # @staticmethod
+    # def match_strain(strain1, strain2):
+    #     """
+    #     Determine genetic match type between two strains
+    #
+    #     Args:
+    #         strain1: Tuple (G,P) or Rotavirus instance
+    #         strain2: Tuple (G,P) or Rotavirus instance
+    #
+    #     Returns:
+    #         PathogenMatch: HOMOTYPIC, PARTIAL_HETERO, or COMPLETE_HETERO
+    #     """
+    #     # Extract G,P tuples
+    #     if isinstance(strain1, Rotavirus):
+    #         gp1 = strain1.strain
+    #     else:
+    #         gp1 = strain1[:2]  # Assume tuple format
+    #
+    #     if isinstance(strain2, Rotavirus):
+    #         gp2 = strain2.strain
+    #     else:
+    #         gp2 = strain2[:2]  # Assume tuple format
+    #
+    #     # Compare G,P genotypes
+    #     if gp1 == gp2:
+    #         return PathogenMatch.HOMOTYPIC
+    #     elif gp1[0] == gp2[0] or gp1[1] == gp2[1]:  # Shared G or P
+    #         return PathogenMatch.PARTIAL_HETERO
+    #     else:
+    #         return PathogenMatch.COMPLETE_HETERO

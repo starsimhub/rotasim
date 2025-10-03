@@ -259,8 +259,8 @@ class EventStats(ss.Analyzer):
         
         # Count immunity waning events
         immunity_connector = self.sim.get_connector_by_type('RotaImmunityConnector')
-        if immunity_connector:
-            self.events['wanings'] = immunity_connector.results.n_waned[self.sim.ti]
+        # if immunity_connector:
+        #     self.events['wanings'] = immunity_connector.results.n_waned[self.sim.ti]
         
         # Count reassortment events from reassortment connector
         reassortment_connector = self.sim.get_connector_by_type('RotaReassortmentConnector')
