@@ -73,6 +73,8 @@ class RotaImmunityConnector(ss.Connector):
             ss.FloatArr('num_recovered_infections', default=0.0),   # Total number of prior infections (for scaling susceptibility)
             ss.FloatArr('num_current_infections', default=0.0),  # Current number of active infections (for coinfection logic)
             ss.FloatArr('homotypic_immunity_decay_factor', default=0.0),  # Decay factor for immunity over time (1.0 = full immunity, 0.0 = none)
+            ss.FloatArr('partial_match_immunity_decay_factor', default=0.0),  # Decay factor for partial matches (G, P, or G and P not homotypic)
+            ss.FloatArr('final_decayed_immunity_factor', default=0.0),  # Reusable array for final decay factor calculations (to reduce allocations)
         )
         
         # Will be populated during init_post
@@ -83,12 +85,7 @@ class RotaImmunityConnector(ss.Connector):
         self.disease_G_masks = {}
         self.disease_P_masks = {}
         self.disease_GP_masks = {}
-        
-        # Partial match immunity tracking (populated in init_post)
-        self.partial_immunity_factor = None  # Single array for all partial matches
-        
-        # Reusable array for decay factor calculations to reduce allocations
-        self._temp_decay_array = None
+
 
     def init_results(self):
         """Initialize results storage for immunity-related outputs"""
@@ -121,13 +118,7 @@ class RotaImmunityConnector(ss.Connector):
             state_name = f'G{gp[0]}P{gp[1]}_decayed_immunity_factor'
             state = ss.FloatArr(state_name, default=0.0)
             GP_states.append(state)
-        
-        # Create single partial immunity tracking array BEFORE calling super().init_pre()
-        partial_state = ss.FloatArr('partial_immunity_factor', default=0.0)
-        self.partial_immunity_factor = partial_state
-            
-        # Define all states at once
-        self.define_states(partial_state)
+
         self.define_states(*GP_states)
         
         
@@ -178,6 +169,8 @@ class RotaImmunityConnector(ss.Connector):
             
         # Update cross-immunity protection for all diseases
         self._update_cross_immunity()
+        for disease in self.rota_diseases:
+            print(f"{disease.name} rel_sus: {(disease.rel_sus[ss.uids(10)])}")
         
     def _update_cross_immunity(self):
         """Fully vectorized cross-immunity using bitwise operations - NO UID LOOPS"""
@@ -188,13 +181,13 @@ class RotaImmunityConnector(ss.Connector):
         
     def _reset_decay_factors(self):
         """Reset partial immunity factors to 0.0 each timestep for fresh calculation"""
-        self.partial_immunity_factor[:] = 0.0
-            
+        self.final_decayed_immunity_factor[:] = 0.0
+        self.partial_match_immunity_decay_factor[:] = 0.0
+        self.homotypic_immunity_decay_factor[:] = 0.0
+
+
     def _update_immunity_decay_factors(self):
         """Update immunity decay factors for all diseases based on recovery times"""
-
-        #todo instead of looping over diseases, can we vectorize this further by grouping by G and P types?
-        # todo can we do this as efficiently on demand for just agents that are exposed to a given disease, instead of all agents every timestep?
         for disease in self.rota_diseases:
             # Update max decay factors for agents recovered from this specific strain
             recovered_from_strain = (disease.infected==False) & (disease.ti_recovered > 0)
@@ -218,16 +211,17 @@ class RotaImmunityConnector(ss.Connector):
                     # Update per-strain decay factor (for homotypic immunity)
                     self.homotypic_immunity_decay_factor[waning_started_uids] = decay_factor
                     self[f'G{disease.G}P{disease.P}_decayed_immunity_factor'][waning_started_uids] = decay_factor
-                    
-                    # Update partial immunity factors (take maximum with existing values for strongest immunity)
-                    # This ensures we capture the least-decayed immunity from any prior infections with this G or P type
-                    current_partial_decay = self.partial_immunity_factor[waning_started_uids] # current highest partial protection
-                    
-                    self.partial_immunity_factor[waning_started_uids] = np.maximum(current_partial_decay, decay_factor) # update if new decay is higher (less decayed)
-                    
+
+
     def _calculate_disease_susceptibilities(self):
         """Calculate disease susceptibilities based on immunity matching and decay factors"""
         for disease in self.rota_diseases:
+
+            disease_partial_matches = []
+            for gp in self.unique_GP:
+                if gp[0] == disease.G or gp[1] == disease.P and gp != (disease.G, disease.P):
+                    disease_partial_matches.append(gp)
+
             disease_G_mask = self.disease_G_masks[disease.name]
             disease_P_mask = self.disease_P_masks[disease.name]
             disease_GP_mask = self.disease_GP_masks[disease.name]
@@ -236,47 +230,36 @@ class RotaImmunityConnector(ss.Connector):
             G_bits = self.exposed_G_bitmask.values
             P_bits = self.exposed_P_bitmask.values
             GP_bits = self.exposed_GP_bitmask.values
-            
+
+            if self.ti >= 5:
+                print("")
+
             # Vectorized matching using bitwise operations
             has_exact_match = (GP_bits & disease_GP_mask) != 0
-            has_G_match = (G_bits & disease_G_mask) != 0 & ~has_exact_match
-            has_P_match = (P_bits & disease_P_mask) != 0 & ~has_exact_match
-            has_partial_match = (G_bits & disease_G_mask) != 0 | (P_bits & disease_P_mask) != 0 & ~has_exact_match
+            has_G_match = ((G_bits & disease_G_mask) != 0) & ~has_exact_match
+            has_P_match = ((P_bits & disease_P_mask) != 0) & ~has_exact_match
 
             # Determine immunity type and assign protection levels
-            has_partial = (has_G_match | has_P_match)
+            has_partial_match = (has_G_match | has_P_match)
             has_immunity_mask = self.has_immunity[:]  # Agents with any prior immunity
             
             # Separate naive agents (no prior immunity) from true heterotypic matches
-            has_complete_hetero = ~has_partial & has_immunity_mask
+            has_complete_hetero = ~has_partial_match & ~has_exact_match & has_immunity_mask
             
-            # Vectorized strain match efficacy using numpy.where with 4 categories. This assigns the correct immunity efficacy based on match type.
-            # strain_match_immunity_efficacy = np.where(
-            #     has_exact_match, self.pars.homotypic_immunity_efficacy,
-            #     np.where(has_partial, self.pars.partial_heterotypic_immunity_efficacy,
-            #             np.where(has_complete_hetero, self.pars.complete_heterotypic_immunity_efficacy,
-            #                     self.pars.naive_immunity_efficacy)))
-
-            strain_match_immunity_efficacy = np.zeros_like(has_exact_match)
+            strain_match_immunity_efficacy = np.zeros(has_exact_match.shape, dtype=float)
             strain_match_immunity_efficacy[has_exact_match] = self.pars.homotypic_immunity_efficacy
-            strain_match_immunity_efficacy[has_partial] = self.pars.partial_heterotypic_immunity_efficacy
+            strain_match_immunity_efficacy[has_partial_match] = self.pars.partial_heterotypic_immunity_efficacy
             strain_match_immunity_efficacy[has_complete_hetero] = self.pars.complete_heterotypic_immunity_efficacy
             strain_match_immunity_efficacy[~has_immunity_mask] = self.pars.naive_immunity_efficacy
-
-
-            # Calculate appropriate decay factor based on immunity type. Default is 0.0 (no immunity).
-            # Optimized: Reuse array to reduce allocations
-            if self._temp_decay_array is None or len(self._temp_decay_array) != len(self.sim.people):
-                self._temp_decay_array = np.zeros(len(self.sim.people), dtype=float)
-            else:
-                self._temp_decay_array.fill(0.0)  # Reset to zero faster than creating new array
-            final_decayed_immunity_factor = self._temp_decay_array
             
             # Homotypic: use per-strain decay
-            final_decayed_immunity_factor[has_exact_match] = self.homotypic_immunity_decay_factor.values[has_exact_match]
-            
-            # Use single partial immunity factor for all partial matches (G only, P only, or both)
-            final_decayed_immunity_factor[has_partial] = self.partial_immunity_factor.values[has_partial]
+            self.final_decayed_immunity_factor[has_exact_match] = self.homotypic_immunity_decay_factor[has_exact_match]
+
+            for gp in disease_partial_matches:
+                gp_decay = self[f'G{gp[0]}P{gp[1]}_decayed_immunity_factor'][has_partial_match]
+
+                # Update partial match decay factor to the maximum of any matching G or P type
+                self.final_decayed_immunity_factor[has_partial_match] = np.maximum(self.final_decayed_immunity_factor[has_partial_match], gp_decay)
 
             # Apply protection with appropriate decay factor
             # People without immunity have full susceptibility (rel_sus = 1.0)
@@ -287,7 +270,7 @@ class RotaImmunityConnector(ss.Connector):
             # * infection_history_susceptibility_factor scales susceptibility based on total prior infections. It does not decay over time.
 
 
-            disease.rel_sus[:] = (1- strain_match_immunity_efficacy * final_decayed_immunity_factor)
+            disease.rel_sus[:] = (1- strain_match_immunity_efficacy * self.final_decayed_immunity_factor)
 
     def record_infection(self, disease, new_infected_uids):
         self.num_current_infections[new_infected_uids] += 1.0
@@ -332,35 +315,3 @@ class RotaImmunityConnector(ss.Connector):
         # Track oldest infection time (only set if first infection)
         first_infections = np.isnan(self.oldest_infection[recovered_uids])
         self.oldest_infection[recovered_uids[first_infections]] = self.sim.ti
-        
-    
-    # @staticmethod
-    # def match_strain(strain1, strain2):
-    #     """
-    #     Determine genetic match type between two strains
-    #
-    #     Args:
-    #         strain1: Tuple (G,P) or Rotavirus instance
-    #         strain2: Tuple (G,P) or Rotavirus instance
-    #
-    #     Returns:
-    #         PathogenMatch: HOMOTYPIC, PARTIAL_HETERO, or COMPLETE_HETERO
-    #     """
-    #     # Extract G,P tuples
-    #     if isinstance(strain1, Rotavirus):
-    #         gp1 = strain1.strain
-    #     else:
-    #         gp1 = strain1[:2]  # Assume tuple format
-    #
-    #     if isinstance(strain2, Rotavirus):
-    #         gp2 = strain2.strain
-    #     else:
-    #         gp2 = strain2[:2]  # Assume tuple format
-    #
-    #     # Compare G,P genotypes
-    #     if gp1 == gp2:
-    #         return PathogenMatch.HOMOTYPIC
-    #     elif gp1[0] == gp2[0] or gp1[1] == gp2[1]:  # Shared G or P
-    #         return PathogenMatch.PARTIAL_HETERO
-    #     else:
-    #         return PathogenMatch.COMPLETE_HETERO
