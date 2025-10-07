@@ -201,10 +201,10 @@ class TestRotaVaccinationSimulation:
         sim.init()
         vax = sim.interventions[0]
         
-        # Manually set some agent ages for testing
-        sim.people.age.values[:100] = ss.days(30)   # Too young
-        sim.people.age.values[100:200] = ss.days(120)  # Eligible age
-        sim.people.age.values[200:300] = ss.days(400)  # Too old
+        # Manually set some agent ages for testing (convert to years since people.age is in years)
+        sim.people.age.values[:100] = ss.days(30).years   # Too young (30 days = ~0.082 years)
+        sim.people.age.values[100:200] = ss.days(120).years  # Eligible age (120 days = ~0.329 years)
+        sim.people.age.values[200:300] = ss.days(400).years  # Too old (400 days = ~1.096 years)
         
         eligible = vax.check_eligibility()
         
@@ -243,7 +243,7 @@ class TestRotaVaccinationSimulation:
         
         # At this point, should have eligible agents
         # First ensure some agents are in the eligible age range  
-        sim2.people.age.values[:100] = ss.days(120)  # Set some agents to eligible age
+        sim2.people.age.values[:100] = ss.days(120).years  # Set some agents to eligible age
         eligible_start = vax2.check_eligibility()
         assert np.sum(eligible_start) > 0
         

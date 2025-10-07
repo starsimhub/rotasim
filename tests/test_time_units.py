@@ -40,9 +40,10 @@ def test_time_units():
     # Check immunity parameters (create directly to inspect)
     immunity = RotaImmunityConnector()
     print("Immunity parameters:")
-    print(f"  Full waning rate: {immunity.pars.full_waning_rate} per day")
-    print(f"  Expected daily probability: {1/273:.6f}")
-    print(f"  Half-life: ~{273 * 0.693:.0f} days ({273 * 0.693 / 365:.1f} years)")
+    print(f"  Homotypic immunity efficacy: {immunity.pars.homotypic_immunity_efficacy}")
+    print(f"  Partial heterotypic immunity efficacy: {immunity.pars.partial_heterotypic_immunity_efficacy}")
+    print(f"  Complete heterotypic immunity efficacy: {immunity.pars.complete_heterotypic_immunity_efficacy}")
+    print(f"  Waning delay: {immunity.pars.immunity_waning_delay}")
     print()
     
     # Show conversion from v1 units

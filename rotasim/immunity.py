@@ -231,26 +231,26 @@ class RotaImmunityConnector(ss.Connector):
             recovered_uids = recovered_from_strain.uids
 
             if recovered_from_strain.any():
-                # Time since recovery from this strain
+                # Calculate time since recovery in days
                 time_since_recovery = (
                     disease.ti - disease.ti_recovered[recovered_from_strain]
-                ) * disease.dt
+                ) * disease.dt.days
 
                 # Apply delayed exponential decay
-                waning_started = time_since_recovery > disease.pars.waning_delay
+                waning_started = time_since_recovery > disease.pars.waning_delay.days
 
                 if waning_started.any():
                     waning_started_uids = recovered_uids[waning_started]
                     # Calculate decay factor for agents past the delay period
                     decay_time = (
                         time_since_recovery[waning_started]
-                        - self.pars.immunity_waning_delay
+                        - self.pars.immunity_waning_delay.days
                     )
                     # Use pre-computed decay rates stored when agents recovered
                     decay_rate = disease.waning_rate[waning_started_uids]
                     decay_factor = np.exp(
                         -decay_rate * decay_time
-                    )  # todo verify decay rate in days, decay time in days when dt is different
+                    )  # decay_rate (1/days) * decay_time (days) = dimensionless
 
                     # Update per-strain decay factor (for homotypic immunity)
                     self.homotypic_immunity_decay_factor[waning_started_uids] = (
