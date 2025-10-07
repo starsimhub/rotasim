@@ -49,9 +49,7 @@ class RotaReassortmentConnector(ss.Connector):
 
         # Define parameters
         self.define_pars(
-            reassortment_prob=ss.bernoulli(
-                p=reassortment_prob
-            ),  # Bernoulli for filtering
+            reassortment_prob=ss.bernoulli(p=reassortment_prob),  # Bernoulli for filtering
         )
 
         # Will be populated during initialization
@@ -78,27 +76,17 @@ class RotaReassortmentConnector(ss.Connector):
 
         n_diseases = len(self._rotavirus_diseases)
         if n_diseases == 0:
-            raise ValueError(
-                "RotaReassortmentConnector requires at least one Rotavirus disease"
-            )
+            raise ValueError("RotaReassortmentConnector requires at least one Rotavirus disease")
 
         if sim.pars.verbose > 1:
             print(f"RotaReassortmentConnector: Found {n_diseases} Rotavirus diseases")
             if n_diseases >= 10:
-                print(
-                    f"  First 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[:5]]}"
-                )
-                print(
-                    f"  Last 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[-5:]]}"
-                )
+                print(f"  First 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[:5]]}")
+                print(f"  Last 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[-5:]]}")
             else:
-                print(
-                    f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}"
-                )
+                print(f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}")
 
-            print(
-                f"  Reassortment rate: {self.pars.reassortment_prob} per day per co-infected host"
-            )
+            print(f"  Reassortment rate: {self.pars.reassortment_prob} per day per co-infected host")
 
     def init_results(self):
         """Initialize results tracking if needed"""
@@ -142,9 +130,7 @@ class RotaReassortmentConnector(ss.Connector):
         n_events = len(reassorting_uids)
         n_coinfected = len(co_infected_uids)
         if self.sim.pars.verbose > 1:
-            print(
-                f"Reassortment: {n_events}/{n_coinfected} co-infected hosts reassorting"
-            )
+            print(f"Reassortment: {n_events}/{n_coinfected} co-infected hosts reassorting")
 
         # Step 3-5: For each reassorting host, generate and activate reassortants
         total_new_infections = 0
@@ -203,9 +189,7 @@ class RotaReassortmentConnector(ss.Connector):
         all_combinations = list(itertools.product(G_variants, P_variants))
 
         # Exclude parent combinations (already present in this host)
-        reassortant_combinations = [
-            gp for gp in all_combinations if gp not in parent_gps
-        ]
+        reassortant_combinations = [gp for gp in all_combinations if gp not in parent_gps]
 
         if len(reassortant_combinations) == 0:
             return 0  # No new combinations possible

@@ -67,16 +67,10 @@ class StrainStats(ss.Analyzer):
         if self.sim.pars.verbose:
             print(f"StrainStats: Tracking {n_diseases} Rotavirus strains")
             if n_diseases >= 10:
-                print(
-                    f"  First 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[:5]]}"
-                )
-                print(
-                    f"  Last 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[-5:]]}"
-                )
+                print(f"  First 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[:5]]}")
+                print(f"  Last 5: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases[-5:]]}")
             else:
-                print(
-                    f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}"
-                )
+                print(f"  All strains: {[f'G{d.G}P{d.P}' for d in self._rotavirus_diseases]}")
 
         # Create results for each strain - matching v1 format exactly
         for strain_name in self._strain_names:
@@ -137,9 +131,7 @@ class StrainStats(ss.Analyzer):
         # Handle case where results.to_df() returns None
         if df is None:
             if self.sim.pars.verbose:
-                print(
-                    "Warning: StrainStats results.to_df() returned None - no data collected"
-                )
+                print("Warning: StrainStats results.to_df() returned None - no data collected")
             return None
 
         # Remove duplicate timevec columns (same logic as v1)
@@ -175,21 +167,11 @@ class StrainStats(ss.Analyzer):
                 valid_props = proportions[~np.isnan(proportions)]
 
                 summary["strain_stats"][strain_name] = {
-                    "max_count": float(np.max(valid_counts))
-                    if len(valid_counts) > 0
-                    else 0.0,
-                    "mean_count": float(np.mean(valid_counts))
-                    if len(valid_counts) > 0
-                    else 0.0,
-                    "max_proportion": float(np.max(valid_props))
-                    if len(valid_props) > 0
-                    else 0.0,
-                    "mean_proportion": float(np.mean(valid_props))
-                    if len(valid_props) > 0
-                    else 0.0,
-                    "total_timesteps_active": int(np.sum(valid_counts > 0))
-                    if len(valid_counts) > 0
-                    else 0,
+                    "max_count": float(np.max(valid_counts)) if len(valid_counts) > 0 else 0.0,
+                    "mean_count": float(np.mean(valid_counts)) if len(valid_counts) > 0 else 0.0,
+                    "max_proportion": float(np.max(valid_props)) if len(valid_props) > 0 else 0.0,
+                    "mean_proportion": float(np.mean(valid_props)) if len(valid_props) > 0 else 0.0,
+                    "total_timesteps_active": int(np.sum(valid_counts > 0)) if len(valid_counts) > 0 else 0,
                 }
 
         return summary
@@ -267,15 +249,11 @@ class EventStats(ss.Analyzer):
             if hasattr(disease, "G") and hasattr(disease, "P"):  # Is Rotavirus
                 # Count agents who recovered this timestep
                 if hasattr(disease.results, "new_recovered"):
-                    self.events["recoveries"] += disease.results.new_recovered[
-                        self.sim.ti
-                    ]
+                    self.events["recoveries"] += disease.results.new_recovered[self.sim.ti]
 
                 # Count new infections this timestep (built into ss.Infection)
                 if hasattr(disease.results, "new_infections"):
-                    self.events["new_infections"] += disease.results.new_infections[
-                        self.sim.ti
-                    ]
+                    self.events["new_infections"] += disease.results.new_infections[self.sim.ti]
 
         # Count immunity waning events
         immunity_connector = self.sim.get_connector_by_type("RotaImmunityConnector")
@@ -283,13 +261,9 @@ class EventStats(ss.Analyzer):
         #     self.events['wanings'] = immunity_connector.results.n_waned[self.sim.ti]
 
         # Count reassortment events from reassortment connector
-        reassortment_connector = self.sim.get_connector_by_type(
-            "RotaReassortmentConnector"
-        )
+        reassortment_connector = self.sim.get_connector_by_type("RotaReassortmentConnector")
         if reassortment_connector:
-            self.events["reassortments"] = (
-                reassortment_connector.results.n_reassortments[self.sim.ti]
-            )
+            self.events["reassortments"] = reassortment_connector.results.n_reassortments[self.sim.ti]
 
         # Count total infected agents and coinfected agents
         infection_counts = np.zeros(len(self.sim.people), dtype=int)
@@ -297,12 +271,8 @@ class EventStats(ss.Analyzer):
             if hasattr(disease, "G") and hasattr(disease, "P"):  # Is Rotavirus
                 infection_counts += disease.infected[:].astype(int)
 
-        self.events["infected_agents"] = int(
-            np.sum(infection_counts > 0)
-        )  # Agents infected with any strain
-        self.events["coinfected_agents"] = int(
-            np.sum(infection_counts > 1)
-        )  # Agents infected with >1 strain
+        self.events["infected_agents"] = int(np.sum(infection_counts > 0))  # Agents infected with any strain
+        self.events["coinfected_agents"] = int(np.sum(infection_counts > 1))  # Agents infected with >1 strain
 
         if self.sim.pars.verbose:
             print(self.events)

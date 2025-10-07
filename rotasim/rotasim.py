@@ -122,9 +122,7 @@ class Sim(ss.Sim):
 
             kwargs["connectors"] = default_connectors
             connector_names = [type(c).__name__ for c in default_connectors]
-            print(
-                f"  Connectors: Adding default connectors: {', '.join(connector_names)}"
-            )
+            print(f"  Connectors: Adding default connectors: {', '.join(connector_names)}")
         else:
             print(f"  Connectors: Using {len(kwargs['connectors'])} custom connectors")
 
@@ -140,9 +138,7 @@ class Sim(ss.Sim):
 
         print(f"  Time units: day, dt={kwargs.get('dt', ss.days(1))}")
         active_strains = len(final_scenario["strains"])
-        print(
-            f"  Total diseases: {len(diseases)} ({active_strains} active + {len(diseases) - active_strains} dormant)"
-        )
+        print(f"  Total diseases: {len(diseases)} ({active_strains} active + {len(diseases) - active_strains} dormant)")
 
         if "networks" not in kwargs:
             kwargs["networks"] = "random"
@@ -214,9 +210,7 @@ class Sim(ss.Sim):
         # If initialized, use actual diseases
         summary = {
             "total_diseases": len(self.diseases),
-            "initial_strains": list(self._final_scenario["strains"].keys())
-            if hasattr(self, "_final_scenario")
-            else [],
+            "initial_strains": list(self._final_scenario["strains"].keys()) if hasattr(self, "_final_scenario") else [],
             "active_strains": [],
             "dormant_strains": [],
         }
@@ -232,9 +226,7 @@ class Sim(ss.Sim):
 
                 # Check if this was an initial strain (has prevalence > 0)
                 initial_strains = (
-                    list(self._final_scenario["strains"].keys())
-                    if hasattr(self, "_final_scenario")
-                    else []
+                    list(self._final_scenario["strains"].keys()) if hasattr(self, "_final_scenario") else []
                 )
                 if (disease.G, disease.P) in initial_strains:
                     summary["active_strains"].append(strain_info)
@@ -263,9 +255,7 @@ class Sim(ss.Sim):
             if len(summary["dormant_strains"]) > 10:
                 print(f"  ... and {len(summary['dormant_strains']) - 10} more")
 
-    def _create_strain_diseases(
-        self, scenario, base_beta=0.1, use_preferred_partners=False, verbose=False
-    ):
+    def _create_strain_diseases(self, scenario, base_beta=0.1, use_preferred_partners=False, verbose=False):
         """
         Create all Rotavirus disease instances from unified scenario data
 
@@ -291,15 +281,11 @@ class Sim(ss.Sim):
         initial_strains = list(scenario["strains"].keys())
 
         # Generate all possible G,P combinations
-        gp_combinations = generate_gp_reassortments(
-            initial_strains, use_preferred_partners, verbose
-        )
+        gp_combinations = generate_gp_reassortments(initial_strains, use_preferred_partners, verbose)
 
         # Strain creation details (debug verbose)
         if verbose > 1:
-            print(
-                f"Creating {len(gp_combinations)} strain diseases from {len(initial_strains)} initial strains"
-            )
+            print(f"Creating {len(gp_combinations)} strain diseases from {len(initial_strains)} initial strains")
             print(f"  Initial strains: {initial_strains}")
             print(f"  All combinations: {gp_combinations}")
             print(f"  Default fitness: {scenario.get('default_fitness', 1.0)}")
@@ -346,9 +332,7 @@ class Sim(ss.Sim):
 
         # Summary (basic verbose)
         if verbose:
-            print(
-                f"  Created {active_count} active strains and {dormant_count} dormant reassortants"
-            )
+            print(f"  Created {active_count} active strains and {dormant_count} dormant reassortants")
 
         return diseases
 
@@ -365,16 +349,10 @@ class Sim(ss.Sim):
         """
         # Handle string type names by checking class names
         if isinstance(connector_type, str):
-            matching_connectors = [
-                c
-                for c in self.connectors.values()
-                if c.__class__.__name__ == connector_type
-            ]
+            matching_connectors = [c for c in self.connectors.values() if c.__class__.__name__ == connector_type]
             type_name = connector_type
         else:
-            matching_connectors = [
-                c for c in self.connectors.values() if isinstance(c, connector_type)
-            ]
+            matching_connectors = [c for c in self.connectors.values() if isinstance(c, connector_type)]
             type_name = connector_type.__name__
 
         if len(matching_connectors) == 0:
@@ -383,9 +361,7 @@ class Sim(ss.Sim):
             return None
         elif len(matching_connectors) > 1 and warn_if_multiple:
             if self.pars.verbose:
-                print(
-                    f"Warning: Multiple {type_name}s found ({len(matching_connectors)}), using first one"
-                )
+                print(f"Warning: Multiple {type_name}s found ({len(matching_connectors)}), using first one")
 
         return matching_connectors[0]
 

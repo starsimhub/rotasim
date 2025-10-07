@@ -95,9 +95,7 @@ PREFERRED_PARTNERS = {
 }
 
 
-def generate_gp_reassortments(
-    initial_strains, use_preferred_partners=False, verbose=False
-):
+def generate_gp_reassortments(initial_strains, use_preferred_partners=False, verbose=False):
     """
     Generate all possible G,P combinations from initial strains
 
@@ -124,17 +122,13 @@ def generate_gp_reassortments(
         for g in unique_G:
             if g not in PREFERRED_PARTNERS:
                 if verbose:
-                    print(
-                        f"Warning: No preferred partners defined for G genotype {g}. Skipping."
-                    )
+                    print(f"Warning: No preferred partners defined for G genotype {g}. Skipping.")
                 continue
                 # raise ValueError(f"No preferred partners defined for G genotype {g}")
             for p in unique_P:
                 if p not in PREFERRED_PARTNERS[g]:
                     if verbose:
-                        print(
-                            f"Warning: P genotype {p} is not a preferred partner for G genotype {g}. Skipping."
-                        )
+                        print(f"Warning: P genotype {p} is not a preferred partner for G genotype {g}. Skipping.")
                     continue
                 all_reassortments.append((g, p))
 
@@ -166,9 +160,7 @@ def get_scenario(scenario_name):
         Dict containing scenario data
     """
     if scenario_name not in SCENARIOS:
-        raise ValueError(
-            f"Unknown scenario '{scenario_name}'. Available scenarios: {list(SCENARIOS.keys())}"
-        )
+        raise ValueError(f"Unknown scenario '{scenario_name}'. Available scenarios: {list(SCENARIOS.keys())}")
     return SCENARIOS[scenario_name]
 
 
@@ -209,14 +201,10 @@ def validate_scenario(scenario):
                 raise ValueError(f"G and P must be positive, got G={G}, P={P}")
 
             if not isinstance(data, dict):
-                raise ValueError(
-                    f"Strain data must be dict, got {type(data)} for strain {strain}"
-                )
+                raise ValueError(f"Strain data must be dict, got {type(data)} for strain {strain}")
 
             if "fitness" not in data or "prevalence" not in data:
-                raise ValueError(
-                    f"Strain data must contain 'fitness' and 'prevalence' keys for strain {strain}"
-                )
+                raise ValueError(f"Strain data must contain 'fitness' and 'prevalence' keys for strain {strain}")
 
         # Set default fitness if not provided
         if "default_fitness" not in scenario:
@@ -227,9 +215,7 @@ def validate_scenario(scenario):
         raise ValueError(f"Scenario must be string or dict, got {type(scenario)}")
 
 
-def apply_scenario_overrides(
-    scenario, override_fitness=None, override_prevalence=None, override_strains=None
-):
+def apply_scenario_overrides(scenario, override_fitness=None, override_prevalence=None, override_strains=None):
     """
     Apply override parameters to a scenario
 
@@ -256,9 +242,7 @@ def apply_scenario_overrides(
             if not isinstance(data, dict):
                 raise ValueError(f"Strain data must be dict, got {type(data)}")
             if "fitness" not in data or "prevalence" not in data:
-                raise ValueError(
-                    f"Strain data must contain 'fitness' and 'prevalence' for {strain}"
-                )
+                raise ValueError(f"Strain data must contain 'fitness' and 'prevalence' for {strain}")
             result["strains"][strain] = data.copy()
 
     # Apply fitness overrides

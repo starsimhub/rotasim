@@ -45,9 +45,7 @@ class Rotavirus(ss.Infection):
         self.define_pars(
             init_prev=ss.bernoulli(p=0.01),  # Initial prevalence
             beta=ss.perday(0.1),  # Transmission rate (will be modified by fitness)
-            dur_inf=ss.lognorm_ex(
-                mean=7, unit="days"
-            ),  # Duration of infection (~7 days)
+            dur_inf=ss.lognorm_ex(mean=7, unit="days"),  # Duration of infection (~7 days)
             waning_rate_dist=ss.normal(
                 loc=180, scale=10, unit="days"
             ),  # Duration of waning immunity (180 days mean for normal)
