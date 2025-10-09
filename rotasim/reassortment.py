@@ -13,6 +13,7 @@ import itertools
 # Third-party imports
 import numpy as np
 import starsim as ss
+from . import utils
 
 
 class RotaReassortmentConnector(ss.Connector):
@@ -181,12 +182,8 @@ class RotaReassortmentConnector(ss.Connector):
         # Get G,P genotypes from active parent strains
         parent_gps = [self._disease_to_gp[disease] for disease in active_diseases]
 
-        # Generate all possible G,P reassortant combinations
-        G_variants = {gp[0] for gp in parent_gps}  # Unique G genotypes
-        P_variants = {gp[1] for gp in parent_gps}  # Unique P genotypes
-
-        # Cartesian product of G × P variants
-        all_combinations = list(itertools.product(G_variants, P_variants))
+        use_preferred_partners = self.sim._use_preferred_partners
+        all_combinations = utils.generate_gp_reassortments(parent_gps, use_preferred_partners=use_preferred_partners)
 
         # Exclude parent combinations (already present in this host)
         reassortant_combinations = [gp for gp in all_combinations if gp not in parent_gps]
