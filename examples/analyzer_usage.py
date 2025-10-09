@@ -37,15 +37,18 @@ def analyzer_usage_example():
         dt=ss.days(1)     # Daily timesteps
     )
 
-    print("✓ Simulation created successfully")
-    print(f"  Initial strains: {sim.initial_strains}")
+    print("Success: Simulation created successfully")
+    
+    # Get strain summary instead of initial_strains
+    strain_summary = sim.get_strain_summary()
+    print(f"  Active strains: {len(strain_summary['active_strains'])}")
     print(f"  Population: {sim.pars.n_agents} agents")
     print(f"  Duration: {sim.pars.start}-{sim.pars.stop}")
     
     # Run simulation
     print("\nRunning simulation...")
     sim.run()
-    print("✓ Simulation completed!")
+    print("Success: Simulation completed!")
     
     # IMPORTANT: Access analyzers from sim.analyzers, not original references
     # Starsim creates new analyzer instances during setup
@@ -62,11 +65,11 @@ def analyzer_usage_example():
         strain_df = strain_results.to_df()
         
         if strain_df is not None:
-            print(f"✓ StrainStats: {strain_df.shape} (rows × columns)")
+            print(f"Success: StrainStats: {strain_df.shape} (rows x columns)")
             print(f"  Columns: {list(strain_df.columns)[:3]}...")  # Show first 3
             print(f"  V1-compatible format: '(G, P, A, B) proportion/count'")
         else:
-            print("❌ StrainStats: No data collected")
+            print("Error: StrainStats: No data collected")
     
     # EventStats: Track simulation events  
     if 'eventstats' in sim.analyzers:
@@ -74,10 +77,10 @@ def analyzer_usage_example():
         event_df = event_results.to_df()
         
         if event_df is not None:
-            print(f"✓ EventStats: {event_df.shape}")
+            print(f"Success: EventStats: {event_df.shape}")
             print(f"  Events tracked: {list(event_df.columns)}")
         else:
-            print("❌ EventStats: No data collected")
+            print("Error: EventStats: No data collected")
             
     # AgeStats: Track population age distribution
     if 'agestats' in sim.analyzers:
@@ -85,10 +88,10 @@ def analyzer_usage_example():
         age_df = age_results.to_df()
         
         if age_df is not None:
-            print(f"✓ AgeStats: {age_df.shape}")
+            print(f"Success: AgeStats: {age_df.shape}")
             print(f"  Age bins: {list(age_df.columns)[:5]}...")  # Show first 5
         else:
-            print("❌ AgeStats: No data collected")
+            print("Error: AgeStats: No data collected")
     
     print(f"\n=== Key Takeaways ===")
     print(f"1. Use sim.analyzers['module_name'] to access analyzer results")

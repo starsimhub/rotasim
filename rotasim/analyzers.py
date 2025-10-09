@@ -239,10 +239,19 @@ class EventStats(ss.Analyzer):
             self.events[event] = 0
 
         # Get population changes (births/deaths) from demographics modules
-        # Check for births
-        self.events["births"] += self.sim.results.births.new[self.sim.ti]
-        # Check for deaths
-        self.events["deaths"] += self.sim.results.deaths.new[self.sim.ti]
+        # Check for births - handle missing results gracefully
+        if hasattr(self.sim.results, "births") and hasattr(self.sim.results.births, "new"):
+            self.events["births"] += self.sim.results.births.new[self.sim.ti]
+        else:
+            self.events["births"] = 0
+
+        # Check for deaths - handle missing results gracefully
+        if hasattr(self.sim.results, "deaths") and hasattr(self.sim.results.deaths, "new"):
+            self.events["deaths"] += self.sim.results.deaths.new[self.sim.ti]
+        elif hasattr(self.sim.results, "new_deaths"):
+            self.events["deaths"] += self.sim.results.new_deaths[self.sim.ti]
+        else:
+            self.events["deaths"] = 0
 
         # Count recoveries and new infections across all Rotavirus diseases
         for disease in self.sim.diseases.values():
@@ -262,8 +271,10 @@ class EventStats(ss.Analyzer):
 
         # Count reassortment events from reassortment connector
         reassortment_connector = self.sim.get_connector_by_type("RotaReassortmentConnector")
-        if reassortment_connector:
+        if reassortment_connector and hasattr(reassortment_connector, "results") and hasattr(reassortment_connector.results, "n_reassortments"):
             self.events["reassortments"] = reassortment_connector.results.n_reassortments[self.sim.ti]
+        else:
+            self.events["reassortments"] = 0
 
         # Count total infected agents and coinfected agents
         infection_counts = np.zeros(len(self.sim.people), dtype=int)
