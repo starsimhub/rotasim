@@ -133,11 +133,14 @@ class RotaReassortmentConnector(ss.Connector):
         if self.sim.pars.verbose > 1:
             print(f"Reassortment: {n_events}/{n_coinfected} co-infected hosts reassorting")
 
-        # Step 3-5: For each reassorting host, generate and activate reassortants
-        total_new_infections = 0
+        # Step 3-5: For each reassorting host, generate reassortant infection plans
+        infection_plans = []  # List of (disease, uid) tuples
         for uid in reassorting_uids:
-            new_infections = self._reassort_host(uid)
-            total_new_infections += new_infections
+            host_infections = self._get_reassortant_infections(uid)
+            infection_plans.extend(host_infections)
+
+        # Step 6: Batch infections by disease and apply with single set_prognoses calls
+        total_new_infections = self._apply_infection_plans(infection_plans)
 
         if total_new_infections > 0 and self.sim.pars.verbose > 1:
             print(f"  {total_new_infections} new reassortant infections created")
@@ -160,15 +163,15 @@ class RotaReassortmentConnector(ss.Connector):
 
         return coinfected_uids
 
-    def _reassort_host(self, uid):
+    def _get_reassortant_infections(self, uid):
         """
-        Perform reassortment for a single co-infected host
+        Generate reassortant infection plans for a single co-infected host
 
         Args:
             uid: Host agent ID
 
         Returns:
-            int: Number of new reassortant infections created
+            List[tuple]: List of (disease, uid) tuples for planned infections
         """
         # Find which diseases are currently infecting this host
         active_diseases = []
@@ -177,7 +180,7 @@ class RotaReassortmentConnector(ss.Connector):
                 active_diseases.append(disease)
 
         if len(active_diseases) < 2:
-            return 0  # Should not happen due to filtering, but safety check
+            return []  # Should not happen due to filtering, but safety check
 
         # Get G,P genotypes from active parent strains
         parent_gps = [self._disease_to_gp[disease] for disease in active_diseases]
@@ -189,20 +192,52 @@ class RotaReassortmentConnector(ss.Connector):
         reassortant_combinations = [gp for gp in all_combinations if gp not in parent_gps]
 
         if len(reassortant_combinations) == 0:
-            return 0  # No new combinations possible
+            return []  # No new combinations possible
 
-        # Activate dormant diseases for valid reassortants
-        new_infections = 0
+        # Plan infections for valid reassortants
+        infection_plans = []
         for G, P in reassortant_combinations:
             reassortant_disease = self._gp_to_disease.get((G, P))
             if reassortant_disease is not None:
                 # Check if already infected with this reassortant
                 if uid not in reassortant_disease.infected.uids:
-                    # Activate infection using Starsim method - use ss.uids()
-                    reassortant_disease.set_prognoses(ss.uids([uid]))
-                    new_infections += 1
+                    # Add to infection plan instead of immediately applying
+                    infection_plans.append((reassortant_disease, uid))
 
-        return new_infections
+        return infection_plans
+
+    def _apply_infection_plans(self, infection_plans):
+        """
+        Apply infection plans using batched set_prognoses calls
+        
+        Args:
+            infection_plans: List of (disease, uid) tuples
+            
+        Returns:
+            int: Total number of new infections created
+        """
+        if not infection_plans:
+            return 0
+            
+        # Group infections by disease for batching
+        disease_infections = {}  # disease -> list of uids
+        for disease, uid in infection_plans:
+            if disease not in disease_infections:
+                disease_infections[disease] = []
+            disease_infections[disease].append(uid)
+        
+        # Apply batched infections
+        total_infections = 0
+        for disease, uids in disease_infections.items():
+            # Use single set_prognoses call per disease
+            disease.set_prognoses(ss.uids(uids))
+            total_infections += len(uids)
+            
+            if self.sim.pars.verbose > 2:
+                strain_name = f"G{disease.G}P{disease.P}"
+                print(f"    Batch infection: {strain_name} -> {len(uids)} agents")
+        
+        return total_infections
 
 
 # Make importable from package root

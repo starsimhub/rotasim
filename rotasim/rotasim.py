@@ -127,14 +127,8 @@ class Sim(ss.Sim):
             print(f"  Connectors: Using {len(kwargs['connectors'])} custom connectors")
 
         # Set reasonable defaults for rotavirus simulations if not provided
-        rotasim_defaults = {
-            "dt": ss.days(1),  # Daily timesteps
-        }
-
-        # Apply defaults only if not explicitly provided
-        for key, default_value in rotasim_defaults.items():
-            if key not in kwargs:
-                kwargs[key] = default_value
+        if "dt" not in kwargs:
+            kwargs["dt"] = ss.days(1)
 
         print(f"  Time units: day, dt={kwargs.get('dt', ss.days(1))}")
         active_strains = len(final_scenario["strains"])

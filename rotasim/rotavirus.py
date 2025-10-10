@@ -30,7 +30,6 @@ class Rotavirus(ss.Infection):
                 dur_inf: Infection duration (default: 7 days lognormal)
                 dur_waning: Immunity waning duration (default: 180 days poisson)
                 waning_delay: Delay before waning starts (default: 0 days)
-                dt_jump_size: Performance tuning for large populations (default: 15000)
         """
         # Store G,P genotypes as attributes
         self.G = G
@@ -66,10 +65,6 @@ class Rotavirus(ss.Infection):
         )
 
         self.update_pars(pars=pars, **kwargs)
-
-        # With large populations or large numbers of strains, the default Starsim jump size of 1000
-        # is not sufficient so override it here.
-        self.pars.dur_inf.dt_jump_size = kwargs.get("dt_jump_size", 15000)
 
     def init_results(self):
         super().init_results()
