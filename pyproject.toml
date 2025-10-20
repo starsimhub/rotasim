@@ -16,9 +16,23 @@ requires-python = ">=3.10"
 dependencies = [
     "sciris",
     "numpy",
+    "numba>=0.61.0",
     "matplotlib",
     "pandas",
-    "starsim==2.3.2",
+    "starsim>=3.0.2",
+]
+
+[dependency-groups]
+dev = [
+    "jupyter",
+    "ipykernel", 
+    "seaborn",           # Enhanced plotting for notebooks
+    "pytest",            # Testing framework
+    "pytest-cov",        # Coverage reports
+    "black",             # Code formatting
+    "ruff",              # Linting
+    "pre-commit",        # Git hooks
+    "pytest",            # Testing framework
 ]
 
 [tool.setuptools.packages.find]
