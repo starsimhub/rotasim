@@ -400,9 +400,172 @@ class AgeStats(ss.Analyzer):
         return df
 
 
+class InfectedStrainStats(ss.Analyzer):
+    """
+    V2 analyzer to track individual infection events - produces rota_strains_infected_all_*.csv format
+
+    This analyzer tracks each new infection event with detailed information about the infected agent,
+    including their age, the infecting strain, and the time of infection. This data is used for
+    calibration and detailed epidemiological analysis.
+
+    Output format matches v1 rota_strains_infected_all_*.csv with columns:
+    - id: Agent ID
+    - Strain: Strain identifier (e.g., "G1P8", "G2P4A1B1")
+    - CollectionTime: Simulation time when infection occurred (in years)
+    - Age: Age category of infected agent
+    - PopulationSize: Total population size at time of infection
+
+    Example usage:
+        analyzer = InfectedStrainStats()
+        sim = Sim(initial_strains=[(1,8), (2,4)], analyzers=[analyzer])
+        sim.run()
+        df = analyzer.to_df()  # Event log format
+    """
+
+    def __init__(self, **kwargs):
+        """Initialize infected strain statistics analyzer"""
+        super().__init__(**kwargs)
+
+        # Store infection events as lists
+        self.infection_events = {
+            'id': [],
+            'Strain': [],
+            'CollectionTime': [],
+            'Age': [],
+            'PopulationSize': []
+        }
+
+        # Track which agents were infected in previous timestep to detect new infections
+        self._prev_infected = {}
+
+        # Age bins for categorization (matching v1 format)
+        self.age_bins = [
+            (0, 2/12),      # 0-2 months
+            (2/12, 4/12),   # 2-4 months
+            (4/12, 6/12),   # 4-6 months
+            (6/12, 12/12),  # 6-12 months
+            (12/12, 24/12), # 12-24 months
+            (24/12, 36/12), # 24-36 months
+            (36/12, 48/12), # 36-48 months
+            (48/12, 60/12), # 48-60 months
+            (60/12, np.inf) # 60+ months
+        ]
+        self.age_labels = ['0-2', '2-4', '4-6', '6-12', '12-24', '24-36', '36-48', '48-60', '60+']
+
+    def init_results(self):
+        """Initialize results storage - find all Rotavirus diseases"""
+        super().init_results()
+
+        # Find all Rotavirus disease instances
+        self._rotavirus_diseases = []
+        for disease in self.sim.diseases.values():
+            if hasattr(disease, 'G') and hasattr(disease, 'P'):
+                self._rotavirus_diseases.append(disease)
+                # Initialize tracking dict for this disease
+                self._prev_infected[disease.name] = set()
+
+        if self.sim.pars.verbose:
+            print(f"InfectedStrainStats: Tracking infections for {len(self._rotavirus_diseases)} Rotavirus strains")
+
+    def _get_age_category(self, age_years):
+        """Convert age in years to age category string"""
+        for i, (low, high) in enumerate(self.age_bins):
+            if low <= age_years < high:
+                return self.age_labels[i]
+        return self.age_labels[-1]  # Default to 60+
+
+    def step(self):
+        """Collect new infection events at each timestep"""
+        if len(self._rotavirus_diseases) == 0:
+            return
+
+        # Get current time in years (convert from days if needed)
+        current_time = self.sim.ti * self.sim.pars.dt
+        # Convert to years if dt is in days
+        if hasattr(self.sim.pars.dt, 'days'):
+            current_time_years = current_time / 365.25
+        else:
+            current_time_years = current_time
+
+        # Get current population size
+        pop_size = len(self.sim.people)
+
+        # Check each disease for new infections
+        for disease in self._rotavirus_diseases:
+            # Get currently infected agents
+            currently_infected = set(np.where(disease.infected[:])[0])
+
+            # Find new infections (in current but not in previous)
+            new_infections = currently_infected - self._prev_infected[disease.name]
+
+            # Log each new infection
+            for agent_id in new_infections:
+                # Get agent age
+                age_years = self.sim.people.age[agent_id]
+                age_category = self._get_age_category(age_years)
+
+                # Create strain name in full format (G1P8A1B1) to match v1 expectations
+                # Default to A1B1 if backbone not specified
+                if hasattr(disease, 'backbone') and disease.backbone is not None:
+                    strain_name = f"G{disease.G}P{disease.P}A{disease.backbone[0]}B{disease.backbone[1]}"
+                else:
+                    # Default backbone A1B1
+                    strain_name = f"G{disease.G}P{disease.P}A1B1"
+
+                # Record the infection event
+                self.infection_events['id'].append(int(agent_id))
+                self.infection_events['Strain'].append(strain_name)
+                self.infection_events['CollectionTime'].append(float(current_time_years))
+                self.infection_events['Age'].append(age_category)
+                self.infection_events['PopulationSize'].append(int(pop_size))
+
+            # Update previous infected set for next timestep
+            self._prev_infected[disease.name] = currently_infected
+
+    def to_df(self):
+        """Convert infection events to dataframe matching v1 format"""
+        import pandas as pd
+
+        # Create dataframe from stored events
+        df = pd.DataFrame(self.infection_events)
+
+        if self.sim.pars.verbose and len(df) > 0:
+            print(f"InfectedStrainStats: Collected {len(df)} infection events")
+            print(f"  Strains: {df['Strain'].unique()}")
+            print(f"  Time range: {df['CollectionTime'].min():.2f} - {df['CollectionTime'].max():.2f} years")
+
+        return df
+
+    def get_infection_summary(self):
+        """Get summary statistics of infection events"""
+        import pandas as pd
+        df = pd.DataFrame(self.infection_events)
+
+        if len(df) == 0:
+            return {"total_infections": 0, "strains": {}}
+
+        summary = {
+            "total_infections": len(df),
+            "unique_agents": df['id'].nunique(),
+            "time_range": (df['CollectionTime'].min(), df['CollectionTime'].max()),
+            "strains": {}
+        }
+
+        # Per-strain summary
+        for strain in df['Strain'].unique():
+            strain_df = df[df['Strain'] == strain]
+            summary["strains"][strain] = {
+                "total_infections": len(strain_df),
+                "unique_agents": strain_df['id'].nunique(),
+                "age_distribution": strain_df['Age'].value_counts().to_dict()
+            }
+
+        return summary
+
+
 # Legacy aliases for backwards compatibility
 StrainStatistics = StrainStats  # In case v1 scripts use different name
 
 
 # Make importable from package root
-__all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats"]
+__all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats", "InfectedStrainStats"]

@@ -6,6 +6,7 @@ import numpy as np
 import sciris as sc
 import optuna as op
 import matplotlib.pyplot as plt
+import starsim as ss
 
 # Local imports ... should tidy up later
 thisdir = sc.thispath(__file__)
@@ -147,21 +148,77 @@ class Calibration(sc.prettyobj):
         """ Take the nested dict of calibration pars and modify the sim """
         sim_pars = sc.mergedicts(sim_pars) # To allow None
         sim = sc.dcp(self.sim)
+
+        # Store parameters to apply after initialization
+        pars_to_apply = {}
+
         pars = list(sim_pars.keys())
         for par in pars:
             val = sim_pars.pop(par)
             if par in self.known_pars:
-                setattr(sim, par, val) # Set the new value
+                pars_to_apply[par] = val
             else:
                 errormsg = f'Do not know how to handle parameter "{par}"'
                 raise NotImplementedError(errormsg)
+
+        # Initialize the sim first so diseases and connectors are created
+        sim.init()
+
+        # Now apply the parameters after initialization
+        for par, val in pars_to_apply.items():
+            if par == 'rel_beta':
+                # In V2, modify base_beta which affects all strains
+                if hasattr(sim, '_base_beta'):
+                    sim._base_beta = sim._base_beta * val
+                # Also need to update disease betas
+                if hasattr(sim, 'diseases'):
+                    for disease in sim.diseases.values():
+                        if hasattr(disease, 'pars') and hasattr(disease.pars, 'beta'):
+                            # Multiply the beta by the relative factor
+                            disease.pars.beta = disease.pars.beta * val
+            elif par == 'reassortment_rate':
+                # In V2, set on the RotaReassortmentConnector (called reassortment_prob in V2)
+                if hasattr(sim, 'connectors'):
+                    for connector in sim.connectors.values():
+                        if type(connector).__name__ == 'RotaReassortmentConnector':
+                            if hasattr(connector, 'pars') and hasattr(connector.pars, 'reassortment_prob'):
+                                # Update the probability parameter - need to properly initialize it
+                                new_dist = ss.bernoulli(p=val)
+                                new_dist.init(sim.people, sim=sim)  # Initialize with people and sim
+                                connector.pars.reassortment_prob = new_dist
+                            break
+            else:
+                setattr(sim, par, val) # Set the new value for other known pars
+
         return sim
 
     def compute_fit(self, sim, full=False):
         """ Compute goodness-of-fit """
         sim_df = self.sim_to_df(sim)
         actual = self.data.inci.values
+
+        # Handle case where simulation produced no data in calibration window (years 1-9)
+        if len(sim_df) == 0 or 'inci' not in sim_df.columns:
+            # Return a very large penalty for simulations that died out
+            penalty = 1e6
+            if full:
+                gofs = np.ones(len(actual)) * penalty
+                return penalty, gofs
+            else:
+                return penalty
+
         expected = sim_df.inci.values
+
+        # Handle mismatched shapes (shouldn't happen but be defensive)
+        if len(expected) != len(actual):
+            # Pad or truncate to match
+            if len(expected) < len(actual):
+                # Pad with large penalty values
+                padding = np.ones(len(actual) - len(expected)) * 1e6
+                expected = np.concatenate([expected, padding])
+            else:
+                expected = expected[:len(actual)]
+
         gofs = compute_gof(actual, expected)
         fit = gofs.sum()
         if full:
@@ -169,15 +226,25 @@ class Calibration(sc.prettyobj):
         else:
             return fit
 
-    df=sim.to_df()
-
     @staticmethod
     def sim_to_df(sim):
         """ Convert the sim output to a data-like dataframe """
+        # Extract infection data from InfectedStrainStats analyzer
+        infected_analyzer = None
+        for analyzer in sim.analyzers.values():
+            if type(analyzer).__name__ == 'InfectedStrainStats':
+                infected_analyzer = analyzer
+                break
+
+        if infected_analyzer is None:
+            raise ValueError("InfectedStrainStats analyzer not found in simulation. Please add it to the sim.analyzers list.")
+
+        # Get the infection events dataframe
+        df = infected_analyzer.to_df()
+
+        # Process the data using the process_incidence module
         df = process_incidence.process_model(df)
         return df
-
-    #process_incidence.process_model(df)
 
     def run_trial(self, trial):
         """ Define the objective for Optuna """
@@ -393,14 +460,20 @@ if __name__ == '__main__':
     debug = False
     total_trials = 20
 
-    # Create the base sim
+    # Create the base sim with InfectedStrainStats analyzer
+    # Need longer simulation and demographics to sustain infections for calibration
     sim = rs.Sim(
-        total_pop = 10_000,
-        dur = 2,
-       # to_csv = False,
+        n_agents = 10_000,
+        start = "2000-01-01",
+        stop = "2010-01-01",  # 10 years to cover years 1-9 needed for calibration
         verbose = False,
+        scenario = "baseline",  # Use baseline scenario with multiple strains
+        analyzers = [rs.InfectedStrainStats()],  # Add the infection tracking analyzer
+        demographics = [  # Add demographics to sustain population
+            ss.Births(birth_rate=ss.peryear(25)),  # 25 per 1000 per year
+            ss.Deaths(death_rate=ss.peryear(10)),  # 10 per 1000 per year
+        ],
     )
-
 
     # Convert the data
     data = process_incidence.process_data()
@@ -423,4 +496,15 @@ if __name__ == '__main__':
 
     calib.calibrate()
     calib.check_fit()
-    calib.plot_sims()
+
+    # Plot and save results
+    print('\nGenerating plots...')
+    fig1 = calib.plot_sims()
+    fig1.savefig('calibration_fit.png', dpi=150, bbox_inches='tight')
+    print('  Saved: calibration_fit.png')
+
+    fig2 = calib.plot_trend()
+    fig2.savefig('calibration_trend.png', dpi=150, bbox_inches='tight')
+    print('  Saved: calibration_trend.png')
+
+    plt.show()  # Display plots if running interactively
