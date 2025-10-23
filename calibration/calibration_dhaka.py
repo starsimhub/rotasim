@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 # Local imports ... should tidy up later
 thisdir = sc.thispath(__file__)
 import rotasim as rs
-process_incidence = sc.importbypath(thisdir / 'process_incidence.py')
+process_incidence = sc.importbypath(thisdir / 'process_incidence_dhaka.py')
 
 
 __all__ = ['Calibration', 'compute_gof']
@@ -169,15 +169,11 @@ class Calibration(sc.prettyobj):
         else:
             return fit
 
-    df=sim.to_df()
-
     @staticmethod
     def sim_to_df(sim):
         """ Convert the sim output to a data-like dataframe """
-        df = process_incidence.process_model(df)
+        df = process_incidence.process_model(sim.df)
         return df
-
-    #process_incidence.process_model(df)
 
     def run_trial(self, trial):
         """ Define the objective for Optuna """
@@ -395,12 +391,11 @@ if __name__ == '__main__':
 
     # Create the base sim
     sim = rs.Sim(
-        total_pop = 10_000,
-        dur = 2,
-       # to_csv = False,
+        N = 10_000,
+        timelimit = 2,
+        to_csv = False,
         verbose = False,
     )
-
 
     # Convert the data
     data = process_incidence.process_data()
@@ -419,8 +414,6 @@ if __name__ == '__main__':
         total_trials = total_trials,
         debug = debug,
     )
-
-
     calib.calibrate()
     calib.check_fit()
     calib.plot_sims()
