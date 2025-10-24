@@ -51,7 +51,7 @@ class Sim(ss.Sim):
     def __init__(
         self,
         scenario="baseline",
-        base_beta=0.1,
+        base_beta=0.16,  # Matches working value from tests/simple.py for endemic circulation
         override_fitness=None,
         override_prevalence=None,
         override_strains=None,

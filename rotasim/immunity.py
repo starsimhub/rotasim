@@ -56,7 +56,10 @@ class RotaImmunityConnector(ss.Connector):
             partial_heterotypic_immunity_efficacy=0.5,  # Protection from shared G or P
             complete_heterotypic_immunity_efficacy=0.3,  # Protection from different G,P (or no prior exposure to any strain)
             naive_immunity_efficacy=0.0,  # Baseline immunity for naive individuals (0.0 = fully susceptible)
-            immunity_waning_delay=ss.days(0),  # Time delay before immunity decay starts (years)
+            immunity_waning_delay=ss.days(0),  # Time delay before immunity decay starts (90 days = ~3 months)
+            # Maternal immunity parameters (passive immunity from mother)
+            maternal_immunity_efficacy=0.9,  # Maximum protection from maternal antibodies at birth (90%)
+            maternal_immunity_half_life=ss.days(90),  # Half-life of maternal immunity decay (90 days = 3 months)
             # infection_history_susceptibility_factors = {0: 1, 1: 1, 2: 1, 3: 1},  # Susceptibility scaling based on total infection history. We may want to remove this feature later.
             cotransmission_prob=ss.bernoulli(
                 p=0.02
@@ -231,7 +234,8 @@ class RotaImmunityConnector(ss.Connector):
         for disease in self.rota_diseases:
             disease_partial_matches = []
             for gp in self.unique_GP:
-                if gp[0] == disease.G or gp[1] == disease.P and gp != (disease.G, disease.P):
+                # Fix operator precedence: need parentheses to check (G OR P match) AND (not exact match)
+                if (gp[0] == disease.G or gp[1] == disease.P) and gp != (disease.G, disease.P):
                     disease_partial_matches.append(gp)
 
             disease_G_mask = self.disease_G_masks[disease.name]
@@ -280,7 +284,24 @@ class RotaImmunityConnector(ss.Connector):
             # * final_decay_factor reduces this protection over time since last infection (0.0 to 1.0). In the case of a partial match, it uses the max decay from either G or P.
             # * infection_history_susceptibility_factor scales susceptibility based on total prior infections. It does not decay over time.
 
-            disease.rel_sus[:] = 1 - strain_match_immunity_efficacy * self.final_decayed_immunity_factor
+            # Calculate acquired immunity protection
+            acquired_immunity_protection = strain_match_immunity_efficacy * self.final_decayed_immunity_factor
+
+            # Add maternal immunity for naive agents (those with no prior infections)
+            # Maternal immunity decays exponentially with age: efficacy * exp(-age / half_life)
+            if self.pars.maternal_immunity_efficacy > 0 and self.pars.maternal_immunity_half_life > 0:
+                naive_mask = ~has_immunity_mask
+                if naive_mask.any():
+                    # Get agent ages in days (sim.people.age is in years, convert to days)
+                    agent_ages_days = self.sim.people.age.values * 365.25
+                    # Calculate maternal immunity decay: efficacy * exp(-ln(2) * age / half_life)
+                    maternal_decay = np.exp(-np.log(2) * agent_ages_days / self.pars.maternal_immunity_half_life)
+                    maternal_protection = self.pars.maternal_immunity_efficacy * maternal_decay
+                    # Apply maternal immunity only to naive agents
+                    acquired_immunity_protection[naive_mask] = maternal_protection[naive_mask]
+
+            # Final relative susceptibility = 1 - total protection
+            disease.rel_sus[:] = 1 - acquired_immunity_protection
 
     def record_infection(self, disease, new_infected_uids):
         self.num_current_infections[new_infected_uids] += 1.0

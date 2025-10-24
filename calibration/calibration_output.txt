@@ -1,0 +1,44 @@
+[I 2025-10-24 14:00:04,815] A new study created in RDB with name: rota
+============================================================
+Testing Improved Calibration
+============================================================
+
+Changes:
+  1. rel_beta range: [0.001, 0.1] (vs old [0.5, 1.5])
+  2. immunity_waning_delay: 180 days (vs 0.5 days)
+============================================================
+Rotasim: Setting up multi-strain simulation
+  Scenario: baseline
+  Base beta: 0.16
+  Strains: 3
+  Connectors: Adding default connectors: RotaImmunityConnector, RotaReassortmentConnector
+  Time units: day, dt=day
+  Total diseases: 6 (3 active + 3 dormant)
+
+Calibration target data:
+Overall incidence: 20.4 per 100k
+
+Age distribution (proportions):
+  ages  proportion
+0    0    0.521739
+1    1    0.383632
+2    2    0.053708
+3    5    0.040921
+
+Calibration parameters:
+  reporting_rate: best=0.002, range=[0.0001, 0.01]
+  maternal_immunity_efficacy: best=0.85, range=[0.0, 0.95]
+  maternal_immunity_half_life: best=90, range=[1, 120]
+  rel_beta: best=1.0, range=[0.5, 3.0]
+  reassortment_rate: best=0.1, range=[0.05, 0.15]
+
+============================================================
+Running calibration (20 trials)...
+============================================================
+[I 2025-10-24 14:01:15,172] Trial 9 finished with value: 21.36134699719432 and parameters: {'reporting_rate': 0.0043657172331608, 'maternal_immunity_efficacy': 0.8941464910294077, 'maternal_immunity_half_life': 105.29307530414945, 'rel_beta': 0.542162303480201, 'reassortment_rate': 0.10314729667412358}. Best is trial 9 with value: 21.36134699719432.
+[I 2025-10-24 14:02:51,497] Trial 6 finished with value: 9.19481245929423 and parameters: {'reporting_rate': 0.0019417924294167618, 'maternal_immunity_efficacy': 0.04713298454639384, 'maternal_immunity_half_life': 97.50234837009569, 'rel_beta': 1.291295710124327, 'reassortment_rate': 0.09712402682162598}. Best is trial 6 with value: 9.19481245929423.
+[I 2025-10-24 14:03:06,371] Trial 5 finished with value: 26.869926230684488 and parameters: {'reporting_rate': 0.005504004041842124, 'maternal_immunity_efficacy': 0.3748177401249281, 'maternal_immunity_half_life': 14.94454141652965, 'rel_beta': 1.3952841385439636, 'reassortment_rate': 0.10496671593230182}. Best is trial 6 with value: 9.19481245929423.
+[I 2025-10-24 14:03:28,075] Trial 8 finished with value: 21.92142405466731 and parameters: {'reporting_rate': 0.0044925625053601785, 'maternal_immunity_efficacy': 0.8131384038070707, 'maternal_immunity_half_life': 55.17540766124327, 'rel_beta': 1.5518836816916917, 'reassortment_rate': 0.10428836343329591}. Best is trial 6 with value: 9.19481245929423.
+[I 2025-10-24 14:03:30,652] Trial 12 finished with value: 2.451254784521486 and parameters: {'reporting_rate': 0.0005715799085755141, 'maternal_immunity_efficacy': 0.608632617074678, 'maternal_immunity_half_life': 74.42711019519949, 'rel_beta': 1.070619548322366, 'reassortment_rate': 0.06271186413013762}. Best is trial 12 with value: 2.451254784521486.
+[I 2025-10-24 14:03:51,285] Trial 10 finished with value: 37.1572271386186 and parameters: {'reporting_rate': 0.007585732604162712, 'maternal_immunity_efficacy': 0.5876971482372941, 'maternal_immunity_half_life': 26.523549501629446, 'rel_beta': 1.7253522439326272, 'reassortment_rate': 0.09679051995180873}. Best is trial 12 with value: 2.451254784521486.
+[I 2025-10-24 14:04:01,341] Trial 11 finished with value: 15.906114350280282 and parameters: {'reporting_rate': 0.003297889005112954, 'maternal_immunity_efficacy': 0.46323564764320047, 'maternal_immunity_half_life': 101.24981593935279, 'rel_beta': 1.7232051673930224, 'reassortment_rate': 0.12619198626122827}. Best is trial 12 with value: 2.451254784521486.

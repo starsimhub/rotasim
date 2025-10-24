@@ -42,8 +42,8 @@ class Rotavirus(ss.Infection):
         super().__init__()
 
         self.define_pars(
-            init_prev=ss.bernoulli(p=0.01),  # Initial prevalence
-            beta=ss.perday(0.1),  # Transmission rate (will be modified by fitness)
+            init_prev=ss.bernoulli(p=0.002),  # Initial prevalence (0.2% - matches working value from tests/simple.py)
+            beta=ss.perday(0.16),  # Transmission rate per day (matches working value from tests/simple.py for endemic circulation)
             dur_inf=ss.lognorm_ex(mean=7, unit="days"),  # Duration of infection (~7 days)
             waning_rate_dist=ss.normal(
                 loc=180, scale=10, unit="days"
