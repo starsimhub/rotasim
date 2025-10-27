@@ -1,0 +1,139 @@
+[I 2025-10-27 10:53:26,404] A new study created in RDB with name: rota
+============================================================
+UK Calibration (2008-2012)
+============================================================
+
+UK Demographics:
+  Birth rate: 13/1000
+  Death rate: 6/1000
+  Net migration: +4/1000 adults (approximated in death rate)
+  Target age distribution: [1.26%, 1.27%, 3.66%, 93.81%]
+  Follow-up: 5 years (2008-2012)
+============================================================
+Rotasim: Setting up multi-strain simulation
+  Scenario: baseline
+  Base beta: 0.16
+  Strains: 3
+  Connectors: Adding default connectors: RotaImmunityConnector, RotaReassortmentConnector
+  Time units: day, dt=day
+  Total diseases: 6 (3 active + 3 dormant)
+
+Calibration target data:
+Overall incidence: 1.4 per 100k
+
+Age distribution (proportions):
+  ages  proportion
+0    0    0.137698
+1    1    0.276685
+2    2    0.468881
+3    5    0.116737
+
+Calibration parameters:
+  reporting_rate: best=0.0002, range=[0.0001, 0.001]
+  homotypic_immunity_efficacy: best=0.5, range=[0.1, 0.9]
+  partial_heterotypic_immunity_efficacy: best=0.2, range=[0.0, 0.5]
+  complete_heterotypic_immunity_efficacy: best=0.1, range=[0.0, 0.3]
+  rel_beta: best=2.0, range=[1.0, 3.0]
+  maternal_immunity_efficacy: best=0.0, range=[0.0, 0.0]
+
+============================================================
+Running calibration (20 trials)...
+============================================================
+[I 2025-10-27 10:54:26,717] Trial 10 finished with value: 19.62099514510085 and parameters: {'reporting_rate': 0.00027039407371650217, 'homotypic_immunity_efficacy': 0.8630996775306519, 'partial_heterotypic_immunity_efficacy': 0.39237772414097893, 'complete_heterotypic_immunity_efficacy': 0.04130040497449555, 'rel_beta': 1.1629250806817875, 'maternal_immunity_efficacy': 0.0}. Best is trial 10 with value: 19.62099514510085.
+[I 2025-10-27 10:54:45,679] Trial 1 finished with value: 28.981618406926618 and parameters: {'reporting_rate': 0.0004028922454279895, 'homotypic_immunity_efficacy': 0.8915192021693479, 'partial_heterotypic_immunity_efficacy': 0.49354307417866256, 'complete_heterotypic_immunity_efficacy': 0.2583642042685084, 'rel_beta': 1.7693621904588277, 'maternal_immunity_efficacy': 0.0}. Best is trial 10 with value: 19.62099514510085.
+[I 2025-10-27 10:55:17,535] Trial 2 finished with value: 57.07302777600775 and parameters: {'reporting_rate': 0.0008027832669435225, 'homotypic_immunity_efficacy': 0.8241073667305037, 'partial_heterotypic_immunity_efficacy': 0.4691017035491842, 'complete_heterotypic_immunity_efficacy': 0.032461199271352714, 'rel_beta': 1.6736446793230386, 'maternal_immunity_efficacy': 0.0}. Best is trial 10 with value: 19.62099514510085.
+[I 2025-10-27 10:55:27,297] Trial 0 finished with value: 11.651796406283323 and parameters: {'reporting_rate': 0.0001559176147039113, 'homotypic_immunity_efficacy': 0.10914205258188431, 'partial_heterotypic_immunity_efficacy': 0.13356758051553602, 'complete_heterotypic_immunity_efficacy': 0.23987821510139623, 'rel_beta': 1.9098416087814771, 'maternal_immunity_efficacy': 0.0}. Best is trial 0 with value: 11.651796406283323.
+[I 2025-10-27 10:55:57,618] Trial 4 finished with value: 56.28342092269858 and parameters: {'reporting_rate': 0.0007914385526840698, 'homotypic_immunity_efficacy': 0.10325299229075534, 'partial_heterotypic_immunity_efficacy': 0.21523285370072498, 'complete_heterotypic_immunity_efficacy': 0.16086764635027914, 'rel_beta': 1.3121735558418364, 'maternal_immunity_efficacy': 0.0}. Best is trial 0 with value: 11.651796406283323.
+[I 2025-10-27 10:56:00,534] Trial 9 finished with value: 19.68672684930935 and parameters: {'reporting_rate': 0.0002704864800015541, 'homotypic_immunity_efficacy': 0.6382426262575598, 'partial_heterotypic_immunity_efficacy': 0.19200211411285334, 'complete_heterotypic_immunity_efficacy': 0.19451451739571363, 'rel_beta': 1.1986745797312688, 'maternal_immunity_efficacy': 0.0}. Best is trial 0 with value: 11.651796406283323.
+[I 2025-10-27 10:56:01,265] Trial 7 finished with value: 47.47296628742411 and parameters: {'reporting_rate': 0.0006660526382007498, 'homotypic_immunity_efficacy': 0.44554687327988873, 'partial_heterotypic_immunity_efficacy': 0.3212224307319666, 'complete_heterotypic_immunity_efficacy': 0.03874139240844258, 'rel_beta': 2.093648885859673, 'maternal_immunity_efficacy': 0.0}. Best is trial 0 with value: 11.651796406283323.
+[I 2025-10-27 10:56:09,095] Trial 3 finished with value: 58.601098204673356 and parameters: {'reporting_rate': 0.0008249302465119298, 'homotypic_immunity_efficacy': 0.14772553920254713, 'partial_heterotypic_immunity_efficacy': 0.3639884385065121, 'complete_heterotypic_immunity_efficacy': 0.056561285543609396, 'rel_beta': 1.1671378100377403, 'maternal_immunity_efficacy': 0.0}. Best is trial 0 with value: 11.651796406283323.
+[I 2025-10-27 10:56:15,434] Trial 5 finished with value: 39.973870371626916 and parameters: {'reporting_rate': 0.0005592192813815358, 'homotypic_immunity_efficacy': 0.17963192507728165, 'partial_heterotypic_immunity_efficacy': 0.10904480177007464, 'complete_heterotypic_immunity_efficacy': 0.005931704052537024, 'rel_beta': 1.1136306838255303, 'maternal_immunity_efficacy': 0.0}. Best is trial 0 with value: 11.651796406283323.
+[I 2025-10-27 10:56:16,540] Trial 8 finished with value: 15.173904034823048 and parameters: {'reporting_rate': 0.0002060261843483954, 'homotypic_immunity_efficacy': 0.49723327308962806, 'partial_heterotypic_immunity_efficacy': 0.4045786338162421, 'complete_heterotypic_immunity_efficacy': 0.18233072424075197, 'rel_beta': 1.9424094728606605, 'maternal_immunity_efficacy': 0.0}. Best is trial 0 with value: 11.651796406283323.
+[I 2025-10-27 10:56:25,983] Trial 11 finished with value: 21.17689759071982 and parameters: {'reporting_rate': 0.0002916416451265431, 'homotypic_immunity_efficacy': 0.7417942580428765, 'partial_heterotypic_immunity_efficacy': 0.4235233887080559, 'complete_heterotypic_immunity_efficacy': 0.22354385675541769, 'rel_beta': 2.1401307669640053, 'maternal_immunity_efficacy': 0.0}. Best is trial 0 with value: 11.651796406283323.
+[I 2025-10-27 10:56:27,325] Trial 6 finished with value: 64.5551054523777 and parameters: {'reporting_rate': 0.0009094897886711755, 'homotypic_immunity_efficacy': 0.5920279418480837, 'partial_heterotypic_immunity_efficacy': 0.04733423199509318, 'complete_heterotypic_immunity_efficacy': 0.136824064319776, 'rel_beta': 1.972048446621126, 'maternal_immunity_efficacy': 0.0}. Best is trial 0 with value: 11.651796406283323.
+[I 2025-10-27 10:57:08,526] Trial 12 finished with value: 33.529644090140245 and parameters: {'reporting_rate': 0.00046765631526169977, 'homotypic_immunity_efficacy': 0.8001976448473683, 'partial_heterotypic_immunity_efficacy': 0.06243975546729408, 'complete_heterotypic_immunity_efficacy': 0.05363479913690856, 'rel_beta': 2.1991834256037066, 'maternal_immunity_efficacy': 0.0}. Best is trial 0 with value: 11.651796406283323.
+[I 2025-10-27 10:57:28,448] Trial 13 finished with value: 67.96658151860052 and parameters: {'reporting_rate': 0.0009582012292446849, 'homotypic_immunity_efficacy': 0.3782683875531688, 'partial_heterotypic_immunity_efficacy': 0.03864806402841947, 'complete_heterotypic_immunity_efficacy': 0.05613580165635727, 'rel_beta': 1.4006536231364135, 'maternal_immunity_efficacy': 0.0}. Best is trial 0 with value: 11.651796406283323.
+[I 2025-10-27 10:57:50,656] Trial 16 finished with value: 41.43854764664595 and parameters: {'reporting_rate': 0.0005802051947966771, 'homotypic_immunity_efficacy': 0.8559184710337767, 'partial_heterotypic_immunity_efficacy': 0.30738468712685996, 'complete_heterotypic_immunity_efficacy': 0.2950410026968078, 'rel_beta': 2.0518053464038397, 'maternal_immunity_efficacy': 0.0}. Best is trial 0 with value: 11.651796406283323.
+[I 2025-10-27 10:58:07,006] Trial 21 finished with value: 9.071338500477163 and parameters: {'reporting_rate': 0.000119256049869443, 'homotypic_immunity_efficacy': 0.322674958563848, 'partial_heterotypic_immunity_efficacy': 0.0019159260850667992, 'complete_heterotypic_immunity_efficacy': 0.2972251726944992, 'rel_beta': 2.682867130888886, 'maternal_immunity_efficacy': 0.0}. Best is trial 21 with value: 9.071338500477163.
+[I 2025-10-27 10:58:09,183] Trial 14 finished with value: 9.967461465768096 and parameters: {'reporting_rate': 0.00013194361927207875, 'homotypic_immunity_efficacy': 0.6766856364941145, 'partial_heterotypic_immunity_efficacy': 0.408310198392287, 'complete_heterotypic_immunity_efficacy': 0.2479186602101508, 'rel_beta': 1.6972633302529927, 'maternal_immunity_efficacy': 0.0}. Best is trial 21 with value: 9.071338500477163.
+[I 2025-10-27 10:58:11,349] Trial 19 finished with value: 42.195533804462215 and parameters: {'reporting_rate': 0.0005910745881282276, 'homotypic_immunity_efficacy': 0.20770320099005418, 'partial_heterotypic_immunity_efficacy': 0.24648457046689876, 'complete_heterotypic_immunity_efficacy': 0.27006960167510446, 'rel_beta': 1.8962282428382335, 'maternal_immunity_efficacy': 0.0}. Best is trial 21 with value: 9.071338500477163.
+[I 2025-10-27 10:58:17,838] Trial 15 finished with value: 25.535345207889396 and parameters: {'reporting_rate': 0.00035356359059865054, 'homotypic_immunity_efficacy': 0.7813621447331753, 'partial_heterotypic_immunity_efficacy': 0.43735087231128306, 'complete_heterotypic_immunity_efficacy': 0.22542060333497493, 'rel_beta': 2.9241608321957693, 'maternal_immunity_efficacy': 0.0}. Best is trial 21 with value: 9.071338500477163.
+[I 2025-10-27 10:58:18,737] Trial 23 finished with value: 8.72013722140269 and parameters: {'reporting_rate': 0.00011416820860070387, 'homotypic_immunity_efficacy': 0.3426795972902248, 'partial_heterotypic_immunity_efficacy': 0.2820010181477404, 'complete_heterotypic_immunity_efficacy': 0.24938813791094175, 'rel_beta': 2.6648966348332754, 'maternal_immunity_efficacy': 0.0}. Best is trial 23 with value: 8.72013722140269.
+[I 2025-10-27 10:58:21,053] Trial 22 finished with value: 8.07209184836799 and parameters: {'reporting_rate': 0.00010497522070960076, 'homotypic_immunity_efficacy': 0.36934620594312456, 'partial_heterotypic_immunity_efficacy': 0.04108435533870755, 'complete_heterotypic_immunity_efficacy': 0.2756294201904004, 'rel_beta': 2.668215694926438, 'maternal_immunity_efficacy': 0.0}. Best is trial 22 with value: 8.07209184836799.
+[I 2025-10-27 10:58:34,104] Trial 18 finished with value: 28.35755515254078 and parameters: {'reporting_rate': 0.00039404156097108467, 'homotypic_immunity_efficacy': 0.7773018882027359, 'partial_heterotypic_immunity_efficacy': 0.40152024828447447, 'complete_heterotypic_immunity_efficacy': 0.15354422200522408, 'rel_beta': 2.281957684253337, 'maternal_immunity_efficacy': 0.0}. Best is trial 22 with value: 8.07209184836799.
+[I 2025-10-27 10:58:42,075] Trial 17 finished with value: 40.64722407771596 and parameters: {'reporting_rate': 0.0005689805657180518, 'homotypic_immunity_efficacy': 0.7163173046373873, 'partial_heterotypic_immunity_efficacy': 0.16996425529683717, 'complete_heterotypic_immunity_efficacy': 0.1365661352179974, 'rel_beta': 2.3579586861981285, 'maternal_immunity_efficacy': 0.0}. Best is trial 22 with value: 8.07209184836799.
+[I 2025-10-27 10:58:47,168] Trial 20 finished with value: 57.36540755654217 and parameters: {'reporting_rate': 0.0008073874375563997, 'homotypic_immunity_efficacy': 0.6909634648176382, 'partial_heterotypic_immunity_efficacy': 0.42159653058953017, 'complete_heterotypic_immunity_efficacy': 0.29106453224585926, 'rel_beta': 1.6901705933880835, 'maternal_immunity_efficacy': 0.0}. Best is trial 22 with value: 8.07209184836799.
+Making results structure...
+Processed 24 trials; 0 failed
+Best pars: {'reporting_rate': 0.00010497522070960076, 'homotypic_immunity_efficacy': 0.36934620594312456, 'partial_heterotypic_immunity_efficacy': 0.04108435533870755, 'complete_heterotypic_immunity_efficacy': 0.2756294201904004, 'rel_beta': 2.668215694926438, 'maternal_immunity_efficacy': 0.0}
+Removed existing calibration file rota.db
+Elapsed time: 324 s
+
+============================================================
+Checking fit...
+============================================================
+Checking fit...
+
+Fit with original pars:
+  Total GOF:       14.7453
+  Incidence GOF:   13.0354
+  Age dist GOF:    1.70998
+
+Fit with best-fit pars:
+  Total GOF:       8.07209
+  Incidence GOF:   6.36256
+  Age dist GOF:    1.70953
+
+✓ Calibration improved fit
+
+============================================================
+Results:
+============================================================
+
+Best parameters:
+  reporting_rate: 0.000105
+  homotypic_immunity_efficacy: 0.369346
+  partial_heterotypic_immunity_efficacy: 0.041084
+  complete_heterotypic_immunity_efficacy: 0.275629
+  rel_beta: 2.668216
+  maternal_immunity_efficacy: 0.000000
+
+============================================================
+Comparing Overall Incidence:
+============================================================
+Target:  1.4 per 100k
+Before:  19.3 per 100k
+After:   10.1 per 100k
+
+Error before: +1303.5%
+Error after:  +636.3%
+
+============================================================
+Comparing Age Distribution (proportions):
+============================================================
+
+Age        Target          Before          After           Error Before         Error After         
+----------------------------------------------------------------------------------------------------
+0          13.8           % 0.0            % 0.0            % -13.7               pp -13.7               pp
+1          27.7           % 1.1            % 1.1            % -26.6               pp -26.6               pp
+2          46.9           % 1.7            % 1.8            % -45.2               pp -45.1               pp
+5          11.7           % 97.2           % 97.2           % 85.5                pp 85.5                pp
+
+============================================================
+Summary:
+============================================================
+
+Overall Incidence:
+  Target:  1.4 per 100k
+  Before:  19.3 per 100k (+1303.5%)
+  After:   10.1 per 100k (+636.3%)
+  Improvement: 667.3 percentage points
+
+Age Distribution GOF:
+  Before: 1.7100
+  After:  1.7095
+  Improvement: 0.0005
+
+⚠ Model fit could be improved further
+
+✓ UK calibration complete!

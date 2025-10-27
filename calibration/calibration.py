@@ -102,7 +102,7 @@ class Calibration(sc.prettyobj):
         self.run_args = sc.objdict(kw)
 
         # Store calibration settings
-        self.known_pars = ['reassortment_rate', 'rel_beta', 'reporting_rate', 'maternal_immunity_efficacy', 'maternal_immunity_half_life',
+        self.known_pars = ['reassortment_rate', 'base_beta', 'reporting_rate', 'maternal_immunity_efficacy', 'maternal_immunity_half_life',
                           'homotypic_immunity_efficacy', 'partial_heterotypic_immunity_efficacy', 'complete_heterotypic_immunity_efficacy']
 
         # Handle other inputs
@@ -156,7 +156,19 @@ class Calibration(sc.prettyobj):
     def translate_pars(self, sim_pars):
         """ Take the nested dict of calibration pars and modify the sim """
         sim_pars = sc.mergedicts(sim_pars) # To allow None
-        sim = sc.dcp(self.sim)
+
+        # Handle base_beta BEFORE creating sim copy (needs to be in constructor)
+        base_beta_override = None
+        if 'base_beta' in sim_pars:
+            base_beta_override = sim_pars.pop('base_beta')
+
+        # Create sim copy with updated base_beta if needed
+        if base_beta_override is not None:
+            # Create new sim with updated base_beta
+            sim = sc.dcp(self.sim)
+            sim.pars.base_beta = base_beta_override
+        else:
+            sim = sc.dcp(self.sim)
 
         # Store parameters to apply after initialization
         pars_to_apply = {}
@@ -175,17 +187,7 @@ class Calibration(sc.prettyobj):
 
         # Now apply the parameters after initialization
         for par, val in pars_to_apply.items():
-            if par == 'rel_beta':
-                # In V2, modify base_beta which affects all strains
-                if hasattr(sim, '_base_beta'):
-                    sim._base_beta = sim._base_beta * val
-                # Also need to update disease betas
-                if hasattr(sim, 'diseases'):
-                    for disease in sim.diseases.values():
-                        if hasattr(disease, 'pars') and hasattr(disease.pars, 'beta'):
-                            # Multiply the beta by the relative factor
-                            disease.pars.beta = disease.pars.beta * val
-            elif par == 'reassortment_rate':
+            if par == 'reassortment_rate':
                 # In V2, set on the RotaReassortmentConnector (called reassortment_prob in V2)
                 if hasattr(sim, 'connectors'):
                     for connector in sim.connectors.values():
@@ -246,7 +248,7 @@ class Calibration(sc.prettyobj):
 
         Strategy:
         - reporting_rate fits overall incidence magnitude
-        - maternal_immunity and rel_beta fit age distribution shape
+        - maternal_immunity and base_beta fit age distribution shape
 
         Returns combined GOF that weights both objectives
         """

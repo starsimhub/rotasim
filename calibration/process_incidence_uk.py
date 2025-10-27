@@ -1,5 +1,6 @@
 """
-Process incidence from the model and data
+Process incidence from the model and data - UK version
+Data covers 2008-2012 (5 years)
 """
 
 import sciris as sc
@@ -17,7 +18,7 @@ pd.set_option('future.no_silent_downcasting', True)
 
 def process_data(filename=None, incidence_sheet=None, age_dist_sheet=None):
     """
-    Extract and process experimental data
+    Extract and process UK experimental data
 
     Returns two dataframes:
     - overall_incidence: Total incidence per 100k (for fitting reporting_rate)
@@ -26,9 +27,9 @@ def process_data(filename=None, incidence_sheet=None, age_dist_sheet=None):
     if filename is None:
         filename = thisdir / 'CalibrationDatafile_prevax 3.xlsx'
     if incidence_sheet is None:
-        incidence_sheet = 'Matlab_incidence'
+        incidence_sheet = 'UK_incidence'
     if age_dist_sheet is None:
-        age_dist_sheet = 'Matlab_agedistribution'
+        age_dist_sheet = 'UK_agedistribution'
 
     # Read overall incidence data
     incidence_data = sc.dataframe.read_excel(filename, sheet_name=incidence_sheet)
@@ -53,10 +54,11 @@ def process_data(filename=None, incidence_sheet=None, age_dist_sheet=None):
 
 def process_model(dat=None, popsize=None, verbose=False):
     """
-    Extract and process data from the model
+    Extract and process data from the UK model
+    UK data: 2008-2012 (5 years)
     """
 
-    FUDGE = 1.0 # Adjust the fudge factor -- for testing only!!!!
+    FUDGE = 1.0  # Adjust the fudge factor -- for testing only!!!!
 
     # Load the data
     if dat is None:
@@ -74,48 +76,48 @@ def process_model(dat=None, popsize=None, verbose=False):
     CasesGeno = pd.merge(YearlyGenoDat, YearlyCases, on='Year')
     CasesGeno['geno_prop'] = CasesGeno['Geno_cases'] / CasesGeno['All_cases']
 
-    # Subset to years 1-9 for now
-    initial8 = dat[(dat['CollectionTime'] < 9) & (dat['CollectionTime'] > 1)]
+    # Subset to years 1-6 for UK (5 years of data)
+    initial5 = dat[(dat['CollectionTime'] < 6) & (dat['CollectionTime'] > 1)]
 
-    if verbose: print(initial8['Strain'].value_counts())
-    initial8['Strain3'] = 'Other'
-    initial8.loc[initial8['Strain'] == 'G1P8A1B1', 'Strain3'] = 'G1P8'
-    initial8.loc[initial8['Strain'] == 'G2P4A1B1', 'Strain3'] = 'G2P4'
-    initial8.loc[initial8['Strain'] == 'G9P8A1B1', 'Strain3'] = 'G9P8'
+    if verbose: print(initial5['Strain'].value_counts())
+    initial5['Strain3'] = 'Other'
+    initial5.loc[initial5['Strain'] == 'G1P8A1B1', 'Strain3'] = 'G1P8'
+    initial5.loc[initial5['Strain'] == 'G2P4A1B1', 'Strain3'] = 'G2P4'
+    initial5.loc[initial5['Strain'] == 'G9P8A1B1', 'Strain3'] = 'G9P8'
 
-    GenoDist = initial8['Strain3'].value_counts().reset_index()
+    GenoDist = initial5['Strain3'].value_counts().reset_index()
     GenoDist.columns = ['Strain', 'Frequency']
     total = GenoDist['Frequency'].sum()
     GenoDist['Proportion'] = GenoDist['Frequency'] / total
 
     # Working out the case age distribution
     # First making new age bins
-    initial8['AgeCat'] = np.nan
-    initial8.loc[initial8['Age'].isin(['0-2', '2-4', '4-6', '6-12']), 'AgeCat'] = '<1 y'
-    initial8.loc[initial8['Age'].isin(['12-24']), 'AgeCat'] = '1-2 y'
-    initial8.loc[initial8['Age'].isin(['24-36', '36-48', '48-60']), 'AgeCat'] = '2-5 y'
-    initial8.loc[initial8['Age'] == '60+', 'AgeCat'] = '>=5 y'
+    initial5['AgeCat'] = np.nan
+    initial5.loc[initial5['Age'].isin(['0-2', '2-4', '4-6', '6-12']), 'AgeCat'] = '<1 y'
+    initial5.loc[initial5['Age'].isin(['12-24']), 'AgeCat'] = '1-2 y'
+    initial5.loc[initial5['Age'].isin(['24-36', '36-48', '48-60']), 'AgeCat'] = '2-5 y'
+    initial5.loc[initial5['Age'] == '60+', 'AgeCat'] = '>=5 y'
 
     # Convert continuous time to integer years for proper annual aggregation
-    initial8['Year'] = np.floor(initial8['CollectionTime']).astype(int)
+    initial5['Year'] = np.floor(initial5['CollectionTime']).astype(int)
 
     # Clinical data counts symptomatic/reported cases
     # Count first few infections per person (these are typically symptomatic)
     # Later infections are usually asymptomatic due to acquired immunity
     # Add infection number per person (lifetime)
-    initial8 = initial8.sort_values(['id', 'CollectionTime'])
-    initial8['infection_number'] = initial8.groupby('id').cumcount() + 1
+    initial5 = initial5.sort_values(['id', 'CollectionTime'])
+    initial5['infection_number'] = initial5.groupby('id').cumcount() + 1
 
     # Count only first 3 infections per person (symptomatic threshold)
     # Use uniform threshold across all ages - let rel_beta affect age distribution naturally
-    initial8_symptomatic = initial8[initial8['infection_number'] <= 3].copy()
+    initial5_symptomatic = initial5[initial5['infection_number'] <= 3].copy()
 
     # Then take first infection per agent per year (to avoid double-counting within same year)
-    initial8_first = initial8_symptomatic.groupby(['id', 'Year', 'AgeCat']).first().reset_index()
+    initial5_first = initial5_symptomatic.groupby(['id', 'Year', 'AgeCat']).first().reset_index()
 
     # Now, getting cases by age bin and YEAR
     # Count unique agents per year to get annual incidence
-    cases_summary = initial8_first.groupby(['AgeCat', 'Year']).agg(Cases_age=('id', 'nunique')).reset_index()
+    cases_summary = initial5_first.groupby(['AgeCat', 'Year']).agg(Cases_age=('id', 'nunique')).reset_index()
     if verbose: print(cases_summary.head())
 
     # Now, getting total population by time point (year)
@@ -123,19 +125,19 @@ def process_model(dat=None, popsize=None, verbose=False):
     # We need to count all unique agents in each age category at each timepoint
 
     # Get all infection events (not just symptomatic) to capture full population age structure
-    initial8_all = dat[(dat['CollectionTime'] < 9) & (dat['CollectionTime'] > 1)].copy()
-    initial8_all['Year'] = np.floor(initial8_all['CollectionTime']).astype(int)
+    initial5_all = dat[(dat['CollectionTime'] < 6) & (dat['CollectionTime'] > 1)].copy()
+    initial5_all['Year'] = np.floor(initial5_all['CollectionTime']).astype(int)
 
     # Assign age categories to all infection events
-    initial8_all['AgeCat'] = np.nan
-    initial8_all.loc[initial8_all['Age'].isin(['0-2', '2-4', '4-6', '6-12']), 'AgeCat'] = '<1 y'
-    initial8_all.loc[initial8_all['Age'].isin(['12-24']), 'AgeCat'] = '1-2 y'
-    initial8_all.loc[initial8_all['Age'].isin(['24-36', '36-48', '48-60']), 'AgeCat'] = '2-5 y'
-    initial8_all.loc[initial8_all['Age'] == '60+', 'AgeCat'] = '>=5 y'
+    initial5_all['AgeCat'] = np.nan
+    initial5_all.loc[initial5_all['Age'].isin(['0-2', '2-4', '4-6', '6-12']), 'AgeCat'] = '<1 y'
+    initial5_all.loc[initial5_all['Age'].isin(['12-24']), 'AgeCat'] = '1-2 y'
+    initial5_all.loc[initial5_all['Age'].isin(['24-36', '36-48', '48-60']), 'AgeCat'] = '2-5 y'
+    initial5_all.loc[initial5_all['Age'] == '60+', 'AgeCat'] = '>=5 y'
 
     # For each year, get a representative snapshot of population age distribution
     # Take the latest timepoint in each year as the population snapshot
-    pop_snapshots = initial8_all.sort_values('CollectionTime').groupby(['Year', 'id']).tail(1)
+    pop_snapshots = initial5_all.sort_values('CollectionTime').groupby(['Year', 'id']).tail(1)
 
     # Count unique agents in each age bin per year to get actual age-specific population
     pop_age_counts = pop_snapshots.groupby(['Year', 'AgeCat']).agg(
@@ -190,12 +192,12 @@ def process_model(dat=None, popsize=None, verbose=False):
 
     pop_counts = np.array(pop_counts)
     total_pop = pop_counts.sum()
-    pop_fractions = pop_counts / total_pop if total_pop > 0 else np.array([0.025, 0.025, 0.075, 0.875])
+    pop_fractions = pop_counts / total_pop if total_pop > 0 else np.array([0.0126, 0.0127, 0.0366, 0.9381])
 
     if verbose:
         print(f"\nActual population fractions from simulation:")
         for age_cat, frac in zip(age_order, pop_fractions):
-            print(f"  {age_cat}: {frac*100:.1f}%")
+            print(f"  {age_cat}: {frac*100:.2f}%")
 
     # Calculate weighted incidence: sum(incidence_rate * pop_fraction * pop_size) / pop_size
     # Simplifies to: sum(incidence_rate * pop_fraction)
