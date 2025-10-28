@@ -1,78 +1,74 @@
 """
-Calibration script for Bangladesh (Matlab) data (2000-2008)
+Calibration script for UK data (2008-2012) with long-term immunity
 
-Bangladesh Demographics:
-- Population: [2.5%, 2.5%, 7.5%, 87.5%]
-- Birth rate: 30/1000
-- Death rate: 10/1000
-- Net emigration: -10/1000 adults
-- Follow-up period: 8 years (2000-2008)
-
-This calibration includes three key fixes:
-1. Fixed process_model() to calculate actual simulation age fractions
-2. Use demographics that match Matlab population structure
-3. Add emigration for more realistic death rates
+UK Demographics:
+- Population: [0.63%, 0.63%, 1.27%, 3.66%, 93.81%] for 6mo bins
+- Aggregated to 4 bins: [1.26%, 1.27%, 3.66%, 93.81%]
+- Birth rate: ~13/1000
+- Death rate: ~6/1000 (accounting for net immigration of +4/1000)
+- Follow-up period: 5 years (2008-2012)
+- Burn-in: 5 years (2003-2007)
 """
-import sys
-sys.path.insert(0, '.')
-from emigration import Emigration
 
 import sciris as sc
 import starsim as ss
 import rotasim as rs
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
 
 thisdir = sc.thispath(__file__)
 from calibration import Calibration
-process_incidence = sc.importbypath(thisdir / 'process_incidence.py')
+process_incidence_uk = sc.importbypath(thisdir / 'process_incidence_uk.py')
 
 print("="*60)
-print("Testing Age Distribution Fixes")
+print("UK Calibration (2008-2012) with Long-Term Immunity")
 print("="*60)
-print("\nFixes implemented:")
-print("  1. process_model() now calculates ACTUAL age-specific populations")
-print("  2. Using demographics that match Matlab: birth=30, death=10")
-print("  3. Adding emigration: 10/1000 adults (≥5 years)")
-print("     → Age distribution [2.7%, 3.1%, 8.6%, 85.5%] vs target [2.5%, 2.5%, 7.5%, 87.5%]")
-print("     → Death rate 10/1000 is realistic (compared to previous 20/1000)")
+print("\nUK Demographics:")
+print("  Birth rate: 13/1000")
+print("  Death rate: 6/1000")
+print("  Net migration: +4/1000 adults (approximated in death rate)")
+print("  Target age distribution: [1.26%, 1.27%, 3.66%, 93.81%]")
+print("  Burn-in: 5 years (2003-2007)")
+print("  Follow-up: 5 years (2008-2012)")
 print("="*60)
 
-# Create emigration module
-emigr = Emigration(emigration_rate=10, age_threshold=5)
-
-# Create sim with CORRECTED demographics
-# Start in 1990 to allow 10 years of burn-in before calibration period (2000-2008)
+# Create sim with 5-year burn-in (start in 2003)
 sim = rs.Sim(
     n_agents=5000,
-    start='1990-01-01',
-    stop='2010-01-01',
+    start='2003-01-01',  # 5 year burn-in before 2008
+    stop='2013-01-01',   # End in 2012
     verbose=False,
     scenario='baseline',
-    base_beta=0.16,
+    base_beta=0.40,  # Higher initial beta to account for long-term immunity
     override_prevalence=0.002,
     analyzers=[rs.InfectedStrainStats()],
     networks=ss.RandomNet(n_contacts=7),
     demographics=[
-        ss.Births(birth_rate=ss.peryear(30)),  # Matches Matlab birth rate
-        ss.Deaths(death_rate=ss.peryear(10)),  # Realistic death rate
-        emigr,  # Adult emigration compensates for lower death rate
+        ss.Births(birth_rate=ss.peryear(13)),  # UK birth rate
+        ss.Deaths(death_rate=ss.peryear(6)),   # UK death rate (adjusted for immigration)
     ],
 )
 
 # Get target data
-overall_incidence, age_distribution = process_incidence.process_data()
+overall_incidence, age_distribution = process_incidence_uk.process_data()
 print("\nCalibration target data:")
 print(f"Overall incidence: {overall_incidence:.1f} per 100k")
 print("\nAge distribution (proportions):")
 print(age_distribution)
 
-# Calibration parameters - keep cross-protection approach
+# Calibration parameters
 calib_pars = sc.objdict(
     reporting_rate=[0.0002, 0.0001, 0.001],
     homotypic_immunity_efficacy=[0.5, 0.1, 0.9],
     partial_heterotypic_immunity_efficacy=[0.2, 0.0, 0.5],
     complete_heterotypic_immunity_efficacy=[0.1, 0.0, 0.3],
-    base_beta=[0.16, 0.05, 2.0],  # Base transmission rate - expanded range
-    maternal_immunity_efficacy=[0.0, 0.0, 0.0],  # Keep at 0
+    base_beta=[0.40, 0.20, 1.50],  # Expanded range to allow higher transmission rates with long-term immunity
+    maternal_immunity_efficacy=[0.0, 0.0, 0.0],
+    # Long-term immunity parameters (calibrate these too)
+    long_term_immunity_prob_after_1=[0.39, 0.2, 0.6],
+    long_term_immunity_prob_after_2=[0.52, 0.3, 0.7],
+    long_term_immunity_prob_after_3=[0.67, 0.4, 0.9],
 )
 
 print("\nCalibration parameters:")
@@ -80,14 +76,14 @@ for par, vals in calib_pars.items():
     print(f"  {par}: best={vals[0]}, range=[{vals[1]}, {vals[2]}]")
 
 print("\n" + "="*60)
-print("Running calibration (20 trials)...")
+print("Running calibration (30 trials)...")
 print("="*60)
 
 calib = Calibration(
     sim=sim,
     data=(overall_incidence, age_distribution),
     calib_pars=calib_pars,
-    total_trials=20,
+    total_trials=30,
     debug=False,
 )
 
@@ -160,4 +156,11 @@ elif abs(err_after_inci) < 50 and calib.after_age_gof < 1.0:
 else:
     print("\n⚠ Model fit could be improved further")
 
-print("\n✓ Test complete!")
+# Save best parameters
+print("\n" + "="*60)
+print("Saving best parameters...")
+print("="*60)
+sc.save(thisdir / 'uk_best_pars_with_lti.obj', calib.best_pars)
+print(f"Saved to: {thisdir / 'uk_best_pars_with_lti.obj'}")
+
+print("\n✓ UK calibration complete!")

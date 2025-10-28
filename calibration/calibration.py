@@ -103,7 +103,8 @@ class Calibration(sc.prettyobj):
 
         # Store calibration settings
         self.known_pars = ['reassortment_rate', 'base_beta', 'reporting_rate', 'maternal_immunity_efficacy', 'maternal_immunity_half_life',
-                          'homotypic_immunity_efficacy', 'partial_heterotypic_immunity_efficacy', 'complete_heterotypic_immunity_efficacy']
+                          'homotypic_immunity_efficacy', 'partial_heterotypic_immunity_efficacy', 'complete_heterotypic_immunity_efficacy',
+                          'long_term_immunity_prob_after_1', 'long_term_immunity_prob_after_2', 'long_term_immunity_prob_after_3', 'long_term_immunity_prob_after_4']
 
         # Handle other inputs
         self.sim        = sim
@@ -236,6 +237,14 @@ class Calibration(sc.prettyobj):
                     for connector in sim.connectors.values():
                         if type(connector).__name__ == 'RotaImmunityConnector':
                             connector.pars.complete_heterotypic_immunity_efficacy = val
+                            break
+            elif par in ['long_term_immunity_prob_after_1', 'long_term_immunity_prob_after_2',
+                         'long_term_immunity_prob_after_3', 'long_term_immunity_prob_after_4']:
+                # Set long-term immunity parameters on RotaImmunityConnector
+                if hasattr(sim, 'connectors'):
+                    for connector in sim.connectors.values():
+                        if type(connector).__name__ == 'RotaImmunityConnector':
+                            setattr(connector.pars, par, val)
                             break
             else:
                 setattr(sim, par, val) # Set the new value for other known pars

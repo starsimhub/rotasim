@@ -1,0 +1,296 @@
+[I 2025-10-28 10:10:51,689] A new study created in RDB with name: rota
+============================================================
+UK Calibration (2008-2012) with Long-Term Immunity
+============================================================
+
+UK Demographics:
+  Birth rate: 13/1000
+  Death rate: 6/1000
+  Net migration: +4/1000 adults (approximated in death rate)
+  Target age distribution: [1.26%, 1.27%, 3.66%, 93.81%]
+  Burn-in: 5 years (2003-2007)
+  Follow-up: 5 years (2008-2012)
+============================================================
+Rotasim: Setting up multi-strain simulation
+  Scenario: baseline
+  Base beta: 0.16
+  Strains: 3
+  Connectors: Adding default connectors: RotaImmunityConnector, RotaReassortmentConnector
+  Time units: day, dt=day
+  Total diseases: 6 (3 active + 3 dormant)
+
+Calibration target data:
+Overall incidence: 1.4 per 100k
+
+Age distribution (proportions):
+  ages  proportion
+0    0    0.137698
+1    1    0.276685
+2    2    0.468881
+3    5    0.116737
+
+Calibration parameters:
+  reporting_rate: best=0.0002, range=[0.0001, 0.001]
+  homotypic_immunity_efficacy: best=0.5, range=[0.1, 0.9]
+  partial_heterotypic_immunity_efficacy: best=0.2, range=[0.0, 0.5]
+  complete_heterotypic_immunity_efficacy: best=0.1, range=[0.0, 0.3]
+  base_beta: best=0.16, range=[0.05, 0.3]
+  maternal_immunity_efficacy: best=0.0, range=[0.0, 0.0]
+  long_term_immunity_prob_after_1: best=0.39, range=[0.2, 0.6]
+  long_term_immunity_prob_after_2: best=0.52, range=[0.3, 0.7]
+  long_term_immunity_prob_after_3: best=0.67, range=[0.4, 0.9]
+
+============================================================
+Running calibration (30 trials)...
+============================================================
+[W 2025-10-28 10:10:51,967] Trial 1 failed with parameters: {'reporting_rate': 0.0008496401767787821, 'homotypic_immunity_efficacy': 0.5238621475865191, 'partial_heterotypic_immunity_efficacy': 0.18251508157063268, 'complete_heterotypic_immunity_efficacy': 0.14932025107170332, 'base_beta': 0.06522324346424323, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.41326373057821014, 'long_term_immunity_prob_after_2': 0.6584273598333248, 'long_term_immunity_prob_after_3': 0.7484839573743635} because of the following error: NotImplementedError('Do not know how to handle parameter "long_term_immunity_prob_after_1"').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+[W 2025-10-28 10:10:51,983] Trial 1 failed with value None.
+[W 2025-10-28 10:10:52,078] Trial 6 failed with parameters: {'reporting_rate': 0.0002667772286948994, 'homotypic_immunity_efficacy': 0.13524730584930963, 'partial_heterotypic_immunity_efficacy': 0.015545951115477796, 'complete_heterotypic_immunity_efficacy': 0.12448646457235277, 'base_beta': 0.19426778325327726, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.27678023617471187, 'long_term_immunity_prob_after_2': 0.5931956435240533, 'long_term_immunity_prob_after_3': 0.7517002473754437} because of the following error: NotImplementedError('Do not know how to handle parameter "long_term_immunity_prob_after_1"').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+[W 2025-10-28 10:10:52,080] Trial 6 failed with value None.
+[W 2025-10-28 10:10:52,080] Trial 0 failed with parameters: {'reporting_rate': 0.0007104289778012128, 'homotypic_immunity_efficacy': 0.36666680620439307, 'partial_heterotypic_immunity_efficacy': 0.12264099615741675, 'complete_heterotypic_immunity_efficacy': 0.17021054463659904, 'base_beta': 0.07142229770521118, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.26846701353281827, 'long_term_immunity_prob_after_2': 0.35619013230347085, 'long_term_immunity_prob_after_3': 0.8790483273239291} because of the following error: NotImplementedError('Do not know how to handle parameter "long_term_immunity_prob_after_1"').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+[W 2025-10-28 10:10:52,081] Trial 0 failed with value None.
+[W 2025-10-28 10:10:52,083] Trial 7 failed with parameters: {'reporting_rate': 0.0002903302436077393, 'homotypic_immunity_efficacy': 0.4460511538620653, 'partial_heterotypic_immunity_efficacy': 0.16121185396607474, 'complete_heterotypic_immunity_efficacy': 0.19486834153556457, 'base_beta': 0.1931008668775182, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.5635387691100732, 'long_term_immunity_prob_after_2': 0.6322370637443534, 'long_term_immunity_prob_after_3': 0.8129263936574658} because of the following error: NotImplementedError('Do not know how to handle parameter "long_term_immunity_prob_after_1"').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+[W 2025-10-28 10:10:52,085] Trial 7 failed with value None.
+[W 2025-10-28 10:10:52,091] Trial 8 failed with parameters: {'reporting_rate': 0.0005610428111767655, 'homotypic_immunity_efficacy': 0.31255697178306996, 'partial_heterotypic_immunity_efficacy': 0.29070638663219617, 'complete_heterotypic_immunity_efficacy': 0.14935777753975546, 'base_beta': 0.22000892703257824, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.5120623873954916, 'long_term_immunity_prob_after_2': 0.5824556594433159, 'long_term_immunity_prob_after_3': 0.8881240222621956} because of the following error: NotImplementedError('Do not know how to handle parameter "long_term_immunity_prob_after_1"').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+[W 2025-10-28 10:10:52,093] Trial 8 failed with value None.
+[W 2025-10-28 10:10:52,114] Trial 9 failed with parameters: {'reporting_rate': 0.000539848418865978, 'homotypic_immunity_efficacy': 0.3235805479258005, 'partial_heterotypic_immunity_efficacy': 0.3887141786272909, 'complete_heterotypic_immunity_efficacy': 0.15596836967930439, 'base_beta': 0.29129013930586206, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.2313245797367318, 'long_term_immunity_prob_after_2': 0.6256072531497205, 'long_term_immunity_prob_after_3': 0.7954444161353016} because of the following error: NotImplementedError('Do not know how to handle parameter "long_term_immunity_prob_after_1"').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+[W 2025-10-28 10:10:52,116] Trial 9 failed with value None.
+[W 2025-10-28 10:10:52,125] Trial 5 failed with parameters: {'reporting_rate': 0.0006725968452968996, 'homotypic_immunity_efficacy': 0.11193411610996212, 'partial_heterotypic_immunity_efficacy': 0.42406861682898306, 'complete_heterotypic_immunity_efficacy': 0.01093676280775283, 'base_beta': 0.19216060447000716, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.2564208939587031, 'long_term_immunity_prob_after_2': 0.35532613764246035, 'long_term_immunity_prob_after_3': 0.6850757292612597} because of the following error: NotImplementedError('Do not know how to handle parameter "long_term_immunity_prob_after_1"').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+[W 2025-10-28 10:10:52,126] Trial 5 failed with value None.
+[W 2025-10-28 10:10:52,128] Trial 11 failed with parameters: {'reporting_rate': 0.0008440033038370007, 'homotypic_immunity_efficacy': 0.4139589788760553, 'partial_heterotypic_immunity_efficacy': 0.06862820393762242, 'complete_heterotypic_immunity_efficacy': 0.21479929712956264, 'base_beta': 0.20670131459170438, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.38548865213960315, 'long_term_immunity_prob_after_2': 0.4217062776694369, 'long_term_immunity_prob_after_3': 0.6434021508876278} because of the following error: NotImplementedError('Do not know how to handle parameter "long_term_immunity_prob_after_1"').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+[W 2025-10-28 10:10:52,129] Trial 11 failed with value None.
+[W 2025-10-28 10:10:52,147] Trial 3 failed with parameters: {'reporting_rate': 0.0004623233582179074, 'homotypic_immunity_efficacy': 0.5348303566670244, 'partial_heterotypic_immunity_efficacy': 0.12748804626446492, 'complete_heterotypic_immunity_efficacy': 0.08181623752045655, 'base_beta': 0.10051625214016556, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.5002554912156058, 'long_term_immunity_prob_after_2': 0.38143799236426035, 'long_term_immunity_prob_after_3': 0.5513498204364531} because of the following error: NotImplementedError('Do not know how to handle parameter "long_term_immunity_prob_after_1"').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+[W 2025-10-28 10:10:52,148] Trial 3 failed with value None.
+[W 2025-10-28 10:10:52,151] Trial 10 failed with parameters: {'reporting_rate': 0.00041961677634413453, 'homotypic_immunity_efficacy': 0.45575788567015424, 'partial_heterotypic_immunity_efficacy': 0.4876111847233817, 'complete_heterotypic_immunity_efficacy': 0.005903691139179023, 'base_beta': 0.28431989266552865, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.5692522112978454, 'long_term_immunity_prob_after_2': 0.41293363491844975, 'long_term_immunity_prob_after_3': 0.5488190074065586} because of the following error: NotImplementedError('Do not know how to handle parameter "long_term_immunity_prob_after_1"').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+[W 2025-10-28 10:10:52,153] Trial 10 failed with value None.
+[W 2025-10-28 10:10:52,173] Trial 2 failed with parameters: {'reporting_rate': 0.0006916761798042244, 'homotypic_immunity_efficacy': 0.4384477983299453, 'partial_heterotypic_immunity_efficacy': 0.4577440452985215, 'complete_heterotypic_immunity_efficacy': 0.19754211594571147, 'base_beta': 0.24946460053556885, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.37352840013281996, 'long_term_immunity_prob_after_2': 0.3971048847033061, 'long_term_immunity_prob_after_3': 0.8453197976637326} because of the following error: NotImplementedError('Do not know how to handle parameter "long_term_immunity_prob_after_1"').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+[W 2025-10-28 10:10:52,174] Trial 2 failed with value None.
+[W 2025-10-28 10:10:52,190] Trial 4 failed with parameters: {'reporting_rate': 0.00035106807515485506, 'homotypic_immunity_efficacy': 0.7969164915443978, 'partial_heterotypic_immunity_efficacy': 0.0063071902693334625, 'complete_heterotypic_immunity_efficacy': 0.027218796298335624, 'base_beta': 0.14659953902776346, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.22098085150927227, 'long_term_immunity_prob_after_2': 0.5807599720977261, 'long_term_immunity_prob_after_3': 0.4670799923521631} because of the following error: NotImplementedError('Do not know how to handle parameter "long_term_immunity_prob_after_1"').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+[W 2025-10-28 10:10:52,191] Trial 4 failed with value None.
+multiprocess.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 832, in _task
+    result = func(*args, **kwargs) # Call the function!
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 349, in worker
+    output = study.optimize(self.run_trial, n_trials=self.run_args.n_trials)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/study.py", line 475, in optimize
+    _optimize(
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 63, in _optimize
+    _optimize_sequential(
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 160, in _optimize_sequential
+    frozen_trial = _run_trial(study, func, catch)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 248, in _run_trial
+    raise func_err
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 332, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 134, in run_sim
+    sim = self.translate_pars(sim_pars=sim_pars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 183, in translate_pars
+    raise NotImplementedError(errormsg)
+NotImplementedError: Do not know how to handle parameter "long_term_immunity_prob_after_1"
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/multiprocess/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+                    ^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/multiprocess/pool.py", line 48, in mapstar
+    return list(map(*args))
+           ^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 846, in _task
+    raise exc from E
+NotImplementedError: Task 1 failed: set die=False to keep going instead; see above for error details
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk_with_lti.py", line 90, in <module>
+    calib.calibrate()
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 386, in calibrate
+    self.run_workers() # Actually run!
+    ^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 355, in run_workers
+    output = sc.parallelize(self.worker, iterarg=self.run_args.n_workers)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 751, in parallelize
+    P.run()
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 581, in run
+    raise E
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 573, in run
+    self.run_async()
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 460, in run_async
+    output = self.map_func(_task, argslist)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/multiprocess/pool.py", line 367, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/multiprocess/pool.py", line 774, in get
+    raise self._value
+NotImplementedError: Task 1 failed: set die=False to keep going instead; see above for error details

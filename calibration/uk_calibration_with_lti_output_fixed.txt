@@ -1,0 +1,347 @@
+[I 2025-10-28 10:14:42,992] A new study created in RDB with name: rota
+============================================================
+UK Calibration (2008-2012) with Long-Term Immunity
+============================================================
+
+UK Demographics:
+  Birth rate: 13/1000
+  Death rate: 6/1000
+  Net migration: +4/1000 adults (approximated in death rate)
+  Target age distribution: [1.26%, 1.27%, 3.66%, 93.81%]
+  Burn-in: 5 years (2003-2007)
+  Follow-up: 5 years (2008-2012)
+============================================================
+Rotasim: Setting up multi-strain simulation
+  Scenario: baseline
+  Base beta: 0.16
+  Strains: 3
+  Connectors: Adding default connectors: RotaImmunityConnector, RotaReassortmentConnector
+  Time units: day, dt=day
+  Total diseases: 6 (3 active + 3 dormant)
+
+Calibration target data:
+Overall incidence: 1.4 per 100k
+
+Age distribution (proportions):
+  ages  proportion
+0    0    0.137698
+1    1    0.276685
+2    2    0.468881
+3    5    0.116737
+
+Calibration parameters:
+  reporting_rate: best=0.0002, range=[0.0001, 0.001]
+  homotypic_immunity_efficacy: best=0.5, range=[0.1, 0.9]
+  partial_heterotypic_immunity_efficacy: best=0.2, range=[0.0, 0.5]
+  complete_heterotypic_immunity_efficacy: best=0.1, range=[0.0, 0.3]
+  base_beta: best=0.16, range=[0.05, 0.3]
+  maternal_immunity_efficacy: best=0.0, range=[0.0, 0.0]
+  long_term_immunity_prob_after_1: best=0.39, range=[0.2, 0.6]
+  long_term_immunity_prob_after_2: best=0.52, range=[0.3, 0.7]
+  long_term_immunity_prob_after_3: best=0.67, range=[0.4, 0.9]
+
+============================================================
+Running calibration (30 trials)...
+============================================================
+Removed existing calibration file rota.db
+[W 2025-10-28 10:15:31,131] Trial 8 failed with parameters: {'reporting_rate': 0.0009568895926451843, 'homotypic_immunity_efficacy': 0.25580152483206176, 'partial_heterotypic_immunity_efficacy': 0.4831057416964873, 'complete_heterotypic_immunity_efficacy': 0.23965524587721254, 'base_beta': 0.05199630723221603, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.4996388456181689, 'long_term_immunity_prob_after_2': 0.518060902210841, 'long_term_immunity_prob_after_3': 0.5545374985492316} because of the following error: ValueError('operands could not be broadcast together with shapes (0,) (4,) ').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+[W 2025-10-28 10:15:31,291] Trial 8 failed with value None.
+[W 2025-10-28 10:15:31,204] Trial 3 failed with parameters: {'reporting_rate': 0.00034611339576055275, 'homotypic_immunity_efficacy': 0.16981814357145986, 'partial_heterotypic_immunity_efficacy': 0.3872536463086101, 'complete_heterotypic_immunity_efficacy': 0.019351612541208995, 'base_beta': 0.1093581695602036, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.25885398394528053, 'long_term_immunity_prob_after_2': 0.4555927317183594, 'long_term_immunity_prob_after_3': 0.6864961150879108} because of the following error: ValueError('operands could not be broadcast together with shapes (0,) (4,) ').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+[W 2025-10-28 10:15:31,292] Trial 3 failed with value None.
+[W 2025-10-28 10:15:33,044] Trial 10 failed with parameters: {'reporting_rate': 0.0008826145994651384, 'homotypic_immunity_efficacy': 0.3145334433050561, 'partial_heterotypic_immunity_efficacy': 0.4120935457626201, 'complete_heterotypic_immunity_efficacy': 0.25299052472450634, 'base_beta': 0.14332405698859774, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.3392104843805355, 'long_term_immunity_prob_after_2': 0.344625566217803, 'long_term_immunity_prob_after_3': 0.5108845768208747} because of the following error: ValueError('operands could not be broadcast together with shapes (0,) (4,) ').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+[W 2025-10-28 10:15:33,049] Trial 10 failed with value None.
+[W 2025-10-28 10:15:33,103] Trial 5 failed with parameters: {'reporting_rate': 0.00010913742136355396, 'homotypic_immunity_efficacy': 0.2891851610303555, 'partial_heterotypic_immunity_efficacy': 0.167472827141389, 'complete_heterotypic_immunity_efficacy': 0.2647769221113405, 'base_beta': 0.09882436013854216, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.4558658305184563, 'long_term_immunity_prob_after_2': 0.4325127546665948, 'long_term_immunity_prob_after_3': 0.783778961434459} because of the following error: ValueError('operands could not be broadcast together with shapes (0,) (4,) ').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+[W 2025-10-28 10:15:33,104] Trial 5 failed with value None.
+[W 2025-10-28 10:15:33,344] Trial 0 failed with parameters: {'reporting_rate': 0.0005635108675669569, 'homotypic_immunity_efficacy': 0.46977542368036657, 'partial_heterotypic_immunity_efficacy': 0.38877057085448874, 'complete_heterotypic_immunity_efficacy': 0.24346067319260398, 'base_beta': 0.09657276150111398, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.36367525606261364, 'long_term_immunity_prob_after_2': 0.3872224259063423, 'long_term_immunity_prob_after_3': 0.4892431839638532} because of the following error: ValueError('operands could not be broadcast together with shapes (0,) (4,) ').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+[W 2025-10-28 10:15:33,347] Trial 0 failed with value None.
+[W 2025-10-28 10:15:33,388] Trial 7 failed with parameters: {'reporting_rate': 0.0003520244946806741, 'homotypic_immunity_efficacy': 0.4351435498251768, 'partial_heterotypic_immunity_efficacy': 0.36402511893195283, 'complete_heterotypic_immunity_efficacy': 0.10752579056613797, 'base_beta': 0.11250156933203011, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.3662148890370391, 'long_term_immunity_prob_after_2': 0.502563740985466, 'long_term_immunity_prob_after_3': 0.8013591238193052} because of the following error: ValueError('operands could not be broadcast together with shapes (0,) (4,) ').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+[W 2025-10-28 10:15:33,389] Trial 7 failed with value None.
+[W 2025-10-28 10:15:33,401] Trial 2 failed with parameters: {'reporting_rate': 0.0003961479975920484, 'homotypic_immunity_efficacy': 0.6583703741599218, 'partial_heterotypic_immunity_efficacy': 0.48799153389313427, 'complete_heterotypic_immunity_efficacy': 0.14147144761825767, 'base_beta': 0.26582435261983434, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.5983284155647918, 'long_term_immunity_prob_after_2': 0.4153642843272267, 'long_term_immunity_prob_after_3': 0.7577093069987122} because of the following error: ValueError('operands could not be broadcast together with shapes (0,) (4,) ').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+[W 2025-10-28 10:15:33,402] Trial 2 failed with value None.
+[W 2025-10-28 10:15:33,411] Trial 6 failed with parameters: {'reporting_rate': 0.00011965126431494458, 'homotypic_immunity_efficacy': 0.7992089736067922, 'partial_heterotypic_immunity_efficacy': 0.3651616333657897, 'complete_heterotypic_immunity_efficacy': 0.041723988690049216, 'base_beta': 0.13145211158412196, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.4279879802020978, 'long_term_immunity_prob_after_2': 0.3219650343488729, 'long_term_immunity_prob_after_3': 0.6909211780306213} because of the following error: ValueError('operands could not be broadcast together with shapes (0,) (4,) ').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+[W 2025-10-28 10:15:33,412] Trial 6 failed with value None.
+[W 2025-10-28 10:15:33,628] Trial 4 failed with parameters: {'reporting_rate': 0.0006868410807555717, 'homotypic_immunity_efficacy': 0.27243477632351604, 'partial_heterotypic_immunity_efficacy': 0.38764253510429697, 'complete_heterotypic_immunity_efficacy': 0.10300902123713206, 'base_beta': 0.15449049950247457, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.5570876511934523, 'long_term_immunity_prob_after_2': 0.5790298911357923, 'long_term_immunity_prob_after_3': 0.8528198112184481} because of the following error: ValueError('operands could not be broadcast together with shapes (0,) (4,) ').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+[W 2025-10-28 10:15:33,634] Trial 4 failed with value None.
+[W 2025-10-28 10:15:33,689] Trial 11 failed with parameters: {'reporting_rate': 0.0004912596787195557, 'homotypic_immunity_efficacy': 0.7187358508590955, 'partial_heterotypic_immunity_efficacy': 0.09229372777769257, 'complete_heterotypic_immunity_efficacy': 0.08393532912039758, 'base_beta': 0.21748448956613253, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.22302124014292107, 'long_term_immunity_prob_after_2': 0.6457203548006316, 'long_term_immunity_prob_after_3': 0.8194712191024173} because of the following error: ValueError('operands could not be broadcast together with shapes (0,) (4,) ').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+[W 2025-10-28 10:15:33,691] Trial 11 failed with value None.
+[W 2025-10-28 10:15:33,865] Trial 1 failed with parameters: {'reporting_rate': 0.00046733298198128225, 'homotypic_immunity_efficacy': 0.484218874577853, 'partial_heterotypic_immunity_efficacy': 0.33818542626180054, 'complete_heterotypic_immunity_efficacy': 0.2146132192824019, 'base_beta': 0.19602660423416668, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.5756071189999191, 'long_term_immunity_prob_after_2': 0.594058305872561, 'long_term_immunity_prob_after_3': 0.7885508270651147} because of the following error: ValueError('operands could not be broadcast together with shapes (0,) (4,) ').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+[W 2025-10-28 10:15:33,866] Trial 1 failed with value None.
+[W 2025-10-28 10:15:35,720] Trial 9 failed with parameters: {'reporting_rate': 0.0008335870379146762, 'homotypic_immunity_efficacy': 0.641901658778786, 'partial_heterotypic_immunity_efficacy': 0.18164665368630173, 'complete_heterotypic_immunity_efficacy': 0.2255289597407786, 'base_beta': 0.2890649100003422, 'maternal_immunity_efficacy': 0.0, 'long_term_immunity_prob_after_1': 0.28696480588263773, 'long_term_immunity_prob_after_2': 0.4744591270374092, 'long_term_immunity_prob_after_3': 0.7691580424623949} because of the following error: ValueError('operands could not be broadcast together with shapes (0,) (4,) ').
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+[W 2025-10-28 10:15:35,722] Trial 9 failed with value None.
+multiprocess.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 832, in _task
+    result = func(*args, **kwargs) # Call the function!
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 358, in worker
+    output = study.optimize(self.run_trial, n_trials=self.run_args.n_trials)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/study.py", line 475, in optimize
+    _optimize(
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 63, in _optimize
+    _optimize_sequential(
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 160, in _optimize_sequential
+    frozen_trial = _run_trial(study, func, catch)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 248, in _run_trial
+    raise func_err
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 342, in run_trial
+    fit = self.compute_fit(sim)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 265, in compute_fit
+    sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+                                                  ^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 329, in sim_to_df
+    overall_incidence, age_distribution = process_incidence.process_model(df)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/process_incidence.py", line 203, in process_model
+    overall_incidence = sum(df['inci'].values * pop_fractions)
+                            ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (0,) (4,) 
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/multiprocess/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+                    ^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/multiprocess/pool.py", line 48, in mapstar
+    return list(map(*args))
+           ^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 846, in _task
+    raise exc from E
+ValueError: Task 7 failed: set die=False to keep going instead; see above for error details
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk_with_lti.py", line 90, in <module>
+    calib.calibrate()
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 395, in calibrate
+    self.run_workers() # Actually run!
+    ^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 364, in run_workers
+    output = sc.parallelize(self.worker, iterarg=self.run_args.n_workers)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 751, in parallelize
+    P.run()
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 573, in run
+    self.run_async()
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 460, in run_async
+    output = self.map_func(_task, argslist)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/multiprocess/pool.py", line 367, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/multiprocess/pool.py", line 774, in get
+    raise self._value
+ValueError: Task 7 failed: set die=False to keep going instead; see above for error details

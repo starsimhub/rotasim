@@ -74,8 +74,9 @@ def process_model(dat=None, popsize=None, verbose=False):
     CasesGeno = pd.merge(YearlyGenoDat, YearlyCases, on='Year')
     CasesGeno['geno_prop'] = CasesGeno['Geno_cases'] / CasesGeno['All_cases']
 
-    # Subset to years 1-9 for now
-    initial8 = dat[(dat['CollectionTime'] < 9) & (dat['CollectionTime'] > 1)]
+    # Subset to years 11-19 (2000-2008 in simulations starting from 1990)
+    # This gives 10 years of burn-in (1990-2000) before calibration period
+    initial8 = dat[(dat['CollectionTime'] < 19) & (dat['CollectionTime'] > 11)]
 
     if verbose: print(initial8['Strain'].value_counts())
     initial8['Strain3'] = 'Other'
@@ -123,7 +124,7 @@ def process_model(dat=None, popsize=None, verbose=False):
     # We need to count all unique agents in each age category at each timepoint
 
     # Get all infection events (not just symptomatic) to capture full population age structure
-    initial8_all = dat[(dat['CollectionTime'] < 9) & (dat['CollectionTime'] > 1)].copy()
+    initial8_all = dat[(dat['CollectionTime'] < 19) & (dat['CollectionTime'] > 11)].copy()
     initial8_all['Year'] = np.floor(initial8_all['CollectionTime']).astype(int)
 
     # Assign age categories to all infection events
@@ -197,15 +198,25 @@ def process_model(dat=None, popsize=None, verbose=False):
         for age_cat, frac in zip(age_order, pop_fractions):
             print(f"  {age_cat}: {frac*100:.1f}%")
 
-    # Calculate weighted incidence: sum(incidence_rate * pop_fraction * pop_size) / pop_size
-    # Simplifies to: sum(incidence_rate * pop_fraction)
-    overall_incidence = sum(df['inci'].values * pop_fractions)
+    # Check if there are any infections recorded
+    if len(df) == 0:
+        # No infections recorded - return zero incidence with default age distribution
+        overall_incidence = 0.0
+        age_distribution = sc.dataframe(dict(ages=[0, 1, 2, 5], proportion=[0.25, 0.25, 0.25, 0.25]))
+    else:
+        # Calculate weighted incidence: sum(incidence_rate * pop_fraction * pop_size) / pop_size
+        # Simplifies to: sum(incidence_rate * pop_fraction)
+        overall_incidence = sum(df['inci'].values * pop_fractions)
 
-    # Also calculate age distribution (proportions)
-    # This represents the proportion of CASES, not population
-    # = (incidence_rate * pop_fraction) / overall_incidence
-    case_fractions = df['inci'].values * pop_fractions / overall_incidence
-    age_distribution = sc.dataframe(dict(ages=df['ages'], proportion=case_fractions))
+        # Also calculate age distribution (proportions)
+        # This represents the proportion of CASES, not population
+        # = (incidence_rate * pop_fraction) / overall_incidence
+        if overall_incidence > 0:
+            case_fractions = df['inci'].values * pop_fractions / overall_incidence
+        else:
+            # If incidence is zero (or very close), use equal distribution
+            case_fractions = np.array([0.25, 0.25, 0.25, 0.25])
+        age_distribution = sc.dataframe(dict(ages=df['ages'], proportion=case_fractions))
 
     return overall_incidence, age_distribution
 
