@@ -8,4 +8,6 @@ from .immunity import *
 from .reassortment import *
 from .interventions import *
 from .analyzers import *
+from .aging import *
+from .age_networks import *
 from .rotasim import *

@@ -16,6 +16,13 @@ SCENARIOS = {
         },
         "default_fitness": 1.0,
     },
+"single": {
+        "description": "Simple strain scenario for debugging - G1P8",
+        "strains": {
+            (1, 8): {"fitness": 1.0, "prevalence": 0.02}
+        },
+        "default_fitness": 1.0,
+    },
     "baseline": {
         "description": "Baseline scenario - common global strains with equal fitness",
         "strains": {

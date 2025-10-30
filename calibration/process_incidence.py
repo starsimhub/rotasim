@@ -26,9 +26,9 @@ def process_data(filename=None, incidence_sheet=None, age_dist_sheet=None):
     if filename is None:
         filename = thisdir / 'CalibrationDatafile_prevax 3.xlsx'
     if incidence_sheet is None:
-        incidence_sheet = 'Matlab_incidence'
+        incidence_sheet = 'UK_incidence'
     if age_dist_sheet is None:
-        age_dist_sheet = 'Matlab_agedistribution'
+        age_dist_sheet = 'UK_agedistribution'
 
     # Read overall incidence data
     incidence_data = sc.dataframe.read_excel(filename, sheet_name=incidence_sheet)
@@ -76,47 +76,48 @@ def process_model(dat=None, popsize=None, verbose=False):
 
     # Subset to years 11-19 (2000-2008 in simulations starting from 1990)
     # This gives 10 years of burn-in (1990-2000) before calibration period
-    initial8 = dat[(dat['CollectionTime'] < 19) & (dat['CollectionTime'] > 11)]
+    #Will have to manually adjust this for each run for now
+    initial = dat[(dat['CollectionTime'] < 10) & (dat['CollectionTime'] > 4)]
 
-    if verbose: print(initial8['Strain'].value_counts())
-    initial8['Strain3'] = 'Other'
-    initial8.loc[initial8['Strain'] == 'G1P8A1B1', 'Strain3'] = 'G1P8'
-    initial8.loc[initial8['Strain'] == 'G2P4A1B1', 'Strain3'] = 'G2P4'
-    initial8.loc[initial8['Strain'] == 'G9P8A1B1', 'Strain3'] = 'G9P8'
+    if verbose: print(initial['Strain'].value_counts())
+    initial['Strain3'] = 'Other'
+    initial.loc[initial['Strain'] == 'G1P8A1B1', 'Strain3'] = 'G1P8'
+    initial.loc[initial['Strain'] == 'G2P4A1B1', 'Strain3'] = 'G2P4'
+    initial.loc[initial['Strain'] == 'G9P8A1B1', 'Strain3'] = 'G9P8'
 
-    GenoDist = initial8['Strain3'].value_counts().reset_index()
+    GenoDist = initial['Strain3'].value_counts().reset_index()
     GenoDist.columns = ['Strain', 'Frequency']
     total = GenoDist['Frequency'].sum()
     GenoDist['Proportion'] = GenoDist['Frequency'] / total
 
     # Working out the case age distribution
     # First making new age bins
-    initial8['AgeCat'] = np.nan
-    initial8.loc[initial8['Age'].isin(['0-2', '2-4', '4-6', '6-12']), 'AgeCat'] = '<1 y'
-    initial8.loc[initial8['Age'].isin(['12-24']), 'AgeCat'] = '1-2 y'
-    initial8.loc[initial8['Age'].isin(['24-36', '36-48', '48-60']), 'AgeCat'] = '2-5 y'
-    initial8.loc[initial8['Age'] == '60+', 'AgeCat'] = '>=5 y'
+    initial['AgeCat'] = np.nan
+    initial.loc[initial['Age'].isin(['0-2', '2-4', '4-6', '6-12']), 'AgeCat'] = '<1 y'
+    initial.loc[initial['Age'].isin(['12-24']), 'AgeCat'] = '1-2 y'
+    initial.loc[initial['Age'].isin(['24-36', '36-48', '48-60']), 'AgeCat'] = '2-5 y'
+    initial.loc[initial['Age'] == '60+', 'AgeCat'] = '>=5 y'
 
     # Convert continuous time to integer years for proper annual aggregation
-    initial8['Year'] = np.floor(initial8['CollectionTime']).astype(int)
+    initial['Year'] = np.floor(initial['CollectionTime']).astype(int)
 
     # Clinical data counts symptomatic/reported cases
     # Count first few infections per person (these are typically symptomatic)
     # Later infections are usually asymptomatic due to acquired immunity
     # Add infection number per person (lifetime)
-    initial8 = initial8.sort_values(['id', 'CollectionTime'])
-    initial8['infection_number'] = initial8.groupby('id').cumcount() + 1
+    initial = initial.sort_values(['id', 'CollectionTime'])
+    initial['infection_number'] = initial.groupby('id').cumcount() + 1
 
     # Count only first 3 infections per person (symptomatic threshold)
     # Use uniform threshold across all ages - let rel_beta affect age distribution naturally
-    initial8_symptomatic = initial8[initial8['infection_number'] <= 3].copy()
+    initial_symptomatic = initial[initial['infection_number'] <= 4].copy()
 
     # Then take first infection per agent per year (to avoid double-counting within same year)
-    initial8_first = initial8_symptomatic.groupby(['id', 'Year', 'AgeCat']).first().reset_index()
+    initial_first = initial_symptomatic.groupby(['id', 'Year', 'AgeCat']).first().reset_index()
 
     # Now, getting cases by age bin and YEAR
     # Count unique agents per year to get annual incidence
-    cases_summary = initial8_first.groupby(['AgeCat', 'Year']).agg(Cases_age=('id', 'nunique')).reset_index()
+    cases_summary = initial_first.groupby(['AgeCat', 'Year']).agg(Cases_age=('id', 'nunique')).reset_index()
     if verbose: print(cases_summary.head())
 
     # Now, getting total population by time point (year)
@@ -124,19 +125,19 @@ def process_model(dat=None, popsize=None, verbose=False):
     # We need to count all unique agents in each age category at each timepoint
 
     # Get all infection events (not just symptomatic) to capture full population age structure
-    initial8_all = dat[(dat['CollectionTime'] < 19) & (dat['CollectionTime'] > 11)].copy()
-    initial8_all['Year'] = np.floor(initial8_all['CollectionTime']).astype(int)
+    initial_all = dat[(dat['CollectionTime'] < 10) & (dat['CollectionTime'] > 4)].copy()
+    initial_all['Year'] = np.floor(initial_all['CollectionTime']).astype(int)
 
     # Assign age categories to all infection events
-    initial8_all['AgeCat'] = np.nan
-    initial8_all.loc[initial8_all['Age'].isin(['0-2', '2-4', '4-6', '6-12']), 'AgeCat'] = '<1 y'
-    initial8_all.loc[initial8_all['Age'].isin(['12-24']), 'AgeCat'] = '1-2 y'
-    initial8_all.loc[initial8_all['Age'].isin(['24-36', '36-48', '48-60']), 'AgeCat'] = '2-5 y'
-    initial8_all.loc[initial8_all['Age'] == '60+', 'AgeCat'] = '>=5 y'
+    initial_all['AgeCat'] = np.nan
+    initial_all.loc[initial_all['Age'].isin(['0-2', '2-4', '4-6', '6-12']), 'AgeCat'] = '<1 y'
+    initial_all.loc[initial_all['Age'].isin(['12-24']), 'AgeCat'] = '1-2 y'
+    initial_all.loc[initial_all['Age'].isin(['24-36', '36-48', '48-60']), 'AgeCat'] = '2-5 y'
+    initial_all.loc[initial_all['Age'] == '60+', 'AgeCat'] = '>=5 y'
 
     # For each year, get a representative snapshot of population age distribution
     # Take the latest timepoint in each year as the population snapshot
-    pop_snapshots = initial8_all.sort_values('CollectionTime').groupby(['Year', 'id']).tail(1)
+    pop_snapshots = initial_all.sort_values('CollectionTime').groupby(['Year', 'id']).tail(1)
 
     # Count unique agents in each age bin per year to get actual age-specific population
     pop_age_counts = pop_snapshots.groupby(['Year', 'AgeCat']).agg(
@@ -216,7 +217,23 @@ def process_model(dat=None, popsize=None, verbose=False):
         else:
             # If incidence is zero (or very close), use equal distribution
             case_fractions = np.array([0.25, 0.25, 0.25, 0.25])
-        age_distribution = sc.dataframe(dict(ages=df['ages'], proportion=case_fractions))
+
+        # Ensure we always have all 4 age categories [0, 1, 2, 5]
+        # even if some had zero infections (fill with 0.0)
+        age_map = {0: 0, 1: 1, 2: 2, 5: 3}  # Map age to index in case_fractions
+        full_ages = [0, 1, 2, 5]
+        full_proportions = []
+
+        for age in full_ages:
+            if age in df['ages'].values:
+                idx = df[df['ages'] == age].index[0]
+                age_idx = age_map[age]
+                full_proportions.append(case_fractions[age_idx])
+            else:
+                # Age group had no infections
+                full_proportions.append(0.0)
+
+        age_distribution = sc.dataframe(dict(ages=full_ages, proportion=full_proportions))
 
     return overall_incidence, age_distribution
 

@@ -60,6 +60,11 @@ class RotaImmunityConnector(ss.Connector):
             # Maternal immunity parameters (passive immunity from mother)
             maternal_immunity_efficacy=0.9,  # Maximum protection from maternal antibodies at birth (90%)
             maternal_immunity_half_life=ss.days(90),  # Half-life of maternal immunity decay (90 days = 3 months)
+            # Long-term immunity parameters (permanent immunity after multiple infections)
+            long_term_immunity_prob_after_1=0.39,  # Probability of long-term immunity after 1st infection (39%)
+            long_term_immunity_prob_after_2=0.52,  # Probability of long-term immunity after 2nd infection (52%)
+            long_term_immunity_prob_after_3=0.67,  # Probability of long-term immunity after 3rd infection (67%)
+            long_term_immunity_prob_after_4=1.00,  # Probability of long-term immunity after 4th+ infections (100%)
             # infection_history_susceptibility_factors = {0: 1, 1: 1, 2: 1, 3: 1},  # Susceptibility scaling based on total infection history. We may want to remove this feature later.
             cotransmission_prob=ss.bernoulli(
                 p=0.02
@@ -80,6 +85,8 @@ class RotaImmunityConnector(ss.Connector):
             ss.Arr("exposed_P_bitmask", dtype=np.int64, nan=ss.dtypes.int_nan, default=0),  # Bitmask of exposed P types
             ss.FloatArr("oldest_infection", default=np.nan),  # Time of first infection (for waning)
             ss.BoolArr("has_immunity", default=False),  # Whether agent has any immunity
+            ss.BoolArr("long_term_immune", default=False),  # Whether agent has permanent long-term immunity
+            ss.FloatArr("long_term_immune_age", default=np.nan),  # Age (in years) when agent developed long-term immunity
             ss.FloatArr(
                 "num_recovered_infections", default=0.0
             ),  # Total number of prior infections (for scaling susceptibility)
@@ -232,6 +239,10 @@ class RotaImmunityConnector(ss.Connector):
     def _calculate_disease_susceptibilities(self):
         """Calculate disease susceptibilities based on immunity matching and decay factors"""
         for disease in self.rota_diseases:
+            # Reset final_decayed_immunity_factor to 0.0 at the start of each disease loop
+            # This ensures stale values from previous disease calculations don't persist
+            self.final_decayed_immunity_factor[:] = 0.0
+
             disease_partial_matches = []
             for gp in self.unique_GP:
                 # Fix operator precedence: need parentheses to check (G OR P match) AND (not exact match)
@@ -276,6 +287,11 @@ class RotaImmunityConnector(ss.Connector):
                     self.final_decayed_immunity_factor[has_partial_match], gp_decay
                 )
 
+            # Note: Complete heterotypic and naive agents keep decay_factor=0.0 (from reset above)
+            # This works correctly because:
+            # - For naive: efficacy=0.0, so protection = 0.0 * 0.0 = 0.0 (no protection, full susceptibility)
+            # - For complete hetero: efficacy>0, but decay_factor=0.0 means immunity has fully decayed (no protection)
+
             # Apply protection with appropriate decay factor
             # People without immunity have full susceptibility (rel_sus = 1.0)
 
@@ -292,8 +308,8 @@ class RotaImmunityConnector(ss.Connector):
             if self.pars.maternal_immunity_efficacy > 0 and self.pars.maternal_immunity_half_life > 0:
                 naive_mask = ~has_immunity_mask
                 if naive_mask.any():
-                    # Get agent ages in days (sim.people.age is in years, convert to days)
-                    agent_ages_days = self.sim.people.age.values * 365.25
+                    # Get agent ages in days (sim.people.age is already in days in starsim)
+                    agent_ages_days = self.sim.people.age.values
                     # Calculate maternal immunity decay: efficacy * exp(-ln(2) * age / half_life)
                     maternal_decay = np.exp(-np.log(2) * agent_ages_days / self.pars.maternal_immunity_half_life)
                     maternal_protection = self.pars.maternal_immunity_efficacy * maternal_decay
@@ -302,6 +318,10 @@ class RotaImmunityConnector(ss.Connector):
 
             # Final relative susceptibility = 1 - total protection
             disease.rel_sus[:] = 1 - acquired_immunity_protection
+
+            # Override susceptibility for long-term immune agents (cannot be reinfected)
+            # DISABLED: Removed LTI mechanism per user request to implement simple SIRS model
+            # disease.rel_sus[self.long_term_immune[:]] = 0.0
 
     def record_infection(self, disease, new_infected_uids):
         self.num_current_infections[new_infected_uids] += 1.0
@@ -339,10 +359,39 @@ class RotaImmunityConnector(ss.Connector):
         # Mark as having immunity
         self.has_immunity[recovered_uids] = True
 
-        # Increment total infection count for each recovered agent
+        # Decrement current infection count
         self.num_current_infections[recovered_uids] -= 1.0
-        self.num_recovered_infections[recovered_uids] += 1.0
 
-        # Track oldest infection time (only set if first infection)
-        first_infections = np.isnan(self.oldest_infection[recovered_uids])
-        self.oldest_infection[recovered_uids[first_infections]] = self.sim.ti
+        # Only increment recovered infections when ALL concurrent infections have resolved
+        # This ensures co-infections or sequential infections count as ONE episode
+        completed_episode = self.num_current_infections[recovered_uids] == 0
+        episode_complete_uids = recovered_uids[completed_episode]
+
+        if len(episode_complete_uids) > 0:
+            self.num_recovered_infections[episode_complete_uids] += 1.0
+
+            # Track oldest infection time (only set if first infection episode)
+            first_infections = np.isnan(self.oldest_infection[episode_complete_uids])
+            self.oldest_infection[episode_complete_uids[first_infections]] = self.sim.ti
+
+        # DISABLED: Removed LTI mechanism per user request to implement simple SIRS model
+        # Probabilistically assign long-term immunity based on infection EPISODES (not individual strains)
+        # Only check for LTI when an infection episode completes
+        # if len(episode_complete_uids) > 0:
+        #     infection_counts = self.num_recovered_infections[episode_complete_uids]
+        #
+        #     # Determine probability for each agent based on their total infection episode count
+        #     probs = np.zeros(len(episode_complete_uids))
+        #     probs[infection_counts == 1] = self.pars.long_term_immunity_prob_after_1
+        #     probs[infection_counts == 2] = self.pars.long_term_immunity_prob_after_2
+        #     probs[infection_counts == 3] = self.pars.long_term_immunity_prob_after_3
+        #     probs[infection_counts >= 4] = self.pars.long_term_immunity_prob_after_4
+        #
+        #     # Randomly assign long-term immunity
+        #     develops_long_term = np.random.rand(len(episode_complete_uids)) < probs
+        #     newly_immune_uids = episode_complete_uids[develops_long_term]
+        #     self.long_term_immune[newly_immune_uids] = True
+        #
+        #     # Store the age at which agents developed long-term immunity
+        #     if len(newly_immune_uids) > 0:
+        #         self.long_term_immune_age[newly_immune_uids] = self.sim.people.age[newly_immune_uids]

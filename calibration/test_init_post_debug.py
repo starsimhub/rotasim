@@ -37,8 +37,13 @@ print("="*60)
 immunity = sim.get_connector_by_type("RotaImmunityConnector")
 
 # Check disease n_infections AFTER run
+print(f"DEBUG: Type of sim.diseases: {type(sim.diseases)}")
+print(f"DEBUG: sim.diseases content: {sim.diseases}")
+print(f"DEBUG: sim.diseases.values(): {list(sim.diseases.values())}")
+
 total_disease_infections = 0
-for disease in sim.diseases:
+for disease in sim.diseases.values():
+    print(f"DEBUG: Checking disease {disease.name}, has n_infections: {hasattr(disease, 'n_infections')}")
     if hasattr(disease, 'n_infections'):
         # Only sum for ALIVE agents
         alive_n_inf = disease.n_infections[sim.people.alive].sum()
@@ -54,7 +59,7 @@ print(f"  num_recovered_infections (alive) = {recovered_counts_alive:.0f}")
 print(f"  num_recovered_infections (all) = {recovered_counts_all:.0f}")
 
 # Check for mismatch
-if total_disease_infections == 0 and recovered_counts > 0:
+if total_disease_infections == 0 and recovered_counts_all > 0:
     print("\n" + "="*60)
     print("PROBLEM FOUND:")
     print("="*60)

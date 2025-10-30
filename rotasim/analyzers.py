@@ -500,8 +500,9 @@ class InfectedStrainStats(ss.Analyzer):
 
             # Log each new infection
             for agent_id in new_infections:
-                # Get agent age
-                age_years = self.sim.people.age[agent_id]
+                # Get agent age (convert from days to years)
+                age_days = self.sim.people.age[agent_id]
+                age_years = age_days / 365.25  # Convert from days to years
                 age_category = self._get_age_category(age_years)
 
                 # Create strain name in full format (G1P8A1B1) to match v1 expectations

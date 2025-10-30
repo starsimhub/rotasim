@@ -46,8 +46,8 @@ class Rotavirus(ss.Infection):
             beta=ss.perday(0.16),  # Transmission rate per day (matches working value from tests/simple.py for endemic circulation)
             dur_inf=ss.lognorm_ex(mean=7, unit="days"),  # Duration of infection (~7 days)
             waning_rate_dist=ss.normal(
-                loc=180, scale=10, unit="days"
-            ),  # Duration of waning immunity (180 days mean for normal)
+                loc=91, scale=14, unit="days"
+            ),  # Duration of temporary immunity (13 weeks = 91 days mean, 2 weeks SD)
             waning_delay=ss.days(0),
         )
 
@@ -76,6 +76,26 @@ class Rotavirus(ss.Infection):
                 scale=True,
             )
         )
+
+    def init_post(self):
+        """
+        Called after initialization to handle initial prevalence
+
+        This ensures that agents seeded with initial prevalence have their
+        n_infections counter properly incremented, since they bypass set_prognoses.
+        """
+        super().init_post()
+
+        # For agents who are initially infected, increment their n_infections counter
+        # and notify the immunity connector
+        initially_infected = self.infected.uids
+        if len(initially_infected) > 0:
+            self.n_infections[initially_infected] += 1
+
+            # Notify immunity connector about initial infections
+            immunity_connector = self.sim.get_connector_by_type("RotaImmunityConnector")
+            if immunity_connector:
+                immunity_connector.record_infection(self, initially_infected)
 
     def set_prognoses(self, uids, sources=None):
         """
@@ -121,6 +141,8 @@ class Rotavirus(ss.Infection):
 
         This method handles state transitions:
         - infected → recovered (when ti_recovered is reached)
+
+        Note: Initial infections are tracked in init_post, not here
         """
         # Progress infected -> recovered (following SIR example pattern)
         sim = self.sim

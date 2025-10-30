@@ -48,7 +48,7 @@ print()
 # Check each disease
 total_infected = 0
 total_recovered = 0
-for disease in sim.diseases:
+for disease in sim.diseases.values():
     if hasattr(disease, 'infected'):
         infected = disease.infected.sum()
         recovered = disease.recovered.sum()
@@ -66,7 +66,7 @@ print(f"num_recovered_infections: min={recovered_counts.min():.0f}, max={recover
 print()
 
 # Check susceptibility for each disease
-for disease in sim.diseases:
+for disease in sim.diseases.values():
     if hasattr(disease, 'rel_sus'):
         rel_sus = disease.rel_sus[sim.people.alive]
         print(f"{disease.name} rel_sus: mean={rel_sus.mean():.3f}, min={rel_sus.min():.3f}, max={rel_sus.max():.3f}")
@@ -86,7 +86,7 @@ for uid in range(min(20, len(sim.people))):
         recovered = immunity.num_recovered_infections[uid]
         total_disease_infections = sum(
             disease.n_infections[uid]
-            for disease in sim.diseases
+            for disease in sim.diseases.values()
             if hasattr(disease, 'n_infections')
         )
 

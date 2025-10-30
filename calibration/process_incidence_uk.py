@@ -76,8 +76,9 @@ def process_model(dat=None, popsize=None, verbose=False):
     CasesGeno = pd.merge(YearlyGenoDat, YearlyCases, on='Year')
     CasesGeno['geno_prop'] = CasesGeno['Geno_cases'] / CasesGeno['All_cases']
 
-    # Subset to years 1-6 for UK (5 years of data)
-    initial5 = dat[(dat['CollectionTime'] < 6) & (dat['CollectionTime'] > 1)]
+    # Subset to years 5-10 for UK (5 years of calibration data, after 5-year burn-in)
+    # Year 0-4 = burn-in (2003-2007), Year 5-9 = calibration period (2008-2012)
+    initial5 = dat[(dat['CollectionTime'] < 10) & (dat['CollectionTime'] >= 5)]
 
     if verbose: print(initial5['Strain'].value_counts())
     initial5['Strain3'] = 'Other'
@@ -125,7 +126,8 @@ def process_model(dat=None, popsize=None, verbose=False):
     # We need to count all unique agents in each age category at each timepoint
 
     # Get all infection events (not just symptomatic) to capture full population age structure
-    initial5_all = dat[(dat['CollectionTime'] < 6) & (dat['CollectionTime'] > 1)].copy()
+    # Use same time window as above: years 5-9 (2008-2012)
+    initial5_all = dat[(dat['CollectionTime'] < 10) & (dat['CollectionTime'] >= 5)].copy()
     initial5_all['Year'] = np.floor(initial5_all['CollectionTime']).astype(int)
 
     # Assign age categories to all infection events

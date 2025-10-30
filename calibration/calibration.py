@@ -572,11 +572,11 @@ if __name__ == '__main__':
         start = "2000-01-01",
         stop = "2010-01-01",  # 10 years to cover years 1-9 needed for calibration
         verbose = False,
-        scenario = "baseline",  # Use baseline scenario with multiple strains
+        scenario = "single",  # Use single strain scenario for debugging
         analyzers = [rs.InfectedStrainStats()],  # Add the infection tracking analyzer
         demographics = [  # Add demographics to sustain population
-            ss.Births(birth_rate=ss.peryear(25)),  # 25 per 1000 per year
-            ss.Deaths(death_rate=ss.peryear(10)),  # 10 per 1000 per year
+            ss.Births(birth_rate=ss.peryear(13)),  # 25 per 1000 per year
+            ss.Deaths(death_rate=ss.peryear(6)),  # 10 per 1000 per year
         ],
     )
 
