@@ -82,81 +82,6 @@ def calculate_reported_cases(df, reporting_rate):
 
     return reported_df
 
-def initialize_adult_immunity(sim, adult_baseline_immunity=0.95):
-    """
-    Initialize adults with immunity reflecting prior childhood infections
-
-    In reality, adults in UK have experienced multiple rotavirus infections in childhood
-    and have built up cumulative immunity. Initialize them with reduced susceptibility
-    reflecting this baseline protection against circulating strains.
-
-    NOTE: We set rel_sus directly rather than trying to simulate full immunity history,
-    because the SIRS model's ~91 day waning would erase all protection from childhood.
-    This baseline protection (~95%) is MUCH HIGHER than single-infection immunity (~50%)
-    because it represents cumulative immunity from repeated childhood exposures.
-
-    Args:
-        sim: Initialized simulation with people and immunity connector
-        adult_baseline_immunity: Cumulative protection level (e.g., 0.95 = 95% protection → rel_sus=0.05)
-                                 This is distinct from homotypic_immunity_efficacy which is
-                                 protection from a single infection (~50%)
-    """
-    import numpy as np
-
-    # Get ages in years
-    ages_years = sim.people.age.values  # Already in years
-
-    # Identify adults (≥18 years) - those with cumulative childhood immunity
-    # NOTE: Changed from ≥5 to ≥18 because rotavirus immunity accumulates during childhood
-    # By age 18, most people have had multiple infections providing cumulative protection
-    adult_mask = ages_years >= 18
-    n_adults = adult_mask.sum()
-
-    if n_adults == 0:
-        return  # No adults to initialize
-
-    # Get the immunity connector
-    immunity_connector = None
-    for connector in sim.connectors.values():
-        if type(connector).__name__ == 'RotaImmunityConnector':
-            immunity_connector = connector
-            break
-
-    if immunity_connector is None:
-        if sim.pars.verbose:
-            print("  Warning: No RotaImmunityConnector found, cannot initialize adult immunity")
-        return
-
-    adult_uids = np.where(adult_mask)[0]
-
-    # Record infection history for tracking purposes
-    immunity_connector.num_recovered_infections[adult_uids] = np.random.choice([2, 3], size=n_adults)
-    immunity_connector.has_immunity[adult_uids] = True
-
-    # Set bitmasks indicating prior exposure to circulating strains
-    for disease in sim.diseases.values():
-        if hasattr(disease, 'G') and hasattr(disease, 'P'):
-            G = disease.G
-            P = disease.P
-
-            immunity_connector.exposed_G_bitmask[adult_uids] |= (1 << G)
-            immunity_connector.exposed_P_bitmask[adult_uids] |= (1 << P)
-
-    # Set permanent baseline immunity for adults (doesn't decay over time)
-    # This represents cumulative immunity from repeated childhood exposures
-    immunity_connector.baseline_immunity[adult_uids] = adult_baseline_immunity
-
-    if sim.pars.verbose:
-        # Check actual rel_sus values after initialization
-        first_disease = list(sim.diseases.values())[0]
-        adult_rel_sus = first_disease.rel_sus[adult_uids]
-        child_rel_sus = first_disease.rel_sus[~adult_mask]
-
-        print(f"\n✓ Initialized {n_adults} adults with baseline immunity:")
-        print(f"  Prior infections: 2-3 (typical childhood exposure)")
-        print(f"  Cumulative protection: {adult_baseline_immunity*100:.1f}% (from repeated childhood exposures)")
-        print(f"  Adult rel_sus: {adult_rel_sus.mean():.3f} (children: {child_rel_sus.mean():.1f})")
-        print(f"  Note: This baseline doesn't wane - new infections add temporary immunity on top")
 
 def seed_infections_by_age(sim, overall_prevalence=0.002):
     """
@@ -275,14 +200,7 @@ sim = rs.Sim(
         ss.Births(birth_rate=ss.peryear(13)),  # UK birth rate
         ss.Deaths(death_rate=ss.peryear(6)),   # UK death rate (adjusted for immigration)
     ],
-    interventions=[
-        rs.InitializeChildImmunity(
-            max_age_years=3.0,  # Children <36 months
-            min_infections=1,   # At least 1 prior infection
-            max_infections=1,   # Exactly 1 prior infection
-            verbose=False       # Don't print during calibration
-        )
-    ],
+    interventions=[],
 )
 
 # Get target data first (before initializing sim)
@@ -334,10 +252,13 @@ class UKCalibration(Calibration):
         # Initialize UK age distribution (people object already exists from init)
         initialize_uk_ages(sim)
 
-        # Initialize adults with baseline immunity from childhood exposures
-        # This represents cumulative immunity from repeated childhood infections (~95%)
+        # Initialize baseline immunity and exposure history
+        # Baseline immunity represents cumulative immunity from repeated prior infections (~95%)
         # which is DISTINCT from homotypic_immunity_efficacy (single infection ~50%)
-        initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+        sim.connectors.rotaimmunityconnector.pars.adult_baseline_immunity=adult_baseline_immunity
+        sim.connectors.rotaimmunityconnector.initialize_immunity(min_age=18, max_age=125, min_exposures=2, max_exposures=3)
+        sim.connectors.rotaimmunityconnector.initialize_immunity(min_age=3, max_age=18, min_exposures=1, max_exposures=3)
+        # sim.connectors.rotaimmunityconnector.initialize_immunity(min_age=0, max_age=3, min_exposures=0, max_exposures=2)
 
         # Seed infections according to epidemiologically realistic age distribution
         # (Instead of uniform random seeding which gives 94% to adults)

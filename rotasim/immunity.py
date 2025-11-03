@@ -72,6 +72,7 @@ class RotaImmunityConnector(ss.Connector):
             cotransmission_prob=ss.bernoulli(
                 p=0.02
             ),  # Probability of transmitting all strains instead of dominant strain selection (2%). We may want to remove this feature later.
+            immunity_init_dist = ss.randint()
         )
 
         # Update with user parameters
@@ -191,6 +192,11 @@ class RotaImmunityConnector(ss.Connector):
         if self.sim.pars.verbose > 1:
             print(f"  - Pre-computed bitmasks for {len(self.rota_diseases)} diseases")
 
+        # Init baseline immunity
+        if self.pars['adult_baseline_immunity'] > 0:
+            adults = self.sim.people.age >= self.pars['adult_age_threshold']
+            self.baseline_immunity[adults] = self.pars['adult_baseline_immunity']
+
     def step(self):
         """Main connector step: apply waning and update cross-immunity"""
         if len(self.rota_diseases) == 0:
@@ -199,10 +205,8 @@ class RotaImmunityConnector(ss.Connector):
         # Update age-dependent baseline immunity BEFORE calculating cross-immunity
         # This ensures all adults maintain the correct baseline immunity every timestep
         if self.pars['adult_baseline_immunity'] > 0:
-            ages_years = self.sim.people.age.values
-            adult_mask = ages_years >= self.pars['adult_age_threshold']
-            self.baseline_immunity[adult_mask] = self.pars['adult_baseline_immunity']
-            self.baseline_immunity[~adult_mask] = 0.0
+            adults = self.sim.people.age >= self.pars['adult_age_threshold']
+            self.baseline_immunity[adults] = self.pars['adult_baseline_immunity']
 
         # Update cross-immunity protection for all diseases
         self._update_cross_immunity()
@@ -409,3 +413,57 @@ class RotaImmunityConnector(ss.Connector):
         #     # Store the age at which agents developed long-term immunity
         #     if len(newly_immune_uids) > 0:
         #         self.long_term_immune_age[newly_immune_uids] = self.sim.people.age[newly_immune_uids]
+
+    def initialize_immunity(self, min_age, max_age, min_exposures, max_exposures):
+        """
+            Initialize immunity reflecting prior infections
+
+            Most adults have experienced multiple rotavirus infections in childhood
+            and have built up cumulative immunity. This function initializes immunity reflecting prior infections
+
+            NOTE: This currently assigns the same number of exposures to all circulating strains. This is not realistic
+            in environments with many strains circulating.
+
+
+            Args:
+                min_age: Minimum age of population to initialize immunity reflecting prior infections
+                max_age: Maximum age of population to initialize immunity reflecting prior infections
+                min_exposures: Minimum potential prior infections
+                max_exposures: Maximum potential prior infections
+            """
+        import numpy as np
+
+        eligible_uids = ((self.sim.people.age >= min_age) & (self.sim.people.age < max_age)).uids
+        n_uids = len(eligible_uids)
+
+        if n_uids == 0:
+            return  # No pop to initialize
+
+        self.pars.immunity_init_dist.set(low=min_exposures, high=max_exposures)
+
+        # Record infection history for tracking purposes
+        self.num_recovered_infections[eligible_uids] = self.pars.immunity_init_dist.rvs(eligible_uids)
+        self.has_immunity[eligible_uids] = True
+
+        # Set bitmasks indicating prior exposure to circulating strains
+        for disease in self.sim.diseases.values():
+            if isinstance(disease, Rotavirus):
+                G_bit = 1 << self.G_to_bit[disease.G]
+                P_bit = 1 << self.P_to_bit[disease.P]
+                GP_bit = 1 << self.GP_to_bit[(disease.G, disease.P)]
+
+                # Update bitmasks using IntArr bitwise ops
+                self.exposed_G_bitmask[eligible_uids] = self.exposed_G_bitmask[eligible_uids] | G_bit
+                self.exposed_P_bitmask[eligible_uids] = self.exposed_P_bitmask[eligible_uids] | P_bit
+                self.exposed_GP_bitmask[eligible_uids] = self.exposed_GP_bitmask[eligible_uids] | GP_bit
+
+
+        # Set permanent baseline immunity for adults (doesn't decay over time)
+        # This represents cumulative immunity from repeated childhood exposures
+        self.baseline_immunity[eligible_uids] = self.pars.adult_baseline_immunity
+
+        if self.sim.pars.verbose:
+            print(f"\n✓ Initialized {n_uids} agents with baseline immunity:")
+            print(f"  Prior infections: {min_exposures}-{max_exposures}")
+            print(f"  Cumulative protection: {self.pars.adult_baseline_immunity * 100:.1f}% (from repeated prior exposures)")
+            print(f"  Note: This baseline doesn't wane - new infections add temporary immunity on top")
