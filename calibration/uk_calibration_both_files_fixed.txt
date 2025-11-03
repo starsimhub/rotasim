@@ -1,0 +1,168 @@
+[I 2025-10-31 10:09:08,780] A new study created in RDB with name: rota
+============================================================
+UK Calibration (2008-2012)
+============================================================
+
+UK Demographics:
+  Birth rate: 13/1000
+  Death rate: 6/1000
+  Net migration: +4/1000 adults (approximated in death rate)
+  Target age distribution: [1.26%, 1.27%, 3.66%, 93.81%]
+  Follow-up: 5 years (2008-2012)
+============================================================
+Rotasim: Setting up multi-strain simulation
+  Scenario: single
+  Base beta: 0.16
+  Strains: 1
+  Connectors: Adding default connectors: RotaImmunityConnector, RotaReassortmentConnector
+  Time units: day, dt=day
+  Total diseases: 1 (1 active + 0 dormant)
+
+Calibration target data:
+Overall incidence: 1.4 per 100k
+
+Age distribution (proportions):
+  ages  proportion
+0    0    0.137698
+1    1    0.276685
+2    2    0.468881
+3    5    0.116737
+
+Calibration parameters:
+  reporting_rate: best=0.0002, range=[0.0001, 0.001]
+  homotypic_immunity_efficacy: best=0.5, range=[0.1, 0.9]
+  partial_heterotypic_immunity_efficacy: best=0.2, range=[0.0, 0.5]
+  complete_heterotypic_immunity_efficacy: best=0.1, range=[0.0, 0.3]
+  base_beta: best=0.16, range=[0.05, 0.3]
+  maternal_immunity_efficacy: best=0.0, range=[0.0, 0.0]
+  adult_baseline_immunity: best=0.95, range=[0.9, 0.99]
+
+============================================================
+Running calibration (20 trials)...
+============================================================
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+[I 2025-10-31 10:19:10,213] Trial 10 finished with value: 9.448646277723292 and parameters: {'reporting_rate': 0.0004716502197303531, 'homotypic_immunity_efficacy': 0.5001493429302134, 'partial_heterotypic_immunity_efficacy': 0.3108308753679096, 'complete_heterotypic_immunity_efficacy': 0.28597563400849085, 'base_beta': 0.2864334618496125, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9109349400386038}. Best is trial 10 with value: 9.448646277723292.
+[I 2025-10-31 10:19:11,822] Trial 8 finished with value: 11.636028691220787 and parameters: {'reporting_rate': 0.00048406921954891724, 'homotypic_immunity_efficacy': 0.8137852060681401, 'partial_heterotypic_immunity_efficacy': 0.012261488017774602, 'complete_heterotypic_immunity_efficacy': 0.17763397348460702, 'base_beta': 0.2811202835846206, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9166554419301146}. Best is trial 10 with value: 9.448646277723292.
+[I 2025-10-31 10:19:40,132] Trial 11 finished with value: 14.412909645441763 and parameters: {'reporting_rate': 0.00033269520907913057, 'homotypic_immunity_efficacy': 0.6827674522483184, 'partial_heterotypic_immunity_efficacy': 0.3139236750885029, 'complete_heterotypic_immunity_efficacy': 0.10696218619434646, 'base_beta': 0.20891261119256105, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9642520431063778}. Best is trial 10 with value: 9.448646277723292.
+[I 2025-10-31 10:19:40,233] Trial 9 finished with value: 22.1930664764346 and parameters: {'reporting_rate': 0.0006350390020296388, 'homotypic_immunity_efficacy': 0.7456322941299693, 'partial_heterotypic_immunity_efficacy': 0.01959344137400365, 'complete_heterotypic_immunity_efficacy': 0.129708666650624, 'base_beta': 0.1221999547597011, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.947260102002176}. Best is trial 10 with value: 9.448646277723292.
+[I 2025-10-31 10:19:45,044] Trial 2 finished with value: 17.0656289547187 and parameters: {'reporting_rate': 0.00033208216730007303, 'homotypic_immunity_efficacy': 0.7074333858207507, 'partial_heterotypic_immunity_efficacy': 0.2856260766760606, 'complete_heterotypic_immunity_efficacy': 0.07059080996050751, 'base_beta': 0.2949741496484033, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9824506446571799}. Best is trial 10 with value: 9.448646277723292.
+[I 2025-10-31 10:19:50,623] Trial 7 finished with value: 8.643194546767948 and parameters: {'reporting_rate': 0.00029946208150774393, 'homotypic_immunity_efficacy': 0.276351591649617, 'partial_heterotypic_immunity_efficacy': 0.3569399660855284, 'complete_heterotypic_immunity_efficacy': 0.07255705899537417, 'base_beta': 0.05513381223890408, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.956148780574543}. Best is trial 7 with value: 8.643194546767948.
+[I 2025-10-31 10:19:50,822] Trial 6 finished with value: 30.7385572910928 and parameters: {'reporting_rate': 0.0008362295119789707, 'homotypic_immunity_efficacy': 0.14017300426768903, 'partial_heterotypic_immunity_efficacy': 0.22570343052350067, 'complete_heterotypic_immunity_efficacy': 0.26560439280957715, 'base_beta': 0.2366500010453081, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9811239221543099}. Best is trial 7 with value: 8.643194546767948.
+[I 2025-10-31 10:19:50,823] Trial 0 finished with value: 32.19087643317014 and parameters: {'reporting_rate': 0.0007124402774360722, 'homotypic_immunity_efficacy': 0.494120413113612, 'partial_heterotypic_immunity_efficacy': 0.4043660183796573, 'complete_heterotypic_immunity_efficacy': 0.018196210292857028, 'base_beta': 0.11692697122043653, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9857306194905292}. Best is trial 7 with value: 8.643194546767948.
+[I 2025-10-31 10:19:51,138] Trial 4 finished with value: 3.2530544952348883 and parameters: {'reporting_rate': 0.00012746479669115091, 'homotypic_immunity_efficacy': 0.33748087261685955, 'partial_heterotypic_immunity_efficacy': 0.16829875608341816, 'complete_heterotypic_immunity_efficacy': 0.22709613375562784, 'base_beta': 0.10310945862385455, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9255466583868691}. Best is trial 4 with value: 3.2530544952348883.
+[I 2025-10-31 10:19:51,444] Trial 3 finished with value: 18.732357041626464 and parameters: {'reporting_rate': 0.0007299389009580231, 'homotypic_immunity_efficacy': 0.692353783153778, 'partial_heterotypic_immunity_efficacy': 0.29100578374580865, 'complete_heterotypic_immunity_efficacy': 0.056358814817582946, 'base_beta': 0.13511434548179535, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.940610879419712}. Best is trial 4 with value: 3.2530544952348883.
+[I 2025-10-31 10:19:51,812] Trial 5 finished with value: 3.785648296038009 and parameters: {'reporting_rate': 0.00016757885815400702, 'homotypic_immunity_efficacy': 0.13492790660397036, 'partial_heterotypic_immunity_efficacy': 0.19388641288092834, 'complete_heterotypic_immunity_efficacy': 0.22025583294393614, 'base_beta': 0.09761701427351906, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.921475318096422}. Best is trial 4 with value: 3.2530544952348883.
+[I 2025-10-31 10:19:52,508] Trial 1 finished with value: 21.516349613626574 and parameters: {'reporting_rate': 0.0006759779746664372, 'homotypic_immunity_efficacy': 0.38673014899239333, 'partial_heterotypic_immunity_efficacy': 0.2356785698268919, 'complete_heterotypic_immunity_efficacy': 0.2311499743014252, 'base_beta': 0.2972157921470597, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9611866940595345}. Best is trial 4 with value: 3.2530544952348883.
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+[I 2025-10-31 10:29:41,638] Trial 12 finished with value: 27.798166856746626 and parameters: {'reporting_rate': 0.0009296407884267161, 'homotypic_immunity_efficacy': 0.841947046490579, 'partial_heterotypic_immunity_efficacy': 0.37591061568701495, 'complete_heterotypic_immunity_efficacy': 0.1360177538476597, 'base_beta': 0.07513858043864981, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9223146807269555}. Best is trial 4 with value: 3.2530544952348883.
+[I 2025-10-31 10:29:44,783] Trial 13 finished with value: 20.36186124581432 and parameters: {'reporting_rate': 0.0008214829477266346, 'homotypic_immunity_efficacy': 0.4711342264849159, 'partial_heterotypic_immunity_efficacy': 0.3400359676348322, 'complete_heterotypic_immunity_efficacy': 0.14888835500865225, 'base_beta': 0.15366836013355478, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9284708654957614}. Best is trial 4 with value: 3.2530544952348883.
+[I 2025-10-31 10:29:58,756] Trial 14 finished with value: 22.75338285279032 and parameters: {'reporting_rate': 0.0008547701903096395, 'homotypic_immunity_efficacy': 0.886048366923295, 'partial_heterotypic_immunity_efficacy': 0.3867030860298032, 'complete_heterotypic_immunity_efficacy': 0.289907172252346, 'base_beta': 0.20002742697967152, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.91267880796103}. Best is trial 4 with value: 3.2530544952348883.
+[I 2025-10-31 10:30:07,374] Trial 15 finished with value: 45.767726943023604 and parameters: {'reporting_rate': 0.0008653558362890448, 'homotypic_immunity_efficacy': 0.6454115968275411, 'partial_heterotypic_immunity_efficacy': 0.3079875834466666, 'complete_heterotypic_immunity_efficacy': 0.19175300227961667, 'base_beta': 0.1846473311012064, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9881155021320249}. Best is trial 4 with value: 3.2530544952348883.
+[I 2025-10-31 10:30:07,859] Trial 22 finished with value: 2.7329690382273624 and parameters: {'reporting_rate': 0.0001013252000515569, 'homotypic_immunity_efficacy': 0.11470117026024024, 'partial_heterotypic_immunity_efficacy': 0.14486848555416187, 'complete_heterotypic_immunity_efficacy': 0.21209192880386862, 'base_beta': 0.05640789601694926, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9281211501755516}. Best is trial 22 with value: 2.7329690382273624.
+[I 2025-10-31 10:30:08,977] Trial 20 finished with value: 24.600977991632675 and parameters: {'reporting_rate': 0.0009176876739887304, 'homotypic_immunity_efficacy': 0.23716642180423975, 'partial_heterotypic_immunity_efficacy': 0.06099680683361314, 'complete_heterotypic_immunity_efficacy': 0.16486615478770442, 'base_beta': 0.1997882537819134, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9458939075454273}. Best is trial 22 with value: 2.7329690382273624.
+[I 2025-10-31 10:30:12,724] Trial 16 finished with value: 18.610176004285567 and parameters: {'reporting_rate': 0.0007671223571975395, 'homotypic_immunity_efficacy': 0.7096584741332607, 'partial_heterotypic_immunity_efficacy': 0.2438820313080856, 'complete_heterotypic_immunity_efficacy': 0.1963830201492571, 'base_beta': 0.12737377522019033, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9000888125307572}. Best is trial 22 with value: 2.7329690382273624.
+[I 2025-10-31 10:30:13,378] Trial 21 finished with value: 3.3387097102033616 and parameters: {'reporting_rate': 0.000118504304930507, 'homotypic_immunity_efficacy': 0.3624860001526894, 'partial_heterotypic_immunity_efficacy': 0.16123864554696676, 'complete_heterotypic_immunity_efficacy': 0.2120122894128772, 'base_beta': 0.06125292681201378, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9275209033460774}. Best is trial 22 with value: 2.7329690382273624.
+[I 2025-10-31 10:30:15,749] Trial 18 finished with value: 6.530644677863666 and parameters: {'reporting_rate': 0.00021694998783200077, 'homotypic_immunity_efficacy': 0.11430416750631052, 'partial_heterotypic_immunity_efficacy': 0.35720599833496436, 'complete_heterotypic_immunity_efficacy': 0.01657445968667662, 'base_beta': 0.1752411666401421, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9563165031430299}. Best is trial 22 with value: 2.7329690382273624.
+[I 2025-10-31 10:30:15,761] Trial 19 finished with value: 14.345862268127432 and parameters: {'reporting_rate': 0.0005880568595421009, 'homotypic_immunity_efficacy': 0.38887095827088863, 'partial_heterotypic_immunity_efficacy': 0.3092571965125735, 'complete_heterotypic_immunity_efficacy': 0.2576763638109719, 'base_beta': 0.25483977222050047, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9351468027954392}. Best is trial 22 with value: 2.7329690382273624.
+[I 2025-10-31 10:30:16,615] Trial 17 finished with value: 6.30374869987703 and parameters: {'reporting_rate': 0.0002925516198360943, 'homotypic_immunity_efficacy': 0.5309539552603881, 'partial_heterotypic_immunity_efficacy': 0.49051580402410117, 'complete_heterotypic_immunity_efficacy': 0.1347544076922775, 'base_beta': 0.179970724646267, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9145851574707042}. Best is trial 22 with value: 2.7329690382273624.
+[I 2025-10-31 10:30:17,337] Trial 23 finished with value: 2.747401003467587 and parameters: {'reporting_rate': 0.00010499632138141074, 'homotypic_immunity_efficacy': 0.10085284550719026, 'partial_heterotypic_immunity_efficacy': 0.14328943904631825, 'complete_heterotypic_immunity_efficacy': 0.19727472143624708, 'base_beta': 0.06168727024959404, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9291314037629967}. Best is trial 22 with value: 2.7329690382273624.
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+Making results structure...
+Processed 24 trials; 0 failed
+Best pars: {'reporting_rate': 0.0001013252000515569, 'homotypic_immunity_efficacy': 0.11470117026024024, 'partial_heterotypic_immunity_efficacy': 0.14486848555416187, 'complete_heterotypic_immunity_efficacy': 0.21209192880386862, 'base_beta': 0.05640789601694926, 'maternal_immunity_efficacy': 0.0, 'adult_baseline_immunity': 0.9281211501755516}
+Removed existing calibration file rota.db
+Elapsed time: 1270 s
+
+============================================================
+Checking fit...
+============================================================
+Checking fit...
+
+Fit with original pars:
+  Total GOF:       7.85254
+  Incidence GOF:   6.11924
+  Age dist GOF:    1.73329
+
+Fit with best-fit pars:
+  Total GOF:       2.75503
+  Incidence GOF:   1.07842
+  Age dist GOF:    1.67662
+
+✓ Calibration improved fit
+
+============================================================
+Results:
+============================================================
+
+Best parameters:
+  reporting_rate: 0.000101
+  homotypic_immunity_efficacy: 0.114701
+  partial_heterotypic_immunity_efficacy: 0.144868
+  complete_heterotypic_immunity_efficacy: 0.212092
+  base_beta: 0.056408
+  maternal_immunity_efficacy: 0.000000
+
+============================================================
+Comparing Overall Incidence:
+============================================================
+Target:  1.4 per 100k
+Before:  9.8 per 100k
+After:   2.9 per 100k
+
+Error before: +611.9%
+Error after:  +107.8%
+
+============================================================
+Comparing Age Distribution (proportions):
+============================================================
+
+Age        Target          Before          After           Error Before         Error After         
+----------------------------------------------------------------------------------------------------
+0          13.8           % 0.0            % 0.0            % -13.8               pp -13.8               pp
+1          27.7           % 0.0            % 0.0            % -27.7               pp -27.7               pp
+2          46.9           % 1.7            % 4.5            % -45.2               pp -42.4               pp
+5          11.7           % 98.3           % 95.5           % 86.7                pp 83.8                pp
+
+============================================================
+Summary:
+============================================================
+
+Overall Incidence:
+  Target:  1.4 per 100k
+  Before:  9.8 per 100k (+611.9%)
+  After:   2.9 per 100k (+107.8%)
+  Improvement: 504.1 percentage points
+
+Age Distribution GOF:
+  Before: 1.7333
+  After:  1.6766
+  Improvement: 0.0567
+
+⚠ Model fit could be improved further
+
+✓ UK calibration complete!

@@ -262,6 +262,7 @@ class Calibration(sc.prettyobj):
         Returns combined GOF that weights both objectives
         """
         # Get simulation results
+        
         sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
 
         # Handle case where simulation died out

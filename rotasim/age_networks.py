@@ -11,7 +11,7 @@ import numpy as np
 __all__ = ['AgeAssortativeNet']
 
 
-class AgeAssortativeNet(ss.Network):
+class AgeAssortativeNet(ss.DynamicNetwork):
     """
     Age-assortative contact network with preferential within-group mixing
 
@@ -41,7 +41,9 @@ class AgeAssortativeNet(ss.Network):
 
     def step(self):
         """Contacts regenerated each timestep via add_pairs"""
-        pass
+        self.end_pairs()
+        self.add_pairs()
+        return
 
     def add_pairs(self, ti=None):
         """
@@ -69,14 +71,6 @@ class AgeAssortativeNet(ss.Network):
 
         n_children = len(child_uids)
         n_adults = len(adult_uids)
-
-        # DEBUG: Print on first timestep
-        if ti == 0:
-            print(f"\n[AgeAssortativeNet DEBUG @ ti={ti}]")
-            print(f"  Assortativity: {self.pars.assortativity:.2f}")
-            print(f"  n_contacts: {self.pars.n_contacts}")
-            print(f"  Population: {n_children} children, {n_adults} adults")
-            print(f"  Child fraction: {n_children/(n_children+n_adults)*100:.1f}%")
 
         if n_children == 0 or n_adults == 0:
             # Fall back to random mixing if only one age group
@@ -134,19 +128,6 @@ class AgeAssortativeNet(ss.Network):
             p2 = np.array(contacts_p2)
             beta = np.ones(len(p1)) * self.pars.beta
             dur = np.ones(len(p1))  # Duration in timesteps
-
-            # DEBUG: Count contact types on first timestep
-            if ti == 0:
-                n_cc = sum(1 for i, j in zip(p1, p2) if self.child_mask[i] and self.child_mask[j])
-                n_aa = sum(1 for i, j in zip(p1, p2) if self.adult_mask[i] and self.adult_mask[j])
-                n_ca = sum(1 for i, j in zip(p1, p2) if (self.child_mask[i] and self.adult_mask[j]) or (self.adult_mask[i] and self.child_mask[j]))
-                total_contacts = len(p1)
-                print(f"  Contacts created:")
-                print(f"    Child-child: {n_cc} ({n_cc/total_contacts*100:.1f}%)")
-                print(f"    Adult-adult: {n_aa} ({n_aa/total_contacts*100:.1f}%)")
-                print(f"    Cross-age: {n_ca} ({n_ca/total_contacts*100:.1f}%)")
-                print(f"    Total: {total_contacts}")
-
             self.append(p1=p1, p2=p2, beta=beta, dur=dur)
 
         return

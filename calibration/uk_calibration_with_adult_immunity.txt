@@ -1,0 +1,292 @@
+[I 2025-10-30 13:22:48,729] A new study created in RDB with name: rota
+============================================================
+UK Calibration (2008-2012)
+============================================================
+
+UK Demographics:
+  Birth rate: 13/1000
+  Death rate: 6/1000
+  Net migration: +4/1000 adults (approximated in death rate)
+  Target age distribution: [1.26%, 1.27%, 3.66%, 93.81%]
+  Follow-up: 5 years (2008-2012)
+============================================================
+Rotasim: Setting up multi-strain simulation
+  Scenario: single
+  Base beta: 0.16
+  Strains: 1
+  Connectors: Adding default connectors: RotaImmunityConnector, RotaReassortmentConnector
+  Time units: day, dt=day
+  Total diseases: 1 (1 active + 0 dormant)
+
+Calibration target data:
+Overall incidence: 1.4 per 100k
+
+Age distribution (proportions):
+  ages  proportion
+0    0    0.137698
+1    1    0.276685
+2    2    0.468881
+3    5    0.116737
+
+Calibration parameters:
+  reporting_rate: best=0.0002, range=[0.0001, 0.001]
+  homotypic_immunity_efficacy: best=0.5, range=[0.1, 0.9]
+  partial_heterotypic_immunity_efficacy: best=0.2, range=[0.0, 0.5]
+  complete_heterotypic_immunity_efficacy: best=0.1, range=[0.0, 0.3]
+  base_beta: best=0.16, range=[0.05, 0.3]
+  maternal_immunity_efficacy: best=0.0, range=[0.0, 0.0]
+  adult_baseline_immunity: best=0.95, range=[0.9, 0.99]
+
+============================================================
+Running calibration (20 trials)...
+============================================================
+Removed existing calibration file rota.db
+[W 2025-10-30 13:22:51,929] Trial 8 failed with parameters: {'reporting_rate': 0.0004842426638811937, 'homotypic_immunity_efficacy': 0.8255046693508585, 'partial_heterotypic_immunity_efficacy': 0.21095423692695792, 'complete_heterotypic_immunity_efficacy': 0.22506453755433356, 'base_beta': 0.18827207185089279, 'maternal_immunity_efficacy': 0.0} because of the following error: TypeError("unsupported operand type(s) for -: 'float' and 'list'").
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+[W 2025-10-30 13:22:51,933] Trial 8 failed with value None.
+[W 2025-10-30 13:22:51,935] Trial 11 failed with parameters: {'reporting_rate': 0.00035504110790729595, 'homotypic_immunity_efficacy': 0.20587438363932087, 'partial_heterotypic_immunity_efficacy': 0.49797597632802665, 'complete_heterotypic_immunity_efficacy': 0.12821037617685307, 'base_beta': 0.20456653663197077, 'maternal_immunity_efficacy': 0.0} because of the following error: TypeError("unsupported operand type(s) for -: 'float' and 'list'").
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+[W 2025-10-30 13:22:51,938] Trial 11 failed with value None.
+[W 2025-10-30 13:22:51,948] Trial 9 failed with parameters: {'reporting_rate': 0.00047303781018690735, 'homotypic_immunity_efficacy': 0.38458568844773205, 'partial_heterotypic_immunity_efficacy': 0.3693847868174269, 'complete_heterotypic_immunity_efficacy': 0.2789561307599075, 'base_beta': 0.28414569831437264, 'maternal_immunity_efficacy': 0.0} because of the following error: TypeError("unsupported operand type(s) for -: 'float' and 'list'").
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+[W 2025-10-30 13:22:51,951] Trial 9 failed with value None.
+[W 2025-10-30 13:22:51,953] Trial 10 failed with parameters: {'reporting_rate': 0.0004584440863171882, 'homotypic_immunity_efficacy': 0.3106587285196386, 'partial_heterotypic_immunity_efficacy': 0.1366811739070174, 'complete_heterotypic_immunity_efficacy': 0.2300083625643982, 'base_beta': 0.05940604948951013, 'maternal_immunity_efficacy': 0.0} because of the following error: TypeError("unsupported operand type(s) for -: 'float' and 'list'").
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+[W 2025-10-30 13:22:51,953] Trial 5 failed with parameters: {'reporting_rate': 0.0008820124487421341, 'homotypic_immunity_efficacy': 0.31791392316044276, 'partial_heterotypic_immunity_efficacy': 0.21648964612612037, 'complete_heterotypic_immunity_efficacy': 0.19445456408343992, 'base_beta': 0.06572813761956649, 'maternal_immunity_efficacy': 0.0} because of the following error: TypeError("unsupported operand type(s) for -: 'float' and 'list'").
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+[W 2025-10-30 13:22:51,954] Trial 10 failed with value None.
+[W 2025-10-30 13:22:51,954] Trial 5 failed with value None.
+[W 2025-10-30 13:22:51,957] Trial 4 failed with parameters: {'reporting_rate': 0.0009125410425897218, 'homotypic_immunity_efficacy': 0.8430740096172411, 'partial_heterotypic_immunity_efficacy': 0.059113680698215154, 'complete_heterotypic_immunity_efficacy': 0.25344828547792264, 'base_beta': 0.22640579871079725, 'maternal_immunity_efficacy': 0.0} because of the following error: TypeError("unsupported operand type(s) for -: 'float' and 'list'").
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+[W 2025-10-30 13:22:51,958] Trial 4 failed with value None.
+[W 2025-10-30 13:22:51,961] Trial 2 failed with parameters: {'reporting_rate': 0.000407541973992893, 'homotypic_immunity_efficacy': 0.2832061779516017, 'partial_heterotypic_immunity_efficacy': 0.37139889882601845, 'complete_heterotypic_immunity_efficacy': 0.12423668032918846, 'base_beta': 0.151552272376556, 'maternal_immunity_efficacy': 0.0} because of the following error: TypeError("unsupported operand type(s) for -: 'float' and 'list'").
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+[W 2025-10-30 13:22:51,962] Trial 2 failed with value None.
+[W 2025-10-30 13:22:51,965] Trial 6 failed with parameters: {'reporting_rate': 0.0002333983639899592, 'homotypic_immunity_efficacy': 0.5340699770305695, 'partial_heterotypic_immunity_efficacy': 0.3390105918272129, 'complete_heterotypic_immunity_efficacy': 0.004682501136402939, 'base_beta': 0.2613125375940764, 'maternal_immunity_efficacy': 0.0} because of the following error: TypeError("unsupported operand type(s) for -: 'float' and 'list'").
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+[W 2025-10-30 13:22:51,965] Trial 6 failed with value None.
+[W 2025-10-30 13:22:51,966] Trial 3 failed with parameters: {'reporting_rate': 0.0005596820977320878, 'homotypic_immunity_efficacy': 0.6743373400264601, 'partial_heterotypic_immunity_efficacy': 0.08355825321815064, 'complete_heterotypic_immunity_efficacy': 0.08464952358725075, 'base_beta': 0.24457407705218587, 'maternal_immunity_efficacy': 0.0} because of the following error: TypeError("unsupported operand type(s) for -: 'float' and 'list'").
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+[W 2025-10-30 13:22:51,967] Trial 3 failed with value None.
+[W 2025-10-30 13:22:51,968] Trial 7 failed with parameters: {'reporting_rate': 0.00028058108194250895, 'homotypic_immunity_efficacy': 0.6257994389752597, 'partial_heterotypic_immunity_efficacy': 0.2826189895059568, 'complete_heterotypic_immunity_efficacy': 0.12863058785209583, 'base_beta': 0.2775329292218412, 'maternal_immunity_efficacy': 0.0} because of the following error: TypeError("unsupported operand type(s) for -: 'float' and 'list'").
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+[W 2025-10-30 13:22:51,969] Trial 7 failed with value None.
+[W 2025-10-30 13:22:51,973] Trial 1 failed with parameters: {'reporting_rate': 0.0007895924858102044, 'homotypic_immunity_efficacy': 0.1403194781505257, 'partial_heterotypic_immunity_efficacy': 0.29250820300241814, 'complete_heterotypic_immunity_efficacy': 0.17370513199676094, 'base_beta': 0.2788960651937599, 'maternal_immunity_efficacy': 0.0} because of the following error: TypeError("unsupported operand type(s) for -: 'float' and 'list'").
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+[W 2025-10-30 13:22:51,974] Trial 1 failed with value None.
+[W 2025-10-30 13:22:51,991] Trial 0 failed with parameters: {'reporting_rate': 0.0004307724171411274, 'homotypic_immunity_efficacy': 0.5769420028887292, 'partial_heterotypic_immunity_efficacy': 0.2615387719559309, 'complete_heterotypic_immunity_efficacy': 0.1611139806620282, 'base_beta': 0.20219544421861907, 'maternal_immunity_efficacy': 0.0} because of the following error: TypeError("unsupported operand type(s) for -: 'float' and 'list'").
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+[W 2025-10-30 13:22:51,992] Trial 0 failed with value None.
+multiprocess.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 832, in _task
+    result = func(*args, **kwargs) # Call the function!
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 358, in worker
+    output = study.optimize(self.run_trial, n_trials=self.run_args.n_trials)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/study.py", line 475, in optimize
+    _optimize(
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 63, in _optimize
+    _optimize_sequential(
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 160, in _optimize_sequential
+    frozen_trial = _run_trial(study, func, catch)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 248, in _run_trial
+    raise func_err
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/_optimize.py", line 197, in _run_trial
+    value_or_values = func(trial)
+                      ^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 341, in run_trial
+    sim = self.run_sim(calib_pars=self.calib_pars, trial=trial)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 320, in run_sim
+    initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 131, in initialize_adult_immunity
+    disease.rel_sus[adult_uids] = 1.0 - adult_baseline_immunity
+                                  ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'float' and 'list'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/site-packages/multiprocess/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+                    ^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/multiprocess/pool.py", line 48, in mapstar
+    return list(map(*args))
+           ^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 846, in _task
+    raise exc from E
+TypeError: Task 7 failed: set die=False to keep going instead; see above for error details
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibrate_uk.py", line 339, in <module>
+    calib.calibrate()
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 395, in calibrate
+    self.run_workers() # Actually run!
+    ^^^^^^^^^^^^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/calibration.py", line 364, in run_workers
+    output = sc.parallelize(self.worker, iterarg=self.run_args.n_workers)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 751, in parallelize
+    P.run()
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 573, in run
+    self.run_async()
+  File "/opt/anaconda3/lib/python3.12/site-packages/sciris/sc_parallel.py", line 460, in run_async
+    output = self.map_func(_task, argslist)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/multiprocess/pool.py", line 367, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/multiprocess/pool.py", line 774, in get
+    raise self._value
+TypeError: Task 7 failed: set die=False to keep going instead; see above for error details

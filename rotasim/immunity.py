@@ -60,6 +60,9 @@ class RotaImmunityConnector(ss.Connector):
             # Maternal immunity parameters (passive immunity from mother)
             maternal_immunity_efficacy=0.9,  # Maximum protection from maternal antibodies at birth (90%)
             maternal_immunity_half_life=ss.days(90),  # Half-life of maternal immunity decay (90 days = 3 months)
+            # Age-dependent baseline immunity parameters
+            adult_baseline_immunity=0.0,  # Baseline immunity for adults (e.g., from childhood exposure history). Calibration parameter.
+            adult_age_threshold=5.0,  # Age threshold (in years) for applying adult baseline immunity (default 5 years)
             # Long-term immunity parameters (permanent immunity after multiple infections)
             long_term_immunity_prob_after_1=0.39,  # Probability of long-term immunity after 1st infection (39%)
             long_term_immunity_prob_after_2=0.52,  # Probability of long-term immunity after 2nd infection (52%)
@@ -102,6 +105,7 @@ class RotaImmunityConnector(ss.Connector):
             ss.FloatArr(
                 "final_decayed_immunity_factor", default=0.0
             ),  # Reusable array for final decay factor calculations (to reduce allocations)
+            ss.FloatArr("baseline_immunity", default=0.0),  # Permanent baseline immunity (e.g., for adults with childhood exposure history)
         )
 
         # Will be populated during init_post
@@ -191,6 +195,14 @@ class RotaImmunityConnector(ss.Connector):
         """Main connector step: apply waning and update cross-immunity"""
         if len(self.rota_diseases) == 0:
             return
+
+        # Update age-dependent baseline immunity BEFORE calculating cross-immunity
+        # This ensures all adults maintain the correct baseline immunity every timestep
+        if self.pars['adult_baseline_immunity'] > 0:
+            ages_years = self.sim.people.age.values
+            adult_mask = ages_years >= self.pars['adult_age_threshold']
+            self.baseline_immunity[adult_mask] = self.pars['adult_baseline_immunity']
+            self.baseline_immunity[~adult_mask] = 0.0
 
         # Update cross-immunity protection for all diseases
         self._update_cross_immunity()
@@ -317,7 +329,9 @@ class RotaImmunityConnector(ss.Connector):
                     acquired_immunity_protection[naive_mask] = maternal_protection[naive_mask]
 
             # Final relative susceptibility = 1 - total protection
-            disease.rel_sus[:] = 1 - acquired_immunity_protection
+            # Combine acquired immunity with permanent baseline immunity (use maximum protection)
+            total_protection = np.maximum(acquired_immunity_protection, self.baseline_immunity[:])
+            disease.rel_sus[:] = 1 - total_protection
 
             # Override susceptibility for long-term immune agents (cannot be reinfected)
             # DISABLED: Removed LTI mechanism per user request to implement simple SIRS model

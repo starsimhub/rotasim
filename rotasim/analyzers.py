@@ -432,7 +432,18 @@ class InfectedStrainStats(ss.Analyzer):
             'Strain': [],
             'CollectionTime': [],
             'Age': [],
-            'PopulationSize': []
+            'PopulationSize': [],
+            'n_infections': [],  # Infection number (1st, 2nd, 3rd, etc.)
+            'severity': []  # Severity probability based on infection number
+        }
+
+        # Severity rates by infection number
+        # Primary: 5.1%, Secondary: 6.44%, Third: 4.32%, Fourth+: 3.78%
+        self.severity_rates = {
+            1: 0.051,
+            2: 0.0644,
+            3: 0.0432,
+            4: 0.0378  # 4th and higher
         }
 
         # Track which agents were infected in previous timestep to detect new infections
@@ -500,9 +511,8 @@ class InfectedStrainStats(ss.Analyzer):
 
             # Log each new infection
             for agent_id in new_infections:
-                # Get agent age (convert from days to years)
-                age_days = self.sim.people.age[agent_id]
-                age_years = age_days / 365.25  # Convert from days to years
+                # Get agent age (already in years in Starsim)
+                age_years = self.sim.people.age[agent_id]
                 age_category = self._get_age_category(age_years)
 
                 # Create strain name in full format (G1P8A1B1) to match v1 expectations
@@ -513,12 +523,26 @@ class InfectedStrainStats(ss.Analyzer):
                     # Default backbone A1B1
                     strain_name = f"G{disease.G}P{disease.P}A1B1"
 
+                # Get infection number for this agent
+                # NOTE: n_infections tracks PRIOR infections, so add 1 for CURRENT infection
+                n_prior = int(disease.n_infections[agent_id])
+                n_current = n_prior + 1  # This is the 1st, 2nd, 3rd, or 4+ infection
+
+                # Calculate severity probability based on current infection number
+                # Tracking 1st, 2nd, 3rd, and 4+ infections
+                if n_current <= 3:
+                    severity_prob = self.severity_rates[n_current]
+                else:
+                    severity_prob = self.severity_rates[4]  # 4th and higher
+
                 # Record the infection event
                 self.infection_events['id'].append(int(agent_id))
                 self.infection_events['Strain'].append(strain_name)
                 self.infection_events['CollectionTime'].append(float(current_time_years))
                 self.infection_events['Age'].append(age_category)
                 self.infection_events['PopulationSize'].append(int(pop_size))
+                self.infection_events['n_infections'].append(n_current)  # Current infection number (1st, 2nd, 3rd, etc.)
+                self.infection_events['severity'].append(severity_prob)
 
             # Update previous infected set for next timestep
             self._prev_infected[disease.name] = currently_infected

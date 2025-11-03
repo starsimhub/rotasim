@@ -9,6 +9,7 @@ UK Demographics:
 - Follow-up period: 5 years (2008-2012)
 """
 
+import numpy as np
 import sciris as sc
 import starsim as ss
 import rotasim as rs
@@ -58,39 +59,57 @@ def initialize_uk_ages(sim):
         ages_years.append(np.random.beta(2, 2) * 75 + 5)
 
     ages_years = np.array(ages_years[:n])
-    ages_days = ages_years * 365.25
 
-    # Set ages
-    sim.people.age[:] = ages_days
+    # Set ages (starsim uses years directly)
+    sim.people.age[:] = ages_years
 
     if sim.pars.verbose:
         print(f"Initialized UK age distribution:")
         print(f"  Age range: {ages_years.min():.1f} - {ages_years.max():.1f} years")
         print(f"  Mean age: {ages_years.mean():.1f} years")
 
-def initialize_adult_immunity(sim, homotypic_protection=0.5):
+def calculate_reported_cases(df, reporting_rate):
+    """
+    Calculate reported cases using severity-based reporting
+
+    P(reported | infected) = reporting_rate * severity
+    """
+    # Add a column for whether each infection is reported
+    df['reported'] = np.random.random(len(df)) < (reporting_rate * df['severity'])
+
+    # Filter to only reported cases
+    reported_df = df[df['reported']].copy()
+
+    return reported_df
+
+def initialize_adult_immunity(sim, adult_baseline_immunity=0.95):
     """
     Initialize adults with immunity reflecting prior childhood infections
 
-    In reality, adults in UK have experienced rotavirus infections in childhood
-    and have built up immunity. Initialize them with reduced susceptibility
-    reflecting homotypic protection against circulating strains.
+    In reality, adults in UK have experienced multiple rotavirus infections in childhood
+    and have built up cumulative immunity. Initialize them with reduced susceptibility
+    reflecting this baseline protection against circulating strains.
 
     NOTE: We set rel_sus directly rather than trying to simulate full immunity history,
     because the SIRS model's ~91 day waning would erase all protection from childhood.
-    This baseline protection represents cumulative immunity from repeated childhood exposures.
+    This baseline protection (~95%) is MUCH HIGHER than single-infection immunity (~50%)
+    because it represents cumulative immunity from repeated childhood exposures.
 
     Args:
         sim: Initialized simulation with people and immunity connector
-        homotypic_protection: Protection level (e.g., 0.5 = 50% protection → rel_sus=0.5)
+        adult_baseline_immunity: Cumulative protection level (e.g., 0.95 = 95% protection → rel_sus=0.05)
+                                 This is distinct from homotypic_immunity_efficacy which is
+                                 protection from a single infection (~50%)
     """
     import numpy as np
 
     # Get ages in years
-    ages_years = sim.people.age.values / 365.25
+    ages_years = sim.people.age.values  # Already in years
 
-    # Identify adults (≥5 years)
-    adult_mask = ages_years >= 5
+    # Identify adults (≥18 years) - those with cumulative childhood immunity
+    # NOTE: Changed from ≥5 to ≥18 because rotavirus immunity accumulates during childhood
+    # By age 18, most people have had multiple infections providing cumulative protection
+    adult_mask = ages_years >= 18
     n_adults = adult_mask.sum()
 
     if n_adults == 0:
@@ -123,9 +142,9 @@ def initialize_adult_immunity(sim, homotypic_protection=0.5):
             immunity_connector.exposed_G_bitmask[adult_uids] |= (1 << G)
             immunity_connector.exposed_P_bitmask[adult_uids] |= (1 << P)
 
-            # Set rel_sus directly to reflect baseline immunity from childhood exposures
-            # This is NOT temporary (doesn't wane in 91 days) - it's cumulative protection
-            disease.rel_sus[adult_uids] = 1.0 - homotypic_protection
+    # Set permanent baseline immunity for adults (doesn't decay over time)
+    # This represents cumulative immunity from repeated childhood exposures
+    immunity_connector.baseline_immunity[adult_uids] = adult_baseline_immunity
 
     if sim.pars.verbose:
         # Check actual rel_sus values after initialization
@@ -133,9 +152,9 @@ def initialize_adult_immunity(sim, homotypic_protection=0.5):
         adult_rel_sus = first_disease.rel_sus[adult_uids]
         child_rel_sus = first_disease.rel_sus[~adult_mask]
 
-        print(f"\n✓ Initialized {n_adults} adults with prior immunity:")
+        print(f"\n✓ Initialized {n_adults} adults with baseline immunity:")
         print(f"  Prior infections: 2-3 (typical childhood exposure)")
-        print(f"  Baseline protection: {homotypic_protection*100:.0f}% (homotypic)")
+        print(f"  Cumulative protection: {adult_baseline_immunity*100:.1f}% (from repeated childhood exposures)")
         print(f"  Adult rel_sus: {adult_rel_sus.mean():.3f} (children: {child_rel_sus.mean():.1f})")
         print(f"  Note: This baseline doesn't wane - new infections add temporary immunity on top")
 
@@ -171,7 +190,7 @@ def seed_infections_by_age(sim, overall_prevalence=0.002):
         return  # No infections to seed
 
     # Get ages in years
-    ages_years = sim.people.age.values / 365.25
+    ages_years = sim.people.age.values  # Already in years
 
     # Find agents in each age category
     age_groups = []
@@ -253,9 +272,16 @@ sim = rs.Sim(
     analyzers=[rs.InfectedStrainStats()],
     networks=rs.AgeAssortativeNet(n_contacts=7, assortativity=0.5),  # 50% contacts within same age group
     demographics=[
-        rs.Aging(),  # CRITICAL: Add aging module (starsim doesn't age automatically)
         ss.Births(birth_rate=ss.peryear(13)),  # UK birth rate
         ss.Deaths(death_rate=ss.peryear(6)),   # UK death rate (adjusted for immigration)
+    ],
+    interventions=[
+        rs.InitializeChildImmunity(
+            max_age_years=3.0,  # Children <36 months
+            min_infections=1,   # At least 1 prior infection
+            max_infections=1,   # Exactly 1 prior infection
+            verbose=False       # Don't print during calibration
+        )
     ],
 )
 
@@ -267,13 +293,15 @@ print("\nAge distribution (proportions):")
 print(age_distribution)
 
 # Calibration parameters - use same cross-protection approach as Bangladesh
+# UPDATED: Tighter parameter ranges to prevent corner solutions
 calib_pars = sc.objdict(
-    reporting_rate=[0.0002, 0.0001, 0.001],
+    reporting_rate=[0.05, 0.01, 0.5],  # Fixed: best=0.05, low=0.01, high=0.5
     homotypic_immunity_efficacy=[0.5, 0.1, 0.9],
     partial_heterotypic_immunity_efficacy=[0.2, 0.0, 0.5],
     complete_heterotypic_immunity_efficacy=[0.1, 0.0, 0.3],
-    base_beta=[0.16, 0.05, 0.30],  # Base transmission rate (replaces rel_beta)
+    base_beta=[0.16, 0.08, 0.30],  # Base transmission rate - MIN raised from 0.05 to 0.08 to prevent unrealistically low transmission
     maternal_immunity_efficacy=[0.0, 0.0, 0.0],  # Keep at 0
+    adult_baseline_immunity=[0.95, 0.90, 0.98],  # Cumulative immunity from childhood infections - MAX lowered from 0.99 to 0.98 to allow some adult susceptibility
 )
 
 print("\nCalibration parameters:")
@@ -294,23 +322,22 @@ class UKCalibration(Calibration):
         if calib_pars is not None:
             sim_pars = self.trial_to_sim_pars(calib_pars=calib_pars, trial=trial)
 
+        # Extract adult_baseline_immunity from sim_pars (actual trial values)
+        # This parameter is handled manually during initialization, not a sim parameter
+        adult_baseline_immunity = 0.95  # Default
+        if sim_pars is not None and 'adult_baseline_immunity' in sim_pars:
+            adult_baseline_immunity = float(sim_pars.pop('adult_baseline_immunity'))
+
         # Update sim with new parameters (this already calls sim.init())
         sim = self.translate_pars(sim_pars=sim_pars)
 
         # Initialize UK age distribution (people object already exists from init)
         initialize_uk_ages(sim)
 
-        # Get homotypic immunity efficacy from the immunity connector for adult initialization
-        homotypic_efficacy = 0.5  # Default
-        for connector in sim.connectors.values():
-            if type(connector).__name__ == 'RotaImmunityConnector':
-                if hasattr(connector.pars, 'homotypic_immunity_efficacy'):
-                    homotypic_efficacy = connector.pars.homotypic_immunity_efficacy
-                break
-
-        # Initialize adults with immunity reflecting prior childhood infections
-        # Adults get reduced susceptibility equal to homotypic protection
-        initialize_adult_immunity(sim, homotypic_protection=homotypic_efficacy)
+        # Initialize adults with baseline immunity from childhood exposures
+        # This represents cumulative immunity from repeated childhood infections (~95%)
+        # which is DISTINCT from homotypic_immunity_efficacy (single infection ~50%)
+        initialize_adult_immunity(sim, adult_baseline_immunity=adult_baseline_immunity)
 
         # Seed infections according to epidemiologically realistic age distribution
         # (Instead of uniform random seeding which gives 94% to adults)
@@ -320,6 +347,47 @@ class UKCalibration(Calibration):
         sim.run()
 
         return sim
+
+    @staticmethod
+    def sim_to_df(sim):
+        """
+        Convert the sim output to data format using severity-based reporting
+
+        This overrides the parent method to use severity-weighted reporting:
+        P(reported | infected) = reporting_rate * severity
+
+        Returns:
+            overall_incidence: float - overall incidence per 100k
+            age_distribution: dataframe - proportions by age
+        """
+        # Extract infection data from InfectedStrainStats analyzer
+        infected_analyzer = None
+        for analyzer in sim.analyzers.values():
+            if type(analyzer).__name__ == 'InfectedStrainStats':
+                infected_analyzer = analyzer
+                break
+
+        if infected_analyzer is None:
+            raise ValueError("InfectedStrainStats analyzer not found in simulation. Please add it to the sim.analyzers list.")
+
+        # Get the infection events dataframe
+        df = infected_analyzer.to_df()
+
+        # Check if severity column exists (required for severity-based reporting)
+        if 'severity' not in df.columns:
+            raise ValueError("'severity' column not found in infection data. Make sure you're using the updated InfectedStrainStats analyzer.")
+
+        # Apply severity-based reporting if reporting_rate is specified
+        if hasattr(sim, '_reporting_rate') and sim._reporting_rate is not None:
+            reporting_rate = sim._reporting_rate
+            # Use the calculate_reported_cases function to filter based on severity
+            df = calculate_reported_cases(df, reporting_rate)
+
+        # Process the (filtered) data using the process_incidence module
+        # Returns (overall_incidence, age_distribution)
+        overall_incidence, age_distribution = process_incidence_uk.process_model(df)
+
+        return overall_incidence, age_distribution
 
 calib = UKCalibration(
     sim=sim,

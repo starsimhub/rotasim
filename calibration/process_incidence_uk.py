@@ -165,15 +165,25 @@ def process_model(dat=None, popsize=None, verbose=False):
     # Get an average to calibrate to average pre-vaccine period
     Inci_dist = AgeIncidence.groupby('AgeCat').agg(meanIR=('IR_100k', 'mean')).reset_index()
 
-    # Standardize data format
+    # Standardize data format - ensure ALL 4 age categories are present
     age_mapping = {
         '<1 y': 0,
         '1-2 y': 1,
         '2-5 y': 2,
         '>=5 y': 5,
     }
-    ages = Inci_dist['AgeCat'].replace(age_mapping)
-    df = sc.dataframe(dict(ages=ages, inci=Inci_dist['meanIR']))
+
+    # Create a complete dataframe with all 4 age categories (initialized to zero)
+    expected_ages = [0, 1, 2, 5]
+    expected_age_cats = ['<1 y', '1-2 y', '2-5 y', '>=5 y']
+    df = pd.DataFrame({'ages': expected_ages, 'inci': [0.0, 0.0, 0.0, 0.0]})
+
+    # Fill in actual incidence values where data exists
+    for idx, age_cat in enumerate(expected_age_cats):
+        if age_cat in Inci_dist['AgeCat'].values:
+            actual_inci = Inci_dist[Inci_dist['AgeCat'] == age_cat]['meanIR'].values[0]
+            df.loc[idx, 'inci'] = actual_inci
+
     df = df.sort_values(by='ages').reset_index(drop=True)
 
     # Calculate population-weighted overall incidence

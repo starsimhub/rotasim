@@ -465,3 +465,97 @@ class RotaVaccination(ss.Intervention):
 
 # Legacy alias for backward compatibility
 RotaVax = RotaVaccination
+
+
+class InitializeChildImmunity(ss.Intervention):
+    """
+    Initialize young children with prior infection history at simulation start.
+
+    This intervention sets the infection count for children under a specified age
+    to reflect realistic pre-existing immunity. This is important for calibration
+    because it ensures young children start with some infection history, which
+    affects severity-based reporting rates.
+
+    Args:
+        max_age_years (float): Maximum age in years for initialization (default: 3.0 = 36 months)
+        min_infections (int): Minimum number of prior infections to assign (default: 1)
+        max_infections (int): Maximum number of prior infections to assign (default: 1)
+        verbose (bool): Print initialization details (default: False)
+
+    Examples:
+        # Initialize all children <36 months with 1 prior infection
+        init_immunity = InitializeChildImmunity(max_age_years=3.0, min_infections=1)
+
+        # Initialize all children <24 months with 1-2 prior infections
+        init_immunity = InitializeChildImmunity(
+            max_age_years=2.0,
+            min_infections=1,
+            max_infections=2
+        )
+    """
+
+    def __init__(self, max_age_years=3.0, min_infections=1, max_infections=1, verbose=False, **kwargs):
+        super().__init__(**kwargs)
+        self.max_age_years = max_age_years
+        self.min_infections = min_infections
+        self.max_infections = max_infections
+        self.verbose = verbose
+        self._initialized = False
+
+    def step(self):
+        """Starsim requires all interventions to have a step method"""
+        pass
+
+    def apply(self, sim):
+        """Initialize infection counts for young children at t=0"""
+        # Only run once at initialization
+        if self._initialized or sim.ti != 0:
+            return
+
+        # Get all Rotavirus disease instances
+        rota_diseases = [d for d in sim.diseases.values() if isinstance(d, Rotavirus)]
+
+        if len(rota_diseases) == 0:
+            if self.verbose:
+                print("InitializeChildImmunity: No Rotavirus diseases found, skipping")
+            self._initialized = True
+            return
+
+        # Find children under max_age_years
+        ages_years = sim.people.age.values
+        child_mask = ages_years < self.max_age_years
+        child_uids = np.where(child_mask)[0]
+
+        if len(child_uids) == 0:
+            if self.verbose:
+                print(f"InitializeChildImmunity: No children <{self.max_age_years} years found")
+            self._initialized = True
+            return
+
+        # Set infection counts for each child
+        # For simplicity, use the first disease's n_infections state
+        # (all diseases share the same n_infections counter per person)
+        disease = rota_diseases[0]
+
+        for uid in child_uids:
+            # Assign random number of prior infections between min and max
+            if self.min_infections == self.max_infections:
+                n_prior = self.min_infections
+            else:
+                n_prior = np.random.randint(self.min_infections, self.max_infections + 1)
+
+            # Set the infection count
+            disease.n_infections[uid] = n_prior
+
+        # Report what was done
+        if self.verbose:
+            print(f"\nInitializeChildImmunity:")
+            print(f"  Initialized {len(child_uids)} children <{self.max_age_years} years")
+            print(f"  Prior infections: {self.min_infections}-{self.max_infections}")
+            if self.min_infections == self.max_infections:
+                print(f"  All children assigned {self.min_infections} prior infection(s)")
+            else:
+                mean_prior = disease.n_infections[child_uids].mean()
+                print(f"  Mean prior infections: {mean_prior:.2f}")
+
+        self._initialized = True
