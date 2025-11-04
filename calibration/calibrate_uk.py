@@ -13,6 +13,7 @@ import numpy as np
 import sciris as sc
 import starsim as ss
 import rotasim as rs
+import matplotlib.pyplot as plt
 
 thisdir = sc.thispath(__file__)
 from calibration import Calibration
@@ -183,6 +184,29 @@ def seed_infections_by_age(sim, overall_prevalence=0.002):
             actual_prop = mask.sum() / len(infected_agents)
             print(f"  {low}-{high}y: {actual_prop*100:.1f}% (target: {target_prop*100:.1f}%)")
 
+
+def extract_age_specific_population_counts(sim):
+    """
+    Extract actual age-specific population counts from simulation
+
+    Returns dict with age category keys and population count values:
+        {'<1 y': count, '1-2 y': count, '2-5 y': count, '>=5 y': count}
+    """
+    import numpy as np
+
+    # Get ages in years from sim.people.age (use .values for alive agents)
+    ages_years = sim.people.age.values
+
+    # Count agents in each age category matching process_incidence_uk categories
+    age_counts = {
+        '<1 y': int(((ages_years >= 0) & (ages_years < 1)).sum()),
+        '1-2 y': int(((ages_years >= 1) & (ages_years < 2)).sum()),
+        '2-5 y': int(((ages_years >= 2) & (ages_years < 5)).sum()),
+        '>=5 y': int((ages_years >= 5).sum()),
+    }
+
+    return age_counts
+
 # Create sim with UK demographics
 # Start 5 years before calibration period to allow for burn-in (2003-2007)
 # Calibration period: 2008-2012 (years 5-9 in simulation time)
@@ -213,13 +237,13 @@ print(age_distribution)
 # Calibration parameters - use same cross-protection approach as Bangladesh
 # UPDATED: Tighter parameter ranges to prevent corner solutions
 calib_pars = sc.objdict(
-    reporting_rate=[0.05, 0.01, 0.5],  # Fixed: best=0.05, low=0.01, high=0.5
+    reporting_rate=[0.05, 0.001, 0.5],  # Fixed: best=0.05, low=0.01, high=0.5
     homotypic_immunity_efficacy=[0.5, 0.1, 0.9],
-    partial_heterotypic_immunity_efficacy=[0.2, 0.0, 0.5],
-    complete_heterotypic_immunity_efficacy=[0.1, 0.0, 0.3],
-    base_beta=[0.16, 0.08, 0.30],  # Base transmission rate - MIN raised from 0.05 to 0.08 to prevent unrealistically low transmission
+    partial_heterotypic_immunity_efficacy=[0.2, 0.2, 0.2],
+    complete_heterotypic_immunity_efficacy=[0.1, 0.1, 0.1],
+    base_beta=[0.16, 0.04, 0.5],  # Base transmission rate - MIN raised from 0.05 to 0.08 to prevent unrealistically low transmission
     maternal_immunity_efficacy=[0.0, 0.0, 0.0],  # Keep at 0
-    adult_baseline_immunity=[0.95, 0.90, 0.98],  # Cumulative immunity from childhood infections - MAX lowered from 0.99 to 0.98 to allow some adult susceptibility
+    adult_baseline_immunity=[0.95, 0.8, 1.0],  # Cumulative immunity from childhood infections - MAX lowered from 0.99 to 0.98 to allow some adult susceptibility
 )
 
 print("\nCalibration parameters:")
@@ -242,7 +266,7 @@ class UKCalibration(Calibration):
 
         # Extract adult_baseline_immunity from sim_pars (actual trial values)
         # This parameter is handled manually during initialization, not a sim parameter
-        adult_baseline_immunity = 0.95  # Default
+        adult_baseline_immunity = 0.95  # Default, check this
         if sim_pars is not None and 'adult_baseline_immunity' in sim_pars:
             adult_baseline_immunity = float(sim_pars.pop('adult_baseline_immunity'))
 
@@ -304,9 +328,12 @@ class UKCalibration(Calibration):
             # Use the calculate_reported_cases function to filter based on severity
             df = calculate_reported_cases(df, reporting_rate)
 
+        # Extract actual age-specific population counts from sim
+        age_counts = extract_age_specific_population_counts(sim)
+
         # Process the (filtered) data using the process_incidence module
         # Returns (overall_incidence, age_distribution)
-        overall_incidence, age_distribution = process_incidence_uk.process_model(df)
+        overall_incidence, age_distribution = process_incidence_uk.process_model(df, age_counts=age_counts)
 
         return overall_incidence, age_distribution
 
@@ -388,3 +415,72 @@ else:
     print("\n⚠ Model fit could be improved further")
 
 print("\n✓ UK calibration complete!")
+
+# Create figure summarizing goodness of fit
+print("\n" + "="*60)
+print("Creating goodness of fit figure...")
+print("="*60)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+# Left panel: Age distribution comparison
+ax1 = axes[0]
+age_labels_map = {0: '0-11mo', 1: '12-23mo', 2: '24-59mo', 5: '5+yr'}
+x_positions = np.arange(len(age_distribution))
+
+target_props = age_distribution.proportion.values * 100
+before_props = calib.before_age_distribution.proportion.values * 100
+after_props = calib.after_age_distribution.proportion.values * 100
+
+width = 0.25
+ax1.bar(x_positions - width, target_props, width, label='Target', color='black', alpha=0.7)
+ax1.bar(x_positions, before_props, width, label='Before', color='lightcoral', alpha=0.7)
+ax1.bar(x_positions + width, after_props, width, label='After', color='steelblue', alpha=0.7)
+
+ax1.set_xlabel('Age Group', fontsize=12)
+ax1.set_ylabel('Proportion (%)', fontsize=12)
+ax1.set_title('Age Distribution of Cases', fontsize=14, fontweight='bold')
+ax1.set_xticks(x_positions)
+ax1.set_xticklabels([age_labels_map[age] for age in age_distribution.ages.values])
+ax1.legend()
+ax1.grid(axis='y', alpha=0.3)
+
+# Add GOF text
+ax1.text(0.02, 0.98, f'GOF Before: {calib.before_age_gof:.3f}\nGOF After: {calib.after_age_gof:.3f}',
+         transform=ax1.transAxes, verticalalignment='top',
+         bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+# Right panel: Overall incidence comparison
+ax2 = axes[1]
+categories = ['Target', 'Before\nCalibration', 'After\nCalibration']
+incidences = [overall_incidence, calib.before_overall_incidence, calib.after_overall_incidence]
+colors = ['black', 'lightcoral', 'steelblue']
+
+bars = ax2.bar(categories, incidences, color=colors, alpha=0.7)
+ax2.set_ylabel('Incidence (per 100k)', fontsize=12)
+ax2.set_title('Overall Incidence', fontsize=14, fontweight='bold')
+ax2.grid(axis='y', alpha=0.3)
+
+# Add value labels on bars
+for bar, val in zip(bars, incidences):
+    height = bar.get_height()
+    ax2.text(bar.get_x() + bar.get_width()/2., height,
+            f'{val:.1f}',
+            ha='center', va='bottom', fontsize=10)
+
+# Add error percentage text
+ax2.text(0.02, 0.98, f'Error Before: {err_before_inci:+.1f}%\nError After: {err_after_inci:+.1f}%',
+         transform=ax2.transAxes, verticalalignment='top',
+         bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+plt.suptitle('UK Calibration Goodness of Fit Summary (2008-2012)',
+             fontsize=16, fontweight='bold', y=1.00)
+plt.tight_layout()
+
+# Save figure
+fig_path = thisdir / 'uk_calibration_fit.png'
+plt.savefig(fig_path, dpi=150, bbox_inches='tight')
+print(f"\n✓ Figure saved to: {fig_path}")
+plt.close()
+
+print("="*60)
