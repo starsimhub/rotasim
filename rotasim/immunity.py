@@ -458,12 +458,25 @@ class RotaImmunityConnector(ss.Connector):
                 self.exposed_GP_bitmask[eligible_uids] = self.exposed_GP_bitmask[eligible_uids] | GP_bit
 
 
-        # Set permanent baseline immunity for adults (doesn't decay over time)
-        # This represents cumulative immunity from repeated childhood exposures
-        self.baseline_immunity[eligible_uids] = self.pars.adult_baseline_immunity
+        # Calculate baseline immunity based on number of prior exposures
+        # Each exposure provides incremental immunity (like acquired immunity but permanent)
+        # Use homotypic efficacy as the per-exposure protection (cumulative effect)
+        for uid in eligible_uids:
+            num_exp = self.num_recovered_infections[uid]
+            # Cumulative protection: each exposure adds homotypic_immunity_efficacy
+            # Capped at adult_baseline_immunity as the maximum achievable protection
+            cumulative_protection = min(
+                self.pars.adult_baseline_immunity,
+                num_exp * self.pars.homotypic_immunity_efficacy
+            )
+            self.baseline_immunity[uid] = cumulative_protection
 
         if self.sim.pars.verbose:
             print(f"\n✓ Initialized {n_uids} agents with baseline immunity:")
             print(f"  Prior infections: {min_exposures}-{max_exposures}")
             print(f"  Cumulative protection: {self.pars.adult_baseline_immunity * 100:.1f}% (from repeated prior exposures)")
             print(f"  Note: This baseline doesn't wane - new infections add temporary immunity on top")
+
+        # Update rel_sus immediately after setting baseline_immunity
+        # This ensures immunity is applied before the simulation starts
+        self._calculate_disease_susceptibilities()
