@@ -592,5 +592,431 @@ class InfectedStrainStats(ss.Analyzer):
 StrainStatistics = StrainStats  # In case v1 scripts use different name
 
 
+class UidTracker(ss.Analyzer):
+    """
+    Analyzer to track disease state values over time for specific UIDs
+    
+    This analyzer tracks various disease state variables (like rel_sus, rel_trans, etc.)
+    for specified agents across all Rotavirus strains over time. Useful for detailed 
+    analysis of immunity patterns and disease dynamics for specific individuals or groups.
+    
+    Example usage:
+        # Track specific UIDs
+        tracker = UidTracker(uids=[0, 10, 20, 100], track_fields=['rel_sus'])
+        
+        # Track age-based sample (select UIDs after sim.init())
+        sim = Sim(n_agents=10000)
+        sim.init()
+        children_uids = np.where(sim.people.age < 5)[0][:50]  # First 50 children under 5
+        tracker = UidTracker(uids=children_uids, track_fields=['rel_sus', 'rel_trans'])
+        
+        sim.analyzers = [tracker]
+        sim.run()
+        
+        # Access data for analysis
+        df = tracker.to_df()
+        rel_sus_matrix = tracker.get_field_matrix('G1P8', 'rel_sus')  # Shape: (timesteps, uids)
+    """
+    
+    def __init__(self, uids=None, track_fields=None, **kwargs):
+        """
+        Initialize UID-specific state tracker
+        
+        Args:
+            uids (int, list, or array): UID(s) to track. Can be:
+                - Single int: track one agent
+                - List/array of ints: track multiple specific agents
+                - None: will need to be set later via set_uids()
+            track_fields (list): List of disease state fields to track (default: ['rel_sus'])
+                Common options: 'rel_sus', 'rel_trans', 'infected', 'susceptible', 'recovered'
+            **kwargs: Additional analyzer parameters
+        """
+        super().__init__(**kwargs)
+        
+        # Store UIDs to track
+        if uids is None:
+            self.track_uids = []
+        elif isinstance(uids, (int, np.integer)):
+            self.track_uids = [int(uids)]
+        else:
+            self.track_uids = [int(uid) for uid in uids]
+        
+        # Store fields to track
+        if track_fields is None:
+            self.track_fields = ['rel_sus']
+        elif isinstance(track_fields, str):
+            self.track_fields = [track_fields]
+        else:
+            self.track_fields = list(track_fields)
+        
+        # Will be populated during init_results
+        self.rotavirus_diseases = []
+        self.strain_names = []
+        
+
+    def init_results(self):
+        """Initialize results storage - auto-detect Rotavirus diseases and create UID-specific results"""
+        super().init_results()
+        
+        if len(self.track_uids) == 0:
+            if self.sim.pars.verbose:
+                print("Warning: UidTracker has no UIDs to track.")
+            return
+        
+        # # Validate UIDs
+        # max_uid = len(self.sim.people) - 1
+        # valid_uids = [uid for uid in self.track_uids if 0 <= uid <= max_uid]
+        # invalid_uids = [uid for uid in self.track_uids if uid < 0 or uid > max_uid]
+        #
+        # if invalid_uids:
+        #     print(f"Warning: Invalid UIDs removed: {invalid_uids} (population size: {len(self.sim.people)})")
+        #
+        # self.track_uids = valid_uids
+        if len(self.track_uids) == 0:
+            print("Warning: No valid UIDs to track after validation")
+            return
+
+        # Find all Rotavirus disease instances
+        self.rotavirus_diseases = []
+        self.strain_names = []
+        
+        for disease in self.sim.diseases.values():
+            if hasattr(disease, "G") and hasattr(disease, "P"):
+                self.rotavirus_diseases.append(disease)
+                strain_name = f"G{disease.G}P{disease.P}"
+                self.strain_names.append(strain_name)
+        
+        if len(self.rotavirus_diseases) == 0:
+            if self.sim.pars.verbose:
+                print("Warning: UidTracker found no Rotavirus diseases")
+            return
+            
+        if self.sim.pars.verbose:
+            print(f"UidTracker: Tracking {len(self.track_uids)} UIDs across {len(self.rotavirus_diseases)} strains")
+            print(f"  UIDs: {self.track_uids[:10]}{'...' if len(self.track_uids) > 10 else ''}")
+            print(f"  Strains: {self.strain_names}")
+            print(f"  Fields: {self.track_fields}")
+            
+        # Create results for each strain-UID-field combination
+        for strain_name in self.strain_names:
+            for field_name in self.track_fields:
+                for uid in self.track_uids:
+                    result_name = f"{strain_name}_uid_{uid}_{field_name}"
+                    self.results += ss.Result(
+                        result_name,
+                        dtype=float,
+                        scale=False,
+                        module="uidtracker",
+                        shape=self.timevec.shape,
+                        timevec=self.timevec,
+                    )
+
+    def step(self):
+        """Collect state values for tracked UIDs at each timestep"""
+        if len(self.rotavirus_diseases) == 0 or len(self.track_uids) == 0:
+            return
+            
+        # Collect data for each strain, field, and tracked UID
+        for disease, strain_name in zip(self.rotavirus_diseases, self.strain_names):
+            for field_name in self.track_fields:
+                # Check if field exists on disease
+                if not hasattr(disease, field_name):
+                    continue  # Skip missing fields
+                    
+                field_data = getattr(disease, field_name)
+
+                for uid in self.track_uids:
+                    result_name = f"{strain_name}_uid_{uid}_{field_name}"
+                    self.results[result_name][self.sim.ti] = field_data[uid]
+
+    def get_field_matrix(self, strain_name, field_name):
+        """
+        Get field values as a matrix for specified strain and field
+        
+        Args:
+            strain_name (str): Strain name (e.g., 'G1P8')
+            field_name (str): Field name (e.g., 'rel_sus')
+            
+        Returns:
+            numpy.ndarray: Matrix of shape (n_timesteps, n_uids) with field values
+        """
+        if strain_name not in self.strain_names:
+            raise ValueError(f"Strain {strain_name} not found. Available: {self.strain_names}")
+        
+        if field_name not in self.track_fields:
+            raise ValueError(f"Field {field_name} not tracked. Available: {self.track_fields}")
+            
+        if len(self.track_uids) == 0:
+            return np.array([])
+            
+        # Collect data for all UIDs
+        n_timesteps = len(self.timevec)
+        n_uids = len(self.track_uids)
+        matrix = np.zeros((n_timesteps, n_uids))
+        
+        for uid_idx, uid in enumerate(self.track_uids):
+            result_name = f"{strain_name}_uid_{uid}_{field_name}"
+            if result_name in self.results:
+                matrix[:, uid_idx] = self.results[result_name].values
+                
+        return matrix
+    
+    def get_uid_ages(self):
+        """
+        Get ages of tracked UIDs
+        
+        Returns:
+            numpy.ndarray: Ages of tracked UIDs in years
+        """
+        if not hasattr(self.sim, 'people') or len(self.track_uids) == 0:
+            return np.array([])
+            
+        ages = []
+        for uid in self.track_uids:
+            if uid < len(self.sim.people.age):
+                ages.append(self.sim.people.age[uid])
+            else:
+                ages.append(0.0)  # Default age for invalid UID
+                
+        return np.array(ages)
+    
+    def to_df(self):
+        """Convert results to dataframe"""
+        df = self.results.to_df()
+        
+        if df is None:
+            return None
+            
+        # Remove duplicate timevec columns
+        indexes_to_drop = df.columns.get_indexer_for(["timevec"])
+        if len(indexes_to_drop) > 1:
+            df.drop(columns=df.columns[indexes_to_drop[1:]], inplace=True)
+            
+        return df
+
+    def plot_field_heatmap(self, strain_name, field_name='rel_sus', max_age=10, 
+                          age_bin_years=1, figsize=(12, 8), cmap='viridis_r', 
+                          save_path=None, use_age_bins=None):
+        """
+        Generate heat map visualization of tracked field for specified strain
+        
+        This function creates a heat map showing how the tracked field varies
+        over time. When UidTracker data is available, it shows individual UIDs on the x-axis
+        with their ages in labels. Otherwise, it falls back to age bins for aggregated data.
+        
+        Args:
+            strain_name (str): Name of strain to plot (e.g., 'G1P8')
+            field_name (str): Name of field to plot (must be in track_fields)
+            max_age (float): Maximum age in years to include (default: 10) - only used for fallback modes
+            age_bin_years (float): Age bin size in years (default: 1) - only used for fallback modes  
+            figsize (tuple): Figure size (width, height)
+            cmap (str): Colormap for heat map (default: 'viridis_r' - dark=high values)
+            save_path (str, optional): Path to save figure
+            use_age_bins (bool, optional): Force use of age bins even with UidTracker data (default: None=auto)
+            
+        Returns:
+            fig, ax: Matplotlib figure and axis objects
+            
+        Example:
+            # After running simulation with UidTracker
+            uid_tracker = sim.analyzers['uidtracker'] 
+            fig, ax = uid_tracker.plot_field_heatmap('G1P8', 'rel_sus')
+            plt.show()
+        """
+        import matplotlib.pyplot as plt
+        
+        # Validate inputs
+        if field_name not in self.track_fields:
+            raise ValueError(f"Field {field_name} not tracked. Available: {self.track_fields}")
+        
+        if strain_name not in self.strain_names:
+            raise ValueError(f"Strain {strain_name} not found. Available: {self.strain_names}")
+        
+        # Find the specified strain disease for fallback mode
+        strain_disease = None
+        for disease in self.sim.diseases.values():
+            if hasattr(disease, "G") and hasattr(disease, "P"):
+                if f"G{disease.G}P{disease.P}" == strain_name:
+                    strain_disease = disease
+                    break
+        
+        if strain_disease is None:
+            raise ValueError(f"Strain {strain_name} not found in simulation diseases")
+        
+        # Get field data from UidTracker
+        field_data = None
+        uid_ages = None
+        tracked_uids = None
+        data_source = "unknown"
+        use_uid_mode = False
+        
+        if len(self.track_uids) > 0 and use_age_bins != True:
+            try:
+                field_matrix = self.get_field_matrix(strain_name, field_name)
+                if field_matrix.size > 0:
+                    field_data = field_matrix  # Shape: (timesteps, uids)
+                    uid_ages = self.get_uid_ages()
+                    tracked_uids = self.track_uids
+                    data_source = "UidTracker"
+                    use_uid_mode = True
+                    n_timesteps, n_agents = field_data.shape
+                    print(f"Using UidTracker {field_name} data: {n_timesteps} timesteps, {n_agents} tracked UIDs")
+            except (ValueError, KeyError) as e:
+                print(f"Could not access UidTracker data: {e}")
+        
+        # Fallback: use current state snapshot from strain disease
+        if field_data is None:
+            print(f"No time series {field_name} data found. Using current state snapshot.")
+            if not hasattr(strain_disease, field_name):
+                raise ValueError(f"No {field_name} data available for strain {strain_name}")
+            
+            # Create single timepoint data from current state
+            current_field_data = getattr(strain_disease, field_name)
+            if hasattr(current_field_data, 'values'):
+                current_values = current_field_data.values  # Get numpy array of current values
+            else:
+                current_values = np.array([current_field_data])  # Scalar case
+                
+            field_data = current_values.reshape(1, -1)  # Shape: (1, n_agents)
+            uid_ages = self.sim.people.age.values  # All agent ages
+            data_source = "current state snapshot"
+            n_timesteps, n_agents = field_data.shape
+            print(f"Using current state snapshot: {n_agents} agents")
+        
+        # Create the plot
+        fig, ax = plt.subplots(figsize=figsize)
+        
+        if use_uid_mode:
+            # Transpose data: (timesteps, uids) -> (uids, timesteps)
+            # Display with time steps on x-axis, UIDs on y-axis
+            heatmap_data = field_data.T  # Transpose to get (uids, timesteps)
+            n_uids, n_timesteps = heatmap_data.shape
+            
+            # Determine appropriate vmin/vmax for the field
+            vmin, vmax = 0, 1
+            if field_name != 'rel_sus':
+                # For other fields, use data range
+                data_min, data_max = np.nanmin(heatmap_data), np.nanmax(heatmap_data)
+                if not np.isnan(data_min) and not np.isnan(data_max):
+                    vmin, vmax = data_min, data_max
+            
+            # Create heat map with time steps on x-axis, UIDs on y-axis
+            im = ax.imshow(heatmap_data, aspect='auto', cmap=cmap, origin='lower',
+                           vmin=vmin, vmax=vmax, interpolation='nearest')
+            
+            # Set axis labels
+            ax.set_xlabel('Time Step', fontsize=12)
+            ax.set_ylabel('Agent (UID : Age)', fontsize=12)
+            title_suffix = f" ({n_timesteps} timesteps, {n_uids} UIDs)"
+            ax.set_title(f'{field_name.replace("_", " ").title()} Heat Map - {strain_name}{title_suffix}',
+                        fontsize=14, fontweight='bold')
+            
+            # Set x-tick labels (time steps)
+            if n_timesteps > 1:
+                x_tick_positions = np.arange(0, n_timesteps, max(1, n_timesteps//10))  # Show ~10 ticks
+                ax.set_xticks(x_tick_positions)
+                ax.set_xticklabels([f'{t}' for t in x_tick_positions])
+            else:
+                ax.set_xticks([0])
+                ax.set_xticklabels(['Final'])
+            
+            # Set y-tick labels to show UID and age
+            y_tick_positions = np.arange(n_uids)
+            if n_uids <= 20:
+                # Show all UIDs if not too many
+                y_tick_labels = [f'{uid}:{age:.1f}' for uid, age in zip(tracked_uids, uid_ages)]
+                ax.set_yticks(y_tick_positions)
+                ax.set_yticklabels(y_tick_labels)
+            else:
+                # Show subset of UIDs if too many
+                tick_step = max(1, n_uids // 15)  # Show ~15 ticks max
+                show_positions = y_tick_positions[::tick_step]
+                show_labels = [f'{tracked_uids[i]}:{uid_ages[i]:.1f}' for i in show_positions]
+                ax.set_yticks(show_positions)
+                ax.set_yticklabels(show_labels)
+                
+        else:
+            # Use age bins (fallback behavior)
+            age_bins = np.arange(0, max_age + age_bin_years, age_bin_years)
+            n_age_bins = len(age_bins) - 1
+            
+            # Initialize heat map matrix: rows=age bins, cols=time points
+            n_timesteps = field_data.shape[0]
+            heatmap_data = np.full((n_age_bins, n_timesteps), np.nan)
+            
+            # For each timestep, bin agents by age and calculate mean field value
+            for t in range(n_timesteps):
+                # Calculate current ages (assumes timestep = 1 year for aging, adjust if needed)
+                dt_years = 1.0 if n_timesteps > 1 else 0.0
+                current_ages = uid_ages + (t * dt_years)
+                
+                # Get field values for this timestep
+                field_t = field_data[t, :]
+                
+                # Bin by age and calculate mean field value for each age bin
+                for i in range(n_age_bins):
+                    age_mask = (current_ages >= age_bins[i]) & (current_ages < age_bins[i+1])
+                    if np.any(age_mask):
+                        heatmap_data[i, t] = np.mean(field_t[age_mask])
+            
+            # Determine appropriate vmin/vmax for the field
+            vmin, vmax = 0, 1
+            if field_name != 'rel_sus':
+                # For other fields, use data range
+                data_min, data_max = np.nanmin(heatmap_data), np.nanmax(heatmap_data)
+                if not np.isnan(data_min) and not np.isnan(data_max):
+                    vmin, vmax = data_min, data_max
+            
+            # Create heat map (flip y-axis so age 0 is at bottom)
+            im = ax.imshow(heatmap_data, aspect='auto', cmap=cmap, origin='lower',
+                           vmin=vmin, vmax=vmax, interpolation='nearest')
+            
+            # Set axis labels and ticks
+            ax.set_xlabel('Time Step', fontsize=12)
+            ax.set_ylabel('Age (years)', fontsize=12)
+            title_suffix = f" (snapshot)" if n_timesteps == 1 else f" ({n_timesteps} timesteps)"
+            ax.set_title(f'{field_name.replace("_", " ").title()} Heat Map - {strain_name}{title_suffix}',
+                        fontsize=14, fontweight='bold')
+            
+            # Set y-tick labels to show age ranges
+            y_tick_positions = np.arange(n_age_bins)
+            y_tick_labels = [f'{age_bins[i]:.0f}-{age_bins[i+1]:.0f}' for i in range(n_age_bins)]
+            ax.set_yticks(y_tick_positions)
+            ax.set_yticklabels(y_tick_labels)
+            
+            # Set x-tick labels
+            if n_timesteps > 1:
+                x_tick_positions = np.arange(0, n_timesteps, max(1, n_timesteps//10))  # Show ~10 ticks
+                ax.set_xticks(x_tick_positions)
+                ax.set_xticklabels([f'{t}' for t in x_tick_positions])
+            else:
+                # Single timepoint
+                ax.set_xticks([0])
+                ax.set_xticklabels(['Final'])
+        
+        # Add colorbar
+        cbar = plt.colorbar(im, ax=ax, shrink=0.8)
+        cbar.set_label(field_name.replace('_', ' ').title(), fontsize=12)
+        cbar.ax.tick_params(labelsize=10)
+        
+        # Add grid for better readability
+        ax.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
+        
+        # Add data source annotation
+        mode_info = " (UID mode)" if use_uid_mode else " (age bin mode)"
+        ax.text(0.02, 0.98, f'Data source: {data_source}{mode_info}', transform=ax.transAxes, 
+                fontsize=9, verticalalignment='top', alpha=0.7)
+        
+        # Tight layout
+        plt.tight_layout()
+        
+        # Save if requested
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"Heat map saved to: {save_path}")
+        
+        return fig, ax
+
+
 # Make importable from package root
-__all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats", "InfectedStrainStats"]
+__all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats", "InfectedStrainStats", "UidTracker"]

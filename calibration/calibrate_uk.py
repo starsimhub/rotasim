@@ -15,6 +15,8 @@ import starsim as ss
 import rotasim as rs
 import matplotlib.pyplot as plt
 
+import matplotlib.pyplot as plt
+
 thisdir = sc.thispath(__file__)
 from calibration import Calibration
 process_incidence_uk = sc.importbypath(thisdir / 'process_incidence_uk.py')
