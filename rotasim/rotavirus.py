@@ -86,16 +86,6 @@ class Rotavirus(ss.Infection):
         """
         super().init_post()
 
-        # For agents who are initially infected, increment their n_infections counter
-        # and notify the immunity connector
-        initially_infected = self.infected.uids
-        if len(initially_infected) > 0:
-            self.n_infections[initially_infected] += 1
-
-            # Notify immunity connector about initial infections
-            immunity_connector = self.sim.get_connector_by_type("RotaImmunityConnector")
-            if immunity_connector:
-                immunity_connector.record_infection(self, initially_infected)
 
     def set_prognoses(self, uids, sources=None):
         """

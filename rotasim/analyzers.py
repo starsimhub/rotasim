@@ -491,12 +491,7 @@ class InfectedStrainStats(ss.Analyzer):
             return
 
         # Get current time in years (convert from days if needed)
-        current_time = self.sim.ti * self.sim.pars.dt
-        # Convert to years if dt is in days
-        if hasattr(self.sim.pars.dt, 'days'):
-            current_time_years = current_time / 365.25
-        else:
-            current_time_years = current_time
+        current_time_years = self.sim.t.relvec[self.sim.ti].years
 
         # Get current population size
         pop_size = len(self.sim.people)
@@ -504,7 +499,7 @@ class InfectedStrainStats(ss.Analyzer):
         # Check each disease for new infections
         for disease in self._rotavirus_diseases:
             # Get currently infected agents
-            currently_infected = set(np.where(disease.infected[:])[0])
+            currently_infected = disease.infected.uids
 
             # Find new infections (in current but not in previous)
             new_infections = currently_infected - self._prev_infected[disease.name]
@@ -524,9 +519,7 @@ class InfectedStrainStats(ss.Analyzer):
                     strain_name = f"G{disease.G}P{disease.P}A1B1"
 
                 # Get infection number for this agent
-                # NOTE: n_infections tracks PRIOR infections, so add 1 for CURRENT infection
-                n_prior = int(disease.n_infections[agent_id])
-                n_current = n_prior + 1  # This is the 1st, 2nd, 3rd, or 4+ infection
+                n_current = int(disease.n_infections[agent_id])
 
                 # Calculate severity probability based on current infection number
                 # Tracking 1st, 2nd, 3rd, and 4+ infections

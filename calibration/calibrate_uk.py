@@ -32,45 +32,6 @@ print("  Target age distribution: [1.26%, 1.27%, 3.66%, 93.81%]")
 print("  Follow-up: 5 years (2008-2012)")
 print("="*60)
 
-# Helper function to initialize UK age distribution
-def initialize_uk_ages(sim):
-    """Initialize population with UK age distribution"""
-    import numpy as np
-    n = len(sim.people)
-
-    # UK age distribution (from calibration targets)
-    age_bins = [
-        (0, 1, 0.0126),    # <1 year: 1.26%
-        (1, 2, 0.0127),    # 1-2 years: 1.27%
-        (2, 5, 0.0366),    # 2-5 years: 3.66%
-        (5, 80, 0.9381),   # 5+ years: 93.81%
-    ]
-
-    # Sample ages from distribution
-    ages_years = []
-    for low, high, prop in age_bins:
-        n_in_bin = int(n * prop)
-        # Use realistic distribution for adults
-        if low >= 5:
-            bin_ages = np.random.beta(2, 2, n_in_bin) * (high - low) + low
-        else:
-            bin_ages = np.random.uniform(low, high, n_in_bin)
-        ages_years.extend(bin_ages)
-
-    # Handle rounding
-    while len(ages_years) < n:
-        ages_years.append(np.random.beta(2, 2) * 75 + 5)
-
-    ages_years = np.array(ages_years[:n])
-
-    # Set ages (starsim uses years directly)
-    sim.people.age[:] = ages_years
-
-    if sim.pars.verbose:
-        print(f"Initialized UK age distribution:")
-        print(f"  Age range: {ages_years.min():.1f} - {ages_years.max():.1f} years")
-        print(f"  Mean age: {ages_years.mean():.1f} years")
-
 def calculate_reported_cases(df, reporting_rate):
     """
     Calculate reported cases using severity-based reporting
@@ -84,6 +45,29 @@ def calculate_reported_cases(df, reporting_rate):
     reported_df = df[df['reported']].copy()
 
     return reported_df
+
+
+
+INFECTION_AGE_DIST = [
+    (0, 1, 0.138),  # <1 year: 13.8% of infections
+    (1, 2, 0.277),  # 1-2 years: 27.7% of infections
+    (2, 5, 0.469),  # 2-5 years: 46.9% of infections
+    (5, 200, 0.116),  # ≥5 years: 11.6% of infections
+]
+
+OVERALL_PREVALENCE = 0.01
+
+def init_prevalence_by_age(self, sim, uids):
+    p = np.zeros(len(uids))
+    total_pop = len(uids)
+    n_infections_expected = total_pop * OVERALL_PREVALENCE
+    for age_min, age_max, percent in INFECTION_AGE_DIST:
+        age_group_members = ((sim.people.age >= age_min) & (sim.people.age < age_max)).uids
+        age_group_pop = len(age_group_members)
+        n_infections_in_age_group = percent * n_infections_expected
+        p[age_group_members] = n_infections_in_age_group / age_group_pop
+        print(f" ({age_min}-{age_max}): percent of infections: {percent} / total infections: {n_infections_in_age_group} / age group size: {age_group_pop} / prob per agent in age group: {n_infections_in_age_group/age_group_pop}")
+    return p
 
 
 def seed_infections_by_age(sim, overall_prevalence=0.002):
@@ -212,6 +196,7 @@ def extract_age_specific_population_counts(sim):
 # Create sim with UK demographics
 # Start 5 years before calibration period to allow for burn-in (2003-2007)
 # Calibration period: 2008-2012 (years 5-9 in simulation time)
+people = ss.People(n_agents=5000, age_data='./uk_age_data.csv')
 sim = rs.Sim(
     n_agents=5000,
     start='2003-01-01',  # 5-year burn-in before 2008
@@ -219,9 +204,11 @@ sim = rs.Sim(
     verbose=False,
     scenario='single',
     base_beta=0.16,
-    override_prevalence=0.002,
-    analyzers=[rs.InfectedStrainStats()],
-    networks=rs.AgeAssortativeNet(n_contacts=7, assortativity=0.5),  # 50% contacts within same age group
+    override_prevalence=init_prevalence_by_age,
+    people=people,
+    analyzers=[rs.InfectedStrainStats(), rs.UidTracker([0, 1, 2, 100, 101, 102, 150, 151, 152, 250, 251, 252, 500, 501, 502, 1000, 1001, 1002], track_fields=['rel_sus', 'infected'])],
+    # networks=rs.AgeAssortativeNet(n_contacts=7, assortativity=0.5),  # 50% contacts within same age group
+    networks=ss.RandomNet(n_contacts=7),
     demographics=[
         ss.Births(birth_rate=ss.peryear(13)),  # UK birth rate
         ss.Deaths(death_rate=ss.peryear(6)),   # UK death rate (adjusted for immigration)
@@ -275,9 +262,6 @@ class UKCalibration(Calibration):
         # Update sim with new parameters (this already calls sim.init())
         sim = self.translate_pars(sim_pars=sim_pars)
 
-        # Initialize UK age distribution (people object already exists from init)
-        initialize_uk_ages(sim)
-
         # Initialize baseline immunity and exposure history
         # Baseline immunity represents cumulative immunity from repeated prior infections (~95%)
         # which is DISTINCT from homotypic_immunity_efficacy (single infection ~50%)
@@ -288,7 +272,7 @@ class UKCalibration(Calibration):
 
         # Seed infections according to epidemiologically realistic age distribution
         # (Instead of uniform random seeding which gives 94% to adults)
-        seed_infections_by_age(sim, overall_prevalence=0.002)
+        # seed_infections_by_age(sim, overall_prevalence=0.002)
 
         # Now run the full simulation
         sim.run()

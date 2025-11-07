@@ -314,19 +314,19 @@ class Sim(ss.Sim):
             )
             diseases.append(disease)
 
-            if strain_prevalence > 0:
-                active_count += 1
-                # Individual strain details (debug verbose)
-                if verbose > 1:
-                    print(
-                        f"    {disease.name}: beta={adjusted_beta:.3f} (x{strain_fitness:.2f}), prevalence={strain_prevalence} [ACTIVE]"
-                    )
-            else:
-                dormant_count += 1
-
-        # Summary (basic verbose)
-        if verbose:
-            print(f"  Created {active_count} active strains and {dormant_count} dormant reassortants")
+        #     if strain_prevalence > 0:
+        #         active_count += 1
+        #         # Individual strain details (debug verbose)
+        #         if verbose > 1:
+        #             print(
+        #                 f"    {disease.name}: beta={adjusted_beta:.3f} (x{strain_fitness:.2f}), prevalence={strain_prevalence} [ACTIVE]"
+        #             )
+        #     else:
+        #         dormant_count += 1
+        #
+        # # Summary (basic verbose)
+        # if verbose:
+        #     print(f"  Created {active_count} active strains and {dormant_count} dormant reassortants")
 
         return diseases
 
