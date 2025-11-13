@@ -5,6 +5,7 @@ Provides convenient functions for generating strain combinations and fitness sce
 
 # Standard library imports
 import itertools
+import starsim as ss
 
 # Unified scenario system - contains strains, fitness, and prevalence all in one place
 SCENARIOS = {
@@ -19,7 +20,14 @@ SCENARIOS = {
     "single": {
         "description": "Simple strain scenario for debugging - G1P8",
         "strains": {
-            (1, 8): {"fitness": 1.0, "prevalence": 0.02}
+            (1, 8): {
+                "beta": ss.perday(0.16),
+                "fitness": 1.0,
+                "init_prev": ss.bernoulli(p=0.04),
+                "dur_inf": ss.lognorm_ex(mean=13),
+                "waning_delay": ss.days(0),
+                "waning_rate_dist": ss.normal(loc=91, scale=14, unit="days")
+            },
         },
         "default_fitness": 1.0,
     },
@@ -268,16 +276,29 @@ def apply_scenario_overrides(scenario, override_fitness=None, override_prevalenc
 
     # Apply prevalence overrides
     if override_prevalence is not None:
-        if isinstance(override_prevalence, (int, float)):
+
+        # if prevalence is an int, convert it to float
+        if isinstance(override_prevalence, int):
+            override_prevalence = float(override_prevalence)
+
+        # if prevalence is a float or callable, assign it to all strains directly
+        if isinstance(override_prevalence, float) or callable(override_prevalence):
             # Apply to all strains
             for strain in result["strains"]:
-                result["strains"][strain]["prevalence"] = float(override_prevalence)
+                result["strains"][strain]["prevalence"] = override_prevalence
+
+        # if prevalence is a dict, it can contain ints, floats, or callables
         elif isinstance(override_prevalence, dict):
             # Apply to specific strains
             for strain, prevalence in override_prevalence.items():
                 if strain in result["strains"]:
-                    result["strains"][strain]["prevalence"] = float(prevalence)
+                    if isinstance(prevalence, float) or callable(prevalence):
+                        result["strains"][strain]["prevalence"] = prevalence
+                    elif isinstance(prevalence, int):
+                        result["strains"][strain]["prevalence"] = float(prevalence)
+                    else:
+                        raise ValueError(f"Prevalence in dict must be float, int, or callable, got {type(prevalence)}")
         else:
-            raise ValueError("override_prevalence must be number or dict")
+            raise ValueError("override_prevalence must be number, callable, or dict of numbers or callables")
 
     return result

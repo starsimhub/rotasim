@@ -104,6 +104,7 @@ class Calibration(sc.prettyobj):
         # Store calibration settings
         self.known_pars = ['reassortment_rate', 'base_beta', 'reporting_rate', 'maternal_immunity_efficacy', 'maternal_immunity_half_life',
                           'homotypic_immunity_efficacy', 'partial_heterotypic_immunity_efficacy', 'complete_heterotypic_immunity_efficacy',
+                          'baseline_immunity_exponential_rate',
                           'long_term_immunity_prob_after_1', 'long_term_immunity_prob_after_2', 'long_term_immunity_prob_after_3', 'long_term_immunity_prob_after_4']
 
         # Handle other inputs
@@ -168,6 +169,10 @@ class Calibration(sc.prettyobj):
             # Create new sim with updated base_beta
             sim = sc.dcp(self.sim)
             sim.pars.base_beta = base_beta_override
+
+            for disease in sim.pars.diseases:
+                if isinstance(disease, rs.Rotavirus):
+                    disease.pars.beta = ss.perday(sim.pars.base_beta * disease.pars.fitness)
         else:
             sim = sc.dcp(self.sim)
 
@@ -186,6 +191,7 @@ class Calibration(sc.prettyobj):
         # Initialize the sim first so diseases and connectors are created
         sim.init()
 
+        # todo move these before init and simplify
         # Now apply the parameters after initialization
         for par, val in pars_to_apply.items():
             if par == 'reassortment_rate':
@@ -203,41 +209,12 @@ class Calibration(sc.prettyobj):
                 # reporting_rate is applied during post-processing, not to sim
                 # Store it as an attribute on sim for use in compute_fit
                 sim._reporting_rate = val
-            elif par == 'maternal_immunity_efficacy':
-                # Set on RotaImmunityConnector
+            elif par in ['maternal_immunity_efficacy', 'maternal_immunity_half_life', 'homotypic_immunity_efficacy',
+                         'partial_heterotypic_immunity_efficacy', 'complete_heterotypic_immunity_efficacy',
+                         'baseline_immunity_exponential_rate']:
                 if hasattr(sim, 'connectors'):
                     for connector in sim.connectors.values():
                         if type(connector).__name__ == 'RotaImmunityConnector':
-                            connector.pars.maternal_immunity_efficacy = val
-                            break
-            elif par == 'maternal_immunity_half_life':
-                # Set on RotaImmunityConnector (in days)
-                if hasattr(sim, 'connectors'):
-                    for connector in sim.connectors.values():
-                        if type(connector).__name__ == 'RotaImmunityConnector':
-                            connector.pars.maternal_immunity_half_life = val
-                            break
-            elif par == 'homotypic_immunity_efficacy':
-                # Set on RotaImmunityConnector
-                if hasattr(sim, 'connectors'):
-                    for connector in sim.connectors.values():
-                        if type(connector).__name__ == 'RotaImmunityConnector':
-                            connector.pars.homotypic_immunity_efficacy = val
-                            break
-            elif par == 'partial_heterotypic_immunity_efficacy':
-                # Set on RotaImmunityConnector
-                if hasattr(sim, 'connectors'):
-                    for connector in sim.connectors.values():
-                        if type(connector).__name__ == 'RotaImmunityConnector':
-                            connector.pars.partial_heterotypic_immunity_efficacy = val
-                            break
-            elif par == 'complete_heterotypic_immunity_efficacy':
-                # Set on RotaImmunityConnector
-                if hasattr(sim, 'connectors'):
-                    for connector in sim.connectors.values():
-                        if type(connector).__name__ == 'RotaImmunityConnector':
-                            connector.pars.complete_heterotypic_immunity_efficacy = val
-                            break
             elif par in ['long_term_immunity_prob_after_1', 'long_term_immunity_prob_after_2',
                          'long_term_immunity_prob_after_3', 'long_term_immunity_prob_after_4']:
                 # Set long-term immunity parameters on RotaImmunityConnector
@@ -275,7 +252,7 @@ class Calibration(sc.prettyobj):
 
         # 1. Compute GOF for overall incidence (single value)
         target_incidence = self.overall_incidence
-        incidence_gof = abs(sim_overall_incidence - target_incidence) / (target_incidence + 1e-9)
+        incidence_gof = abs(sim_overall_incidence - target_incidence) / (target_incidence + 1e-9) * 0.1
 
         # 2. Compute GOF for age distribution (proportions)
         target_proportions = self.age_distribution.proportion.values

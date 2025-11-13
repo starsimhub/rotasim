@@ -5,6 +5,7 @@ Individual strain-specific disease instances following traditional Starsim patte
 
 # Third-party imports
 import starsim as ss
+import numpy as np
 
 
 class Rotavirus(ss.Infection):
@@ -44,11 +45,14 @@ class Rotavirus(ss.Infection):
         self.define_pars(
             init_prev=ss.bernoulli(p=0.002),  # Initial prevalence (0.2% - matches working value from tests/simple.py)
             beta=ss.perday(0.16),  # Transmission rate per day (matches working value from tests/simple.py for endemic circulation)
-            dur_inf=ss.lognorm_ex(mean=7, unit="days"),  # Duration of infection (~7 days)
+            dur_inf=ss.lognorm_ex(mean=13, unit="days"),  # Duration of infection (~7 days)
+            # dur_symptomatic_shedding=ss.lognorm_ex(mean=13, unit="days"),
+            # asymptomatic_shedding_rate = 0.1,
             waning_rate_dist=ss.normal(
                 loc=91, scale=14, unit="days"
             ),  # Duration of temporary immunity (13 weeks = 91 days mean, 2 weeks SD)
             waning_delay=ss.days(0),
+            fitness=1,
         )
 
         # Define additional disease states (base ss.Infection already provides susceptible, infected, rel_sus, rel_trans, ti_infected)
@@ -61,6 +65,7 @@ class Rotavirus(ss.Infection):
                 default=0.0,
                 label="Individual decay rate for immunity waning",
             ),
+            ss.FloatArr("waned_immunity_efficacy", default=0.0, label="Individual immunity efficacy"),
             ss.FloatArr("n_infections", default=0, label="Total number of infections"),
         )
 
@@ -116,6 +121,9 @@ class Rotavirus(ss.Infection):
         # Sample duration of infection for each agent
         # dur_inf is typically ss.lognorm_ex(mean=7) for ~7 days
         dur_inf = self.pars.dur_inf.rvs(uids)
+        # dur_symp = self.pars.dur_symptomatic_shedding.rvs(uids)
+
+        # self.ti_asymptomatic[uids] = ti + np.minimum(dur_inf, dur_symp)
 
         # Set recovery time: current time + infection duration
         self.ti_recovered[uids] = ti + dur_inf
@@ -136,6 +144,10 @@ class Rotavirus(ss.Infection):
         """
         # Progress infected -> recovered (following SIR example pattern)
         sim = self.sim
+
+        # asymptomatic = (self.infected & (self.ti_asymptomatic <= self.ti)).uids
+
+
         recovering = (self.infected & (self.ti_recovered <= self.ti)).uids
         self.infected[recovering] = False
         self.recovered[recovering] = True
@@ -146,6 +158,28 @@ class Rotavirus(ss.Infection):
         # self.ti_waned[recovering] = sim.ti + waning_durations
         # Store individual decay rates: 1/duration for exponential decay
         self.waning_rate[recovering] = 1.0 / waning_rate_denoms
+
+        recovered_uids = ((self.infected == False) & (self.n_infections > 0)).uids
+
+        days_since_recovery = (self.ti - self.ti_recovered[recovered_uids]) * self.dt.days
+        waning_started = days_since_recovery > self.pars.waning_delay.days
+        waning_started_uids = recovered_uids[waning_started]
+        waning_not_started_uids = recovered_uids[~waning_started]
+        infected_uids = self.infected.uids
+
+        # Calculate decay factor for agents past the delay period
+        decay_time = days_since_recovery[waning_started] - self.pars.waning_delay.days
+        # Use pre-computed decay rates stored when agents recovered
+        decay_rate = self.waning_rate[waning_started_uids]
+        decay_factor = np.exp(
+            -decay_rate * decay_time
+        )  # decay_rate (1/days) * decay_time (days) = dimensionless
+
+        self.waned_immunity_efficacy[waning_started_uids] = decay_factor
+        self.waned_immunity_efficacy[infected_uids] = 1
+        self.waned_immunity_efficacy[waning_not_started_uids] = 1
+
+
 
         self.results["new_recovered"][self.ti] = len(recovering)
 

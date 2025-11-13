@@ -294,23 +294,33 @@ class Sim(ss.Sim):
             # Get strain data from scenario (if it exists) or use defaults
             if strain_key in scenario["strains"]:
                 strain_data = scenario["strains"][strain_key]
-                strain_fitness = strain_data["fitness"]
-                strain_prevalence = strain_data["prevalence"]
+                # strain_fitness = strain_data["fitness"] if "fitness" in strain_data else None
+                # strain_prevalence = strain_data.pop("prevalence") if "prevalence" in strain_data else None
+                # strain_duration = strain_data["dur_inf"] if "dur_inf" in strain_data else None
+                # strain_waning_delay = strain_data["waning_delay"] if "waning_delay" in strain_data else None
+                # strain_waning_rate = strain_data["waning_rate"] if "waning_rate" in strain_data else None
             else:
                 # Dormant reassortant - use default fitness and zero prevalence
-                strain_fitness = scenario.get("default_fitness", 1.0)
-                strain_prevalence = 0.0
+                strain_data = {
+                    "fitness": scenario.get("default_fitness", 1.0),
+                    "prevalence": 0.0
+                }
+                # strain_fitness = scenario.get("default_fitness", 1.0)
+                # strain_prevalence = 0.0
 
             # Apply fitness multiplier to base beta
-            adjusted_beta = base_beta * strain_fitness
+            # adjusted_beta = base_beta * strain_fitness
+            strain_data["beta"] = base_beta * strain_data["fitness"]
 
             # Create disease instance with proper Starsim parameter format
             disease = Rotavirus(
                 G=G,
                 P=P,
-                init_prev=ss.bernoulli(p=strain_prevalence),
-                beta=ss.perday(adjusted_beta),
-                dur_inf=ss.lognorm_ex(mean=4),
+                # init_prev=ss.bernoulli(p=strain_prevalence),
+                # beta=ss.perday(adjusted_beta),
+                # dur_inf=ss.lognorm_ex(mean=4),
+                # fitness=strain_fitness,
+                **strain_data
             )
             diseases.append(disease)
 
