@@ -211,9 +211,10 @@ def extract_age_specific_population_counts(sim):
 # Create sim with UK demographics
 # Start 5 years before calibration period to allow for burn-in (2003-2007)
 # Calibration period: 2008-2012 (years 5-9 in simulation time)
-people = ss.People(n_agents=5000, age_data='./uk_age_data.csv')
+# Population increased to 50,000 to reduce stochastic noise for low incidence target (1.4 per 100k)
+people = ss.People(n_agents=50000, age_data='./uk_age_data.csv')
 sim = rs.Sim(
-    n_agents=5000,
+    n_agents=50000,
     start='2003-01-01',  # 5-year burn-in before 2008
     stop='2013-01-01',   # 10 years total (5 burn-in + 5 calibration)
     verbose=False,
@@ -241,7 +242,7 @@ print(age_distribution)
 # Calibration parameters - use same cross-protection approach as Bangladesh
 # UPDATED: Tighter parameter ranges to prevent corner solutions
 calib_pars = sc.objdict(
-    reporting_rate=[0.005, 0.0001, 0.05],  # Fixed: best=0.05, low=0.01, high=0.5
+    reporting_rate=[0.01, 0.005, 0.1],  # Reporting rate (1% best, 0.5-10% range) - increased from previous unrealistically low range
     # homotypic_immunity_efficacy=[1.0, 1.0, 1.0],
     # partial_heterotypic_immunity_efficacy=[0.5, 0.3, 0.7],
     # complete_heterotypic_immunity_efficacy=[0.1, 0.1, 0.1],
@@ -293,11 +294,14 @@ class UKCalibration(Calibration):
 
         # Now run the full simulation
         sim.run()
-        fix, ax = sim.analyzers.uidtracker.plot_field_heatmap(strain_name="G1P8")
-        # fig, ax = sim.analyzers.uidtracker.plot_field_heatmap(strain_name="G2P4")
-        fix, ax = sim.analyzers.uidtracker.plot_field_heatmap(field_name='infected', strain_name="G1P8")
-        # fix, ax = sim.analyzers.uidtracker.plot_field_heatmap(field_name='infected', strain_name="G2P4")
-        plt.show()
+
+        # NOTE: Plotting commented out to avoid matplotlib fork issues in parallel workers
+        # These plots can be generated after calibration completes
+        # fix, ax = sim.analyzers.uidtracker.plot_field_heatmap(strain_name="G1P8")
+        # # fig, ax = sim.analyzers.uidtracker.plot_field_heatmap(strain_name="G2P4")
+        # fix, ax = sim.analyzers.uidtracker.plot_field_heatmap(field_name='infected', strain_name="G1P8")
+        # # fix, ax = sim.analyzers.uidtracker.plot_field_heatmap(field_name='infected', strain_name="G2P4")
+        # plt.show()
 
         return sim
 

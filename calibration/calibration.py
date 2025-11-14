@@ -215,6 +215,8 @@ class Calibration(sc.prettyobj):
                 if hasattr(sim, 'connectors'):
                     for connector in sim.connectors.values():
                         if type(connector).__name__ == 'RotaImmunityConnector':
+                            setattr(connector.pars, par, val)
+                            break
             elif par in ['long_term_immunity_prob_after_1', 'long_term_immunity_prob_after_2',
                          'long_term_immunity_prob_after_3', 'long_term_immunity_prob_after_4']:
                 # Set long-term immunity parameters on RotaImmunityConnector

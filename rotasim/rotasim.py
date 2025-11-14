@@ -312,14 +312,20 @@ class Sim(ss.Sim):
             # adjusted_beta = base_beta * strain_fitness
             strain_data["beta"] = base_beta * strain_data["fitness"]
 
+            # Convert prevalence to init_prev format
+            if "prevalence" in strain_data:
+                prevalence = strain_data.pop("prevalence")
+                if callable(prevalence):
+                    # If prevalence is a callable, use it directly
+                    strain_data["init_prev"] = prevalence
+                else:
+                    # If prevalence is a number, wrap it in ss.bernoulli
+                    strain_data["init_prev"] = ss.bernoulli(p=prevalence)
+
             # Create disease instance with proper Starsim parameter format
             disease = Rotavirus(
                 G=G,
                 P=P,
-                # init_prev=ss.bernoulli(p=strain_prevalence),
-                # beta=ss.perday(adjusted_beta),
-                # dur_inf=ss.lognorm_ex(mean=4),
-                # fitness=strain_fitness,
                 **strain_data
             )
             diseases.append(disease)
