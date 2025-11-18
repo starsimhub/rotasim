@@ -475,8 +475,11 @@ class RotaImmunityConnector(ss.Connector):
         self.pars.immunity_init_dist.set(low=min_exposures, high=max_exposures)
 
         # Record infection history for tracking purposes
-        # Sample random number of prior infections between min_exposures and max_exposures
-        num_exposures_per_strain = self.pars.immunity_init_dist.rvs(eligible_uids)
+        # self.num_recovered_infections[eligible_uids] = self.pars.immunity_init_dist.rvs(eligible_uids)
+
+        # num_exposures_per_strain = self.pars.immunity_init_dist.rvs(eligible_uids)
+        # exposure history is now based on age and expected number of exposures per year, divided by the number of strains.
+        num_exposures_per_strain = np.round(exposures_per_year * self.sim.people.age[eligible_uids], 0)/len(self.rota_diseases)
         self.has_immunity[eligible_uids] = True
 
         # For each eligible agent, distribute the number of recovered infections across the different strains
@@ -498,18 +501,26 @@ class RotaImmunityConnector(ss.Connector):
 
 
         # Calculate baseline immunity based on number of prior exposures
-        # Uses exponential saturation formula: immunity = 1 - exp(-rate * num_infections)
-        # This gives diminishing returns with more infections, approaching 100% protection
-        num_infections = self.num_recovered_infections[eligible_uids]
-        baseline_imm = 1 - np.exp(-self.pars.baseline_immunity_exponential_rate * num_infections)
-        self.baseline_immunity[eligible_uids] = baseline_imm
+        # Each exposure provides incremental immunity (like acquired immunity but permanent)
+        # Use homotypic efficacy as the per-exposure protection (cumulative effect)
+        # for uid in eligible_uids:
+        #     num_exp = self.num_recovered_infections[uid]
+            # Cumulative protection: each exposure adds homotypic_immunity_efficacy
+            # Capped at adult_baseline_immunity as the maximum achievable protection
+            # cumulative_protection = min(
+            #     self.pars.adult_baseline_immunity,
+            #     num_exp * self.pars.homotypic_immunity_efficacy
+            # )
+            # self.baseline_immunity[uid] = cumulative_protection
+            # self.baseline_immunity[uid] =
+
+        # self.baseline_immunity[eligible_uids] = self.pars.adult_baseline_immunity
 
         if self.sim.pars.verbose:
-            mean_immunity = np.mean(baseline_imm) if len(baseline_imm) > 0 else 0
-            print(f"\n✓ Initialized {n_uids} agents with baseline immunity:")
-            print(f"  Prior infections (estimated): {min_exposures}-{max_exposures} per strain")
-            print(f"  Mean cumulative protection: {mean_immunity * 100:.1f}% (from repeated prior exposures)")
-            print(f"  Note: This baseline doesn't wane - new infections add temporary immunity on top")
+            # print(f"\n✓ Initialized {n_uids} agents with baseline immunity:")
+            # print(f"  Prior infections: {min_exposures}-{max_exposures}")
+            # print(f"  Cumulative protection: {self.pars.adult_baseline_immunity * 100:.1f}% (from repeated prior exposures)")
+            # print(f"  Note: This baseline doesn't wane - new infections add temporary immunity on top")
 
         # Update rel_sus immediately after setting baseline_immunity
         # This ensures immunity is applied before the simulation starts
