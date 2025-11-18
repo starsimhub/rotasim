@@ -516,7 +516,7 @@ class RotaImmunityConnector(ss.Connector):
 
         # self.baseline_immunity[eligible_uids] = self.pars.adult_baseline_immunity
 
-        if self.sim.pars.verbose:
+        # if self.sim.pars.verbose:
             # print(f"\n✓ Initialized {n_uids} agents with baseline immunity:")
             # print(f"  Prior infections: {min_exposures}-{max_exposures}")
             # print(f"  Cumulative protection: {self.pars.adult_baseline_immunity * 100:.1f}% (from repeated prior exposures)")
