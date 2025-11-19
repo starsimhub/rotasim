@@ -36,8 +36,6 @@ class AgeAssortativeNet(ss.DynamicNetwork):
     def init_pre(self, sim):
         """Initialize network before simulation starts"""
         super().init_pre(sim)
-        self.child_mask = None
-        self.adult_mask = None
 
     def step(self):
         """Contacts regenerated each timestep via add_pairs"""
@@ -60,14 +58,8 @@ class AgeAssortativeNet(ss.DynamicNetwork):
         if not born.any():
             return
 
-        ages_years = people.age.values / 365.25
-
-        # Define age groups
-        self.child_mask = (ages_years < self.pars.child_age_threshold) & born
-        self.adult_mask = (ages_years >= self.pars.child_age_threshold) & born
-
-        child_uids = np.where(self.child_mask)[0]
-        adult_uids = np.where(self.adult_mask)[0]
+        child_uids = (people.age < self.pars.child_age_threshold & born).uids
+        adult_uids = (people.age >= self.pars.child_age_threshold & born).uids
 
         n_children = len(child_uids)
         n_adults = len(adult_uids)
@@ -93,13 +85,15 @@ class AgeAssortativeNet(ss.DynamicNetwork):
 
         # Calculate number of each type of contact
         # Each person gets n_contacts, split by assortativity
-        n_within = self.pars.assortativity  # Fraction within same age
-        n_between = 1.0 - self.pars.assortativity  # Fraction across ages
+        total_child_contacts = int(n_children * self.pars.n_contacts)
+        total_adult_contacts = int(n_adults * self.pars.n_contacts)
+        total_cc_contacts = int(total_child_contacts * self.pars.assortativity)
+        total_ac_contacts = int(total_child_contacts - total_cc_contacts)
+        total_aa_contacts = total_adult_contacts - total_ac_contacts
 
         # Child-child contacts (assortative)
         if n_children > 1:
-            n_cc = int(n_children * self.pars.n_contacts * n_within / 2)
-            for _ in range(n_cc):
+            for _ in range(round(total_cc_contacts/2)):
                 c1, c2 = np.random.choice(child_uids, size=2, replace=True)
                 if c1 != c2:  # Avoid self-loops
                     contacts_p1.append(c1)
@@ -107,20 +101,29 @@ class AgeAssortativeNet(ss.DynamicNetwork):
 
         # Adult-adult contacts (assortative)
         if n_adults > 1:
-            n_aa = int(n_adults * self.pars.n_contacts * n_within / 2)
-            for _ in range(n_aa):
+            for _ in range(round(total_aa_contacts/2)):
                 a1, a2 = np.random.choice(adult_uids, size=2, replace=True)
                 if a1 != a2:  # Avoid self-loops
                     contacts_p1.append(a1)
                     contacts_p2.append(a2)
 
         # Child-adult contacts (cross-age mixing)
-        n_ca = int((n_children + n_adults) * self.pars.n_contacts * n_between / 2)
-        for _ in range(n_ca):
+        for _ in range(round(total_ac_contacts/2)):
             c = np.random.choice(child_uids)
             a = np.random.choice(adult_uids)
             contacts_p1.append(c)
             contacts_p2.append(a)
+
+        # # count unique values in contacts_p1 and contacts_p2
+        # unique_p1, p1_counts = np.unique(contacts_p1, return_counts=True)
+        # unique_p2, p2_counts = np.unique(contacts_p2, return_counts=True)
+        #
+        # all_counts = dict.fromkeys(self.sim.people.uid[:], 0)
+        # for uid, count in zip(unique_p1, p1_counts):
+        #     all_counts[uid] += count
+        # for uid, count in zip(unique_p2, p2_counts):
+        #     all_counts[uid] += count
+
 
         # Append contacts using the Network.append method
         if len(contacts_p1) > 0:
