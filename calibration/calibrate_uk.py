@@ -48,10 +48,6 @@ def calculate_reported_cases(df, reporting_rate):
 
 
 
-
-
-OVERALL_PREVALENCE = 0.04
-
 def extract_age_specific_population_counts(sim):
     """
     Extract actual age-specific population counts from simulation

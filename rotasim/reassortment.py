@@ -51,13 +51,28 @@ class RotaReassortmentConnector(ss.Connector):
 
         # Define parameters
         self.define_pars(
-            reassortment_prob=ss.bernoulli(p=reassortment_prob),  # Bernoulli for filtering
+            reassortment_prob=reassortment_prob, # Daily reassortment probability per strain pair per host
+            # reassortment_prob_dist=ss.bernoulli(p=self.reassortment_prob_by_num_infections),  # Bernoulli for filtering
+            reassortment_prob_dist=ss.bernoulli(p=reassortment_prob),  # Bernoulli for filtering
         )
 
         # Will be populated during initialization
         self._rotavirus_diseases = []  # List of Rotavirus disease instances
         self._gp_to_disease = {}  # Mapping: (G,P) → disease instance
         self._disease_to_gp = {}  # Mapping: disease instance → (G,P)
+
+
+    # This is a callback to increase reassortment probability when multiple infections are present. Assumes every pair
+    # of co-infecting strains can reassort independently, but only 1 reassortment event may occur per timestep.
+    def reassortment_prob_by_num_infections(self, sim, uids):
+        n_infections = sim.people.rotaimmunity.num_current_infections[uids]
+        n_combinations = n_infections * (n_infections - 1) / 2
+
+        # example: if reassortment_prob = 0.1 and n_infections = 3, then there are 3 pairings of strains that can reassort:
+        # (s1, s2), (s1, s3), (s2, s3)
+
+        return 1 - (1 - self.pars.reassortment_prob) ** (n_combinations - 1)
+
 
     def init_pre(self, sim):
         """Initialize before simulation starts - detect Rotavirus diseases"""
@@ -124,7 +139,7 @@ class RotaReassortmentConnector(ss.Connector):
             return  # No co-infections, no reassortment possible
 
         # Step 2: Per-host Bernoulli draws for reassortment events
-        reassorting_uids = self.pars.reassortment_prob.filter(co_infected_uids)
+        reassorting_uids = self.pars.reassortment_prob_dist.filter(co_infected_uids)
 
         if len(reassorting_uids) == 0:
             return  # No reassortment events this timestep
@@ -176,9 +191,11 @@ class RotaReassortmentConnector(ss.Connector):
         """
         # Find which diseases are currently infecting this host
         active_diseases = []
+        active_gps = []
         for disease in self._rotavirus_diseases:
             if disease.infected[uid]:  # Check if this disease is active in this host
                 active_diseases.append(disease)
+                active_gps.append(self._disease_to_gp[disease])
 
         if len(active_diseases) < 2:
             return []  # Should not happen due to filtering, but safety check
@@ -190,20 +207,21 @@ class RotaReassortmentConnector(ss.Connector):
         all_combinations = utils.generate_gp_reassortments(parent_gps, use_preferred_partners=use_preferred_partners)
 
         # Exclude parent combinations (already present in this host)
-        reassortant_combinations = [gp for gp in all_combinations if gp not in parent_gps]
+        reassortant_combinations = [gp for gp in all_combinations if gp not in active_gps]
 
         if len(reassortant_combinations) == 0:
             return []  # No new combinations possible
 
         # Plan infections for valid reassortants
         infection_plans = []
-        for G, P in reassortant_combinations:
-            reassortant_disease = self._gp_to_disease.get((G, P))
-            if reassortant_disease is not None:
-                # Check if already infected with this reassortant
-                if uid not in reassortant_disease.infected.uids:
-                    # Add to infection plan instead of immediately applying
-                    infection_plans.append((reassortant_disease, uid))
+
+        # Pick one of the possible reassortants at random to infect the host
+        # TODO replace np.random.choice with ss.dist
+        reassortant_disease_gp = reassortant_combinations[np.random.choice(len(reassortant_combinations))]
+        reassortant_disease = self._gp_to_disease.get(reassortant_disease_gp)
+        if reassortant_disease is not None:
+            # Add to infection plan instead of immediately applying
+            infection_plans.append((reassortant_disease, uid))
 
         return infection_plans
 
