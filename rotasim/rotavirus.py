@@ -43,9 +43,11 @@ class Rotavirus(ss.Infection):
         super().__init__()
 
         self.define_pars(
-            init_prev=ss.bernoulli(p=0.002),  # Initial prevalence (0.2% - matches working value from tests/simple.py)
+            init_age_dist= [(0, 100, 1),],  # Age distribution for initial infections
+            init_prevalence = 0.04, # Overall initial prevalence across all ages
+            init_prev=ss.bernoulli(p=self._init_prevalence_by_age),  # Initial prevalence dist (_init_prevalence_by_age uses init_age_dist and init_prevalence to set age-specific rates)
             beta=ss.perday(0.16),  # Transmission rate per day (matches working value from tests/simple.py for endemic circulation)
-            dur_inf=ss.lognorm_ex(mean=13, unit="days"),  # Duration of infection (~7 days)
+            dur_inf=ss.lognorm_ex(mean=13, unit="days"),  # Duration of infection (~13 days)
             # dur_symptomatic_shedding=ss.lognorm_ex(mean=13, unit="days"),
             # asymptomatic_shedding_rate = 0.1,
             waning_rate_dist=ss.normal(
@@ -70,6 +72,18 @@ class Rotavirus(ss.Infection):
         )
 
         self.update_pars(pars=pars, **kwargs)
+
+    def _init_prevalence_by_age(self, sim, uids):
+        p = np.zeros(len(uids))
+        total_pop = len(uids)
+        n_infections_expected = int(total_pop * self.pars.init_prevalence)
+        for age_min, age_max, percent in self.pars.init_age_dist:
+            age_group_members = ((sim.people.age >= age_min) & (sim.people.age < age_max)).uids
+            age_group_pop = len(age_group_members)
+            n_infections_in_age_group = percent * n_infections_expected
+            p[age_group_members] = n_infections_in_age_group / age_group_pop
+            print(f" ({age_min}-{age_max}): percent of infections: {percent} / total infections: {n_infections_in_age_group} / age group size: {age_group_pop} / prob per agent in age group: {n_infections_in_age_group/age_group_pop}")
+        return p
 
     def init_results(self):
         super().init_results()

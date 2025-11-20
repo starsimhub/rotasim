@@ -8,29 +8,46 @@ import itertools
 import starsim as ss
 import sciris as sc
 
+
+DEFAULT_INITIAL_INFECTION_AGE_DIST = [
+    (0, 1, 0.138),  # <1 year: 13.8% of infections
+    (1, 2, 0.277),  # 1-2 years: 27.7% of infections
+    (2, 5, 0.469),  # 2-5 years: 46.9% of infections
+    (5, 200, 0.116),  # ≥5 years: 11.6% of infections
+]
+
+SCENARIO_DEFAULTS = {
+            "fitness": 1.0,
+            "init_prevalence": 0.0,
+            "init_age_dist": DEFAULT_INITIAL_INFECTION_AGE_DIST,
+            "dur_inf": ss.lognorm_ex(mean=13),
+            "waning_delay": ss.days(0),
+            "waning_rate_dist": ss.normal(loc=91, scale=14, unit="days"),
+        }
+
 # Unified scenario system - contains strains, fitness, and prevalence all in one place
 SCENARIOS = {
     "simple": {
         "description": "Simple two-strain scenario - G1P8 and G2P4 with equal fitness and prevalence",
         "strains": {
-            (1, 8): {"fitness": 1.0, "init_prev": 0.01},
-            (2, 4): {"fitness": 1.0, "init_prev": 0.01},
+            (1, 8): {
+                "init_prevalence": 0.03,
+            },
+            (2, 4): {
+                "init_prevalence": 0.01
+            },
         },
-        "default_fitness": 1.0,
+        "defaults": SCENARIO_DEFAULTS,
     },
     "single": {
         "description": "Simple strain scenario for debugging - G1P8",
         "strains": {
             (1, 8): {
-                "beta": ss.perday(0.16),
                 "fitness": 1.0,
-                "init_prev": ss.bernoulli(p=0.04),
-                "dur_inf": ss.lognorm_ex(mean=13),
-                "waning_delay": ss.days(0),
-                "waning_rate_dist": ss.normal(loc=91, scale=14, unit="days")
+                "init_prevalence": 0.04,
             },
         },
-        "default_fitness": 1.0,
+        "defaults": SCENARIO_DEFAULTS,
     },
     "baseline": {
         "description": "Baseline scenario - common global strains with equal fitness",

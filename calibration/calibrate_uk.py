@@ -48,143 +48,9 @@ def calculate_reported_cases(df, reporting_rate):
 
 
 
-INFECTION_AGE_DIST = [
-    (0, 1, 0.138),  # <1 year: 13.8% of infections
-    (1, 2, 0.277),  # 1-2 years: 27.7% of infections
-    (2, 5, 0.469),  # 2-5 years: 46.9% of infections
-    (5, 200, 0.116),  # ≥5 years: 11.6% of infections
-]
+
 
 OVERALL_PREVALENCE = 0.04
-
-def init_prevalence_by_age(self, sim, uids):
-    p = np.zeros(len(uids))
-    total_pop = len(uids)
-    n_infections_expected = total_pop * OVERALL_PREVALENCE
-    for age_min, age_max, percent in INFECTION_AGE_DIST:
-        age_group_members = ((sim.people.age >= age_min) & (sim.people.age < age_max)).uids
-        age_group_pop = len(age_group_members)
-        n_infections_in_age_group = percent * n_infections_expected
-        p[age_group_members] = n_infections_in_age_group / age_group_pop
-        print(f" ({age_min}-{age_max}): percent of infections: {percent} / total infections: {n_infections_in_age_group} / age group size: {age_group_pop} / prob per agent in age group: {n_infections_in_age_group/age_group_pop}")
-    return p
-
-def init_prevalence_by_age_G1P8(self, sim, uids):
-    p = np.zeros(len(uids))
-    if self.name != "G1P8":
-        return p
-
-    total_pop = len(uids)
-    n_infections_expected = total_pop * OVERALL_PREVALENCE
-    for age_min, age_max, percent in INFECTION_AGE_DIST:
-        age_group_members = ((sim.people.age >= age_min) & (sim.people.age < age_max)).uids
-        age_group_pop = len(age_group_members)
-        n_infections_in_age_group = percent * n_infections_expected
-        p[age_group_members] = n_infections_in_age_group / age_group_pop
-        print(f" ({age_min}-{age_max}): percent of infections: {percent} / total infections: {n_infections_in_age_group} / age group size: {age_group_pop} / prob per agent in age group: {n_infections_in_age_group/age_group_pop}")
-    return p
-
-
-# def seed_infections_by_age(sim, overall_prevalence=0.002):
-#     """
-#     Seed initial infections according to UK case age distribution
-#
-#     Instead of uniform random seeding across all ages, seed infections
-#     according to the epidemiologically realistic age distribution:
-#     - 13.8% in <1 year
-#     - 27.7% in 1-2 years
-#     - 46.9% in 2-5 years
-#     - 11.6% in ≥5 years
-#
-#     Args:
-#         sim: Initialized simulation with people and diseases
-#         overall_prevalence: Total fraction of population to infect (default 0.002 = 0.2%)
-#     """
-#     import numpy as np
-#
-#     # Target age distribution for infections (from UK_agedistribution data)
-#     infection_age_dist = [
-#         (0, 1, 0.138),    # <1 year: 13.8% of infections
-#         (1, 2, 0.277),    # 1-2 years: 27.7% of infections
-#         (2, 5, 0.469),    # 2-5 years: 46.9% of infections
-#         (5, 200, 0.116),  # ≥5 years: 11.6% of infections
-#     ]
-#
-#     # Total number of initial infections
-#     n_infections = int(len(sim.people) * overall_prevalence)
-#
-#     if n_infections == 0:
-#         return  # No infections to seed
-#
-#     # Get ages in years
-#     ages_years = sim.people.age.values  # Already in years
-#
-#     # Find agents in each age category
-#     age_groups = []
-#     for low, high, target_prop in infection_age_dist:
-#         mask = (ages_years >= low) & (ages_years < high)
-#         agents_in_group = np.where(mask)[0]
-#         age_groups.append((low, high, target_prop, agents_in_group))
-#
-#     # Allocate infections according to target proportions
-#     infected_agents = []
-#     for low, high, target_prop, agents_in_group in age_groups:
-#         n_to_infect = int(n_infections * target_prop)
-#
-#         if len(agents_in_group) == 0:
-#             # No agents in this age group - skip
-#             if sim.pars.verbose:
-#                 print(f"  Warning: No agents in age group {low}-{high} years")
-#             continue
-#
-#         # Sample from this age group (without replacement)
-#         n_available = len(agents_in_group)
-#         if n_to_infect > n_available:
-#             # More infections needed than agents available - infect all
-#             sampled = agents_in_group
-#             if sim.pars.verbose:
-#                 print(f"  Warning: Need {n_to_infect} infections in {low}-{high}y but only {n_available} agents available")
-#         else:
-#             # Randomly sample from this age group
-#             sampled = np.random.choice(agents_in_group, size=n_to_infect, replace=False)
-#
-#         infected_agents.extend(sampled)
-#
-#     # Ensure we have the right total (may differ due to rounding)
-#     infected_agents = np.array(infected_agents)
-#     if len(infected_agents) < n_infections:
-#         # Need more infections - randomly add from any age
-#         remaining = n_infections - len(infected_agents)
-#         available = np.setdiff1d(np.arange(len(sim.people)), infected_agents)
-#         additional = np.random.choice(available, size=remaining, replace=False)
-#         infected_agents = np.concatenate([infected_agents, additional])
-#     elif len(infected_agents) > n_infections:
-#         # Too many infections - randomly remove some
-#         infected_agents = np.random.choice(infected_agents, size=n_infections, replace=False)
-#
-#     # Set infections for all rotavirus diseases
-#     for disease in sim.diseases.values():
-#         if hasattr(disease, 'G') and hasattr(disease, 'P'):  # Is a Rotavirus disease
-#             # Clear any existing infections (from default init_prev)
-#             disease.infected[:] = False
-#             disease.susceptible[:] = True
-#             disease.ti_infected[:] = np.nan
-#
-#             # Set new infections
-#             disease.infected[infected_agents] = True
-#             disease.susceptible[infected_agents] = False
-#             disease.ti_infected[infected_agents] = sim.ti
-#
-#             if sim.pars.verbose:
-#                 print(f"  Seeded {len(infected_agents)} infections for {disease.name}")
-#
-#     if sim.pars.verbose:
-#         print(f"\nAge distribution of {len(infected_agents)} seeded infections:")
-#         for low, high, target_prop, _ in age_groups:
-#             mask = (ages_years[infected_agents] >= low) & (ages_years[infected_agents] < high)
-#             actual_prop = mask.sum() / len(infected_agents)
-#             print(f"  {low}-{high}y: {actual_prop*100:.1f}% (target: {target_prop*100:.1f}%)")
-
 
 def extract_age_specific_population_counts(sim):
     """
@@ -219,8 +85,6 @@ sim = rs.Sim(
     stop='2013-01-01',   # 10 years total (5 burn-in + 5 calibration)
     verbose=False,
     scenario='single',
-    # base_beta=0.16,
-    override_prevalence=init_prevalence_by_age_G1P8,
     people=people,
     analyzers=[rs.InfectedStrainStats(), rs.UidTracker([0, 1, 72, 644], track_fields=['rel_sus', 'infected'])],
     # networks=rs.AgeAssortativeNet(n_contacts=7, assortativity=0.5),  # 50% contacts within same age group
@@ -271,26 +135,14 @@ class UKCalibration(Calibration):
             sim_pars = self.trial_to_sim_pars(calib_pars=calib_pars, trial=trial)
         print(f"Running trial with pars: {sim_pars}")
 
-        # Extract adult_baseline_immunity from sim_pars (actual trial values)
-        # This parameter is handled manually during initialization, not a sim parameter
-        # adult_baseline_immunity = 0.95  # Default, check this
-        # if sim_pars is not None and 'adult_baseline_immunity' in sim_pars:
-        #     adult_baseline_immunity = float(sim_pars.pop('adult_baseline_immunity'))
-
         # Update sim with new parameters (this already calls sim.init())
         sim = self.translate_pars(sim_pars=sim_pars)
 
-        # Initialize baseline immunity and exposure history
-        # Baseline immunity represents cumulative immunity from repeated prior infections (~95%)
-        # which is DISTINCT from homotypic_immunity_efficacy (single infection ~50%)
-        # sim.connectors.rotaimmunityconnector.pars.adult_baseline_immunity=adult_baseline_immunity
+        # Initialize exposure history
+        # which is DISTINCT from homotypic_immunity_efficacy
         sim.connectors.rotaimmunityconnector.initialize_immunity(min_age=18, max_age=125, min_exposures=5, max_exposures=15)
         # sim.connectors.rotaimmunityconnector.initialize_immunity(min_age=3, max_age=18, min_exposures=1, max_exposures=3)
         # sim.connectors.rotaimmunityconnector.initialize_immunity(min_age=0, max_age=3, min_exposures=0, max_exposures=2)
-
-        # Seed infections according to epidemiologically realistic age distribution
-        # (Instead of uniform random seeding which gives 94% to adults)
-        # seed_infections_by_age(sim, overall_prevalence=0.002)
 
         # Now run the full simulation
         sim.run()

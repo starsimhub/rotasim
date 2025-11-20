@@ -14,6 +14,7 @@ import itertools
 import numpy as np
 import starsim as ss
 from . import utils
+from .rotavirus import Rotavirus
 
 
 class RotaReassortmentConnector(ss.Connector):
@@ -69,7 +70,7 @@ class RotaReassortmentConnector(ss.Connector):
 
         for disease in sim.diseases.values():
             # Check if this is a Rotavirus disease by looking for G,P attributes
-            if hasattr(disease, "G") and hasattr(disease, "P"):
+            if isinstance(disease, Rotavirus):
                 gp_tuple = (disease.G, disease.P)
                 self._rotavirus_diseases.append(disease)
                 self._gp_to_disease[gp_tuple] = disease
