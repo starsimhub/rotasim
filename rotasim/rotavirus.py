@@ -46,7 +46,7 @@ class Rotavirus(ss.Infection):
             init_age_dist= [(0, 100, 1),],  # Age distribution for initial infections
             init_prevalence = 0.04, # Overall initial prevalence across all ages
             init_prev=ss.bernoulli(p=self._init_prevalence_by_age),  # Initial prevalence dist (_init_prevalence_by_age uses init_age_dist and init_prevalence to set age-specific rates)
-            beta=ss.perday(0.16),  # Transmission rate per day (matches working value from tests/simple.py for endemic circulation)
+            beta=None,  # Transmission rate per day (matches working value from tests/simple.py for endemic circulation)
             dur_inf=ss.lognorm_ex(mean=13, unit="days"),  # Duration of infection (~13 days)
             # dur_symptomatic_shedding=ss.lognorm_ex(mean=13, unit="days"),
             # asymptomatic_shedding_rate = 0.1,

@@ -59,13 +59,14 @@ def extract_age_specific_population_counts(sim):
 
     # Get ages in years from sim.people.age (use .values for alive agents)
     ages_years = sim.people.age.values
+    ages = sim.people.age
 
     # Count agents in each age category matching process_incidence_uk categories
     age_counts = {
-        '<1 y': int(((ages_years >= 0) & (ages_years < 1)).sum()),
-        '1-2 y': int(((ages_years >= 1) & (ages_years < 2)).sum()),
-        '2-5 y': int(((ages_years >= 2) & (ages_years < 5)).sum()),
-        '>=5 y': int((ages_years >= 5).sum()),
+        '<1 y': len( ((ages >= 0) & (ages < 1)).uids),
+        '1-2 y': len(((ages >= 1) & (ages < 2)).uids),
+        '2-5 y': len(((ages >= 2) & (ages < 5)).uids),
+        '>=5 y': len((ages >= 5).uids),
     }
 
     return age_counts
