@@ -1,8 +1,8 @@
 """
 Age-assortative contact networks for rotavirus transmission
 
-Children and adults have equal total contact rates, but preferentially contact
-their own age group (50% assortative, 50% cross-age mixing).
+Children and adults have equal total contact rates, but children preferentially contact
+their own age group (e.g. 50% assortative, 50% cross-age mixing).
 """
 
 import starsim as ss
@@ -15,12 +15,15 @@ class AgeAssortativeNet(ss.DynamicNetwork):
     """
     Age-assortative contact network with preferential within-group mixing
 
-    Both children (<5 years) and adults (≥5 years) have the same total number
-    of contacts, but 50% are with their own age group and 50% are cross-age.
+    Both young children (<5 years) and older (≥5 years) have the same total number
+    of contacts, but 50% of young children's contacts are with their own age group and 50% are cross-age. The size of
+    the older age group is typically much larger than the younger age group, and we are most concerned with ensuring
+    that young children have sufficient contacts with their own age group to sustain transmission so the assortativity
+    fraction applies only to young children's contacts. Older individuals are assigned the remaining contacts.
 
     Parameters:
         n_contacts: Mean total contacts per person per day (default: 7)
-        assortativity: Fraction of contacts within same age group (default: 0.5)
+        assortativity: Fraction of contacts within same age group for young children (default: 0.5)
         child_age_threshold: Age in years defining children (default: 5)
     """
 
@@ -55,30 +58,11 @@ class AgeAssortativeNet(ss.DynamicNetwork):
         people = self.sim.people
         born = people.alive & (people.age > 0)
 
-        if not born.any():
-            return
-
         child_uids = (people.age < self.pars.child_age_threshold & born).uids
         adult_uids = (people.age >= self.pars.child_age_threshold & born).uids
 
         n_children = len(child_uids)
         n_adults = len(adult_uids)
-
-        if n_children == 0 or n_adults == 0:
-            # Fall back to random mixing if only one age group
-            all_uids = born.uids
-            n_contacts_total = int(len(all_uids) * self.pars.n_contacts / 2)
-            p1 = np.random.choice(all_uids, size=n_contacts_total, replace=True)
-            p2 = np.random.choice(all_uids, size=n_contacts_total, replace=True)
-            # Filter out self-loops
-            valid = p1 != p2
-            p1 = p1[valid]
-            p2 = p2[valid]
-            if len(p1) > 0:
-                beta = np.ones(len(p1)) * self.pars.beta
-                dur = np.ones(len(p1))
-                self.append(p1=p1, p2=p2, beta=beta, dur=dur)
-            return
 
         contacts_p1 = []
         contacts_p2 = []
@@ -113,16 +97,6 @@ class AgeAssortativeNet(ss.DynamicNetwork):
             a = np.random.choice(adult_uids)
             contacts_p1.append(c)
             contacts_p2.append(a)
-
-        # # count unique values in contacts_p1 and contacts_p2
-        # unique_p1, p1_counts = np.unique(contacts_p1, return_counts=True)
-        # unique_p2, p2_counts = np.unique(contacts_p2, return_counts=True)
-        #
-        # all_counts = dict.fromkeys(self.sim.people.uid[:], 0)
-        # for uid, count in zip(unique_p1, p1_counts):
-        #     all_counts[uid] += count
-        # for uid, count in zip(unique_p2, p2_counts):
-        #     all_counts[uid] += count
 
 
         # Append contacts using the Network.append method
