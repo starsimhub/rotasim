@@ -3,9 +3,6 @@ High-performance immunity connector for Rotavirus v2 architecture
 Uses bitmask vectorization for cross-strain immunity calculations
 """
 
-# Standard library imports
-# (none needed for this module)
-
 # Third-party imports
 import numpy as np
 import starsim as ss
@@ -56,19 +53,9 @@ class RotaImmunityConnector(ss.Connector):
             partial_heterotypic_immunity_efficacy=0.5,  # Protection from shared G or P
             complete_heterotypic_immunity_efficacy=0.3,  # Protection from different G,P (or no prior exposure to any strain)
             naive_immunity_efficacy=0.0,  # Baseline immunity for naive individuals (0.0 = fully susceptible)
-            # immunity_waning_delay=ss.days(14),  # Time delay before immunity decay starts (90 days = ~3 months)
             # Maternal immunity parameters (passive immunity from mother)
             # maternal_immunity_efficacy=0.9,  # Maximum protection from maternal antibodies at birth (90%)
             # maternal_immunity_half_life=ss.days(90),  # Half-life of maternal immunity decay (90 days = 3 months)
-            # Age-dependent baseline immunity parameters
-            # adult_baseline_immunity=0.0,  # Baseline immunity for adults (e.g., from childhood exposure history). Calibration parameter.
-            # adult_age_threshold=5.0,  # Age threshold (in years) for applying adult baseline immunity (default 5 years)
-            # Long-term immunity parameters (permanent immunity after multiple infections)
-            long_term_immunity_prob_after_1=0.39,  # Probability of long-term immunity after 1st infection (39%)
-            long_term_immunity_prob_after_2=0.52,  # Probability of long-term immunity after 2nd infection (52%)
-            long_term_immunity_prob_after_3=0.67,  # Probability of long-term immunity after 3rd infection (67%)
-            long_term_immunity_prob_after_4=1.00,  # Probability of long-term immunity after 4th+ infections (100%)
-            # infection_history_susceptibility_factors = {0: 1, 1: 1, 2: 1, 3: 1},  # Susceptibility scaling based on total infection history. We may want to remove this feature later.
             cotransmission_prob=ss.bernoulli(
                 p=0.02
             ),  # Probability of transmitting all strains instead of dominant strain selection (2%). We may want to remove this feature later.
@@ -80,8 +67,6 @@ class RotaImmunityConnector(ss.Connector):
         self.update_pars(pars=pars, **kwargs)
 
         # Define immunity state arrays
-
-        #  name=name, dtype=ss_int, nan=int_nan, **kwargs)
         self.define_states(
             ss.Arr(
                 "exposed_GP_bitmask", dtype=np.int64, nan=ss.dtypes.int_nan, default=0
@@ -119,14 +104,10 @@ class RotaImmunityConnector(ss.Connector):
         self.disease_P_masks = {}
         self.disease_GP_masks = {}
 
-    def init_results(self):
-        """Initialize results storage for immunity-related outputs"""
-        super().init_results()
-
-        return
 
     def init_pre(self, sim, force=False):
         """Auto-detect Rotavirus diseases and create states before initialization"""
+
         # Auto-detect all Rotavirus disease instances
         self.rota_diseases = [d for d in sim.diseases.values() if isinstance(d, Rotavirus)]
 
@@ -151,9 +132,8 @@ class RotaImmunityConnector(ss.Connector):
             GP_states.append(state)
 
         self.define_states(*GP_states)
+        super().init_pre(sim, force=force)
 
-        # NOW call super().init_pre() with states already defined
-        super().init_pre(sim)
 
     def init_post(self):
         """Create bitmask mappings after initialization"""
@@ -161,8 +141,6 @@ class RotaImmunityConnector(ss.Connector):
 
         if len(self.rota_diseases) == 0:
             return
-
-        # Use the genotypes calculated in init_pre() - no duplication!
 
         # Ensure we don't exceed bitwise limits based on actual datatype
         max_bits = np.iinfo(self.exposed_GP_bitmask.dtype).bits
@@ -193,23 +171,11 @@ class RotaImmunityConnector(ss.Connector):
         if self.sim.pars.verbose > 1:
             print(f"  - Pre-computed bitmasks for {len(self.rota_diseases)} diseases")
 
-        # Init baseline immunity
-        # NOTE: adult_baseline_immunity parameter has been removed
-        # Baseline immunity is now initialized via initialize_immunity() method using baseline_immunity_exponential_rate
-        # if self.pars['adult_baseline_immunity'] > 0:
-        #     adults = self.sim.people.age >= self.pars['adult_age_threshold']
-        #     self.baseline_immunity[adults] = self.pars['adult_baseline_immunity']
 
     def step(self):
         """Main connector step: apply waning and update cross-immunity"""
         if len(self.rota_diseases) == 0:
             return
-
-        # Update age-dependent baseline immunity BEFORE calculating cross-immunity
-        # This ensures all adults maintain the correct baseline immunity every timestep
-        # if self.pars['adult_baseline_immunity'] > 0:
-        #     adults = self.sim.people.age >= self.pars['adult_age_threshold']
-        #     self.baseline_immunity[adults] = self.pars['adult_baseline_immunity']
 
         # Update cross-immunity protection for all diseases
         self._update_cross_immunity()
@@ -218,7 +184,6 @@ class RotaImmunityConnector(ss.Connector):
         """Fully vectorized cross-immunity using bitwise operations - NO UID LOOPS"""
         # Reset decay factors and update immunity for all diseases
         self._reset_decay_factors()
-        # self._update_immunity_decay_factors()
         self._calculate_disease_susceptibilities()
 
     def _reset_decay_factors(self):
@@ -227,55 +192,24 @@ class RotaImmunityConnector(ss.Connector):
         self.partial_match_immunity_decay_factor[:] = 0.0
         self.homotypic_immunity_decay_factor[:] = 0.0
 
-    def _update_immunity_decay_factors(self):
-        """Update immunity decay factors for all diseases based on recovery times"""
-        for disease in self.rota_diseases:
-            # Update max decay factors for agents recovered from this specific strain
-            recovered_from_strain = (disease.infected == False) & (disease.n_infections > 0)
-            recovered_uids = recovered_from_strain.uids
-            infected_uids = (disease.infected == True).uids
-            #
-            # if recovered_from_strain.any():
-            #     # Calculate time since recovery in days
-            #     time_since_recovery = (disease.ti - disease.ti_recovered[recovered_from_strain]) * disease.dt.days
-            #
-            #     # Apply delayed exponential decay
-            #     waning_started = time_since_recovery > disease.pars.waning_delay.days
-            #
-            #     if waning_started.any():
-            #         waning_started_uids = recovered_uids[waning_started]
-            #         # Calculate decay factor for agents past the delay period
-            #         decay_time = time_since_recovery[waning_started] - self.pars.immunity_waning_delay.days
-            #         # Use pre-computed decay rates stored when agents recovered
-            #         decay_rate = disease.waning_rate[waning_started_uids]
-            #         decay_factor = np.exp(
-            #             -decay_rate * decay_time
-            #         )  # decay_rate (1/days) * decay_time (days) = dimensionless
-            #
-            #         # Update per-strain decay factor (for homotypic immunity)
-            #
-            #         # todo these overwrite each other for each disease in the loop
-            #         # self.homotypic_immunity_decay_factor[waning_started_uids] = decay_factor
-            #         # self.homotypic_immunity_decay_factor[infected_uids] = 1
-            #         # self[f"G{disease.G}P{disease.P}_decayed_immunity_factor"][waning_started_uids] = decay_factor
 
     def _calculate_disease_susceptibilities(self):
         """Calculate disease susceptibilities based on immunity matching and decay factors"""
 
         # long term baseline immunity increases with number of exposures
-        # todo: add a waning term based on most recent exposure
+        # todo: consider adding a waning term based on most recent exposure?
+
+        # baseline immunity is based on an exponential function of number of prior infections. Protection builds
+        # quickly at first but then plateaus.
         baseline_immunity = (1- np.exp(
             -self.pars.baseline_immunity_exponential_rate * self.num_recovered_infections
         ))
 
+        # initialize combined immunity factor with baseline immunity
         combined_immunity_factor = baseline_immunity
 
-
+        # now we need to update the combined immunity factor based on strain-specific immunity
         for disease in self.rota_diseases:
-            # Reset final_decayed_immunity_factor to 0.0 at the start of each disease loop
-            # This ensures stale values from previous disease calculations don't persist
-            # self.final_decayed_immunity_factor[:] = 0.0
-
             # store a list of all partial hetero matches for this strain
             disease_partial_matches = []
             # for gp in self.unique_GP:
@@ -299,13 +233,9 @@ class RotaImmunityConnector(ss.Connector):
 
             # Determine immunity type and assign protection levels
             has_partial_match = has_G_match | has_P_match
-            # has_immunity_mask = self.has_immunity[:]  # Agents with any prior immunity
 
             # Separate naive agents (no prior immunity) from true heterotypic matches
             has_complete_hetero = ~has_partial_match & ~has_exact_match & self.has_immunity
-
-
-            # combined_immunity_factor = np.zeros(has_exact_match.shape, dtype=float)
 
             # strain match immunity efficacy reduces rel_sus by this factor.
             strain_match_immunity_efficacy = np.zeros(has_exact_match.shape, dtype=float)
@@ -314,42 +244,24 @@ class RotaImmunityConnector(ss.Connector):
             strain_match_immunity_efficacy[has_complete_hetero] = self.pars.complete_heterotypic_immunity_efficacy
             strain_match_immunity_efficacy[~self.has_immunity] = self.pars.naive_immunity_efficacy
 
-            # Homotypic: use per-strain decay
-            # self.final_decayed_immunity_factor[has_exact_match] = np.maximum(self.final_decayed_immunity_factor[has_exact_match], disease.waned_immunity_efficacy[has_exact_match])
+            # for strains that are exact match, update the combined immunity factor to the maximum of any existing value or the waned immunity efficacy for that strain
             combined_immunity_factor[has_exact_match] = np.maximum(combined_immunity_factor[has_exact_match], disease.waned_immunity_efficacy[has_exact_match])
 
-            # self.final_decayed_immunity_factor[has_exact_match] = np.minimum(self.final_decayed_immunity_factor[has_exact_match], disease.waned_immunity_efficacy[has_exact_match])
-
-
-
-            # self.final_decayed_immunity_factor[has_exact_match] = strain_match_immunity_efficacy
-            # test_immunity_factor = disease.waned_immunity_efficacy[has_exact_match]
-
+            # next update the partial matches. Partial matches can come from multiple strains, so we need to take the maximum waned immunity efficacy across all partial match strains.
             for partial_match_disease in disease_partial_matches:
-                # gp_decay = self[f"G{gp[0]}P{gp[1]}_decayed_immunity_factor"][has_partial_match]
-                #
-                # Update partial match decay factor to the maximum of any matching G or P type
-                # self.final_decayed_immunity_factor[has_partial_match] = np.maximum(
-                #     self.final_decayed_immunity_factor[has_partial_match], gp_decay
-                # )
                 combined_immunity_factor[has_partial_match] = np.maximum(combined_immunity_factor[has_partial_match], partial_match_disease.waned_immunity_efficacy[has_partial_match])
 
-            # Note: Complete heterotypic and naive agents keep decay_factor=0.0 (from reset above)
+            # Note: Complete heterotypic and naive agents keep decay_factor=0.0
             # This works correctly because:
             # - For naive: efficacy=0.0, so protection = 0.0 * 0.0 = 0.0 (no protection, full susceptibility)
             # - For complete hetero: efficacy>0, but decay_factor=0.0 means immunity has fully decayed (no protection)
 
             # Apply protection with appropriate decay factor
             # People without immunity have full susceptibility (rel_sus = 1.0)
-
             # The full rel_sus calculation combines strain match efficacy, decayed immunity factor, and infection history scaling.
             # * strain_match_immunity_efficacy is the base protection level based on match type (0.0 to 1.0)
             # * final_decay_factor reduces this protection over time since last infection (0.0 to 1.0). In the case of a partial match, it uses the max decay from either G or P.
             # * infection_history_susceptibility_factor scales susceptibility based on total prior infections. It does not decay over time.
-
-            # Calculate acquired immunity protection
-            # acquired_immunity_protection = strain_match_immunity_efficacy * self.final_decayed_immunity_factor
-            # acquired_immunity_protection = np.maximum(strain_match_immunity_efficacy, self.final_decayed_immunity_factor.values)
 
             # Add maternal immunity for naive agents (those with no prior infections)
             # Maternal immunity decays exponentially with age: efficacy * exp(-age / half_life)
@@ -366,20 +278,28 @@ class RotaImmunityConnector(ss.Connector):
 
             # Final relative susceptibility = 1 - total protection
             # Combine acquired immunity with permanent baseline immunity (use maximum protection)
-            # total_protection = np.maximum(acquired_immunity_protection, self.baseline_immunity[:])
-            disease.rel_sus[:] = (1 - combined_immunity_factor* strain_match_immunity_efficacy)
+            disease.rel_sus[:] = (1 - combined_immunity_factor * strain_match_immunity_efficacy)
             print(f"mean rel sus: {np.mean(disease.rel_sus)}")
 
-            # Override susceptibility for long-term immune agents (cannot be reinfected)
-            # DISABLED: Removed LTI mechanism per user request to implement simple SIRS model
-            # disease.rel_sus[self.long_term_immune[:]] = 0.0
 
     def record_infection(self, disease, new_infected_uids):
+        """
+        Update current infection counts when people become newly infected
+
+        This method should be called by Rotavirus instances when new infections occur.
+
+        Args:
+            disease: Rotavirus disease instance
+            new_infected_uids: Array of UIDs who became newly infected with this disease
+        """
+        if not isinstance(disease, Rotavirus):
+            return  # Only handle Rotavirus diseases
+
         self.num_current_infections[new_infected_uids] += 1.0
 
     def record_recovery(self, disease, recovered_uids):
         """
-        Update bitmasks when people recover from infections
+        Update bitmasks and counters when people recover from infections
 
         This method should be called by Rotavirus instances when infections resolve.
 
@@ -425,28 +345,6 @@ class RotaImmunityConnector(ss.Connector):
             first_infections = np.isnan(self.oldest_infection[episode_complete_uids])
             self.oldest_infection[episode_complete_uids[first_infections]] = self.sim.ti
 
-        # DISABLED: Removed LTI mechanism per user request to implement simple SIRS model
-        # Probabilistically assign long-term immunity based on infection EPISODES (not individual strains)
-        # Only check for LTI when an infection episode completes
-        # if len(episode_complete_uids) > 0:
-        #     infection_counts = self.num_recovered_infections[episode_complete_uids]
-        #
-        #     # Determine probability for each agent based on their total infection episode count
-        #     probs = np.zeros(len(episode_complete_uids))
-        #     probs[infection_counts == 1] = self.pars.long_term_immunity_prob_after_1
-        #     probs[infection_counts == 2] = self.pars.long_term_immunity_prob_after_2
-        #     probs[infection_counts == 3] = self.pars.long_term_immunity_prob_after_3
-        #     probs[infection_counts >= 4] = self.pars.long_term_immunity_prob_after_4
-        #
-        #     # Randomly assign long-term immunity
-        #     develops_long_term = np.random.rand(len(episode_complete_uids)) < probs
-        #     newly_immune_uids = episode_complete_uids[develops_long_term]
-        #     self.long_term_immune[newly_immune_uids] = True
-        #
-        #     # Store the age at which agents developed long-term immunity
-        #     if len(newly_immune_uids) > 0:
-        #         self.long_term_immune_age[newly_immune_uids] = self.sim.people.age[newly_immune_uids]
-
     def initialize_immunity(self, min_age, max_age, min_exposures, max_exposures, exposures_per_year = 1.5):
         """
             Initialize immunity reflecting prior infections
@@ -474,11 +372,7 @@ class RotaImmunityConnector(ss.Connector):
 
         self.pars.immunity_init_dist.set(low=min_exposures, high=max_exposures)
 
-        # Record infection history for tracking purposes
-        # self.num_recovered_infections[eligible_uids] = self.pars.immunity_init_dist.rvs(eligible_uids)
-
-        # num_exposures_per_strain = self.pars.immunity_init_dist.rvs(eligible_uids)
-        # exposure history is now based on age and expected number of exposures per year, divided by the number of strains.
+        # exposure history per strain is based on age and expected number of exposures per year, divided by the number of strains.
         num_exposures_per_strain = np.round(exposures_per_year * self.sim.people.age[eligible_uids], 0)/len(self.rota_diseases)
         self.has_immunity[eligible_uids] = True
 
@@ -499,29 +393,4 @@ class RotaImmunityConnector(ss.Connector):
                 # disease.n_infections[eligible_uids] = num_exposures_per_strain
                 self.num_recovered_infections[eligible_uids] += num_exposures_per_strain
 
-
-        # Calculate baseline immunity based on number of prior exposures
-        # Each exposure provides incremental immunity (like acquired immunity but permanent)
-        # Use homotypic efficacy as the per-exposure protection (cumulative effect)
-        # for uid in eligible_uids:
-        #     num_exp = self.num_recovered_infections[uid]
-            # Cumulative protection: each exposure adds homotypic_immunity_efficacy
-            # Capped at adult_baseline_immunity as the maximum achievable protection
-            # cumulative_protection = min(
-            #     self.pars.adult_baseline_immunity,
-            #     num_exp * self.pars.homotypic_immunity_efficacy
-            # )
-            # self.baseline_immunity[uid] = cumulative_protection
-            # self.baseline_immunity[uid] =
-
-        # self.baseline_immunity[eligible_uids] = self.pars.adult_baseline_immunity
-
-        # if self.sim.pars.verbose:
-            # print(f"\n✓ Initialized {n_uids} agents with baseline immunity:")
-            # print(f"  Prior infections: {min_exposures}-{max_exposures}")
-            # print(f"  Cumulative protection: {self.pars.adult_baseline_immunity * 100:.1f}% (from repeated prior exposures)")
-            # print(f"  Note: This baseline doesn't wane - new infections add temporary immunity on top")
-
-        # Update rel_sus immediately after setting baseline_immunity
-        # This ensures immunity is applied before the simulation starts
         self._calculate_disease_susceptibilities()
