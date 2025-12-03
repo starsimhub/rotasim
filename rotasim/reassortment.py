@@ -21,19 +21,7 @@ class RotaReassortmentConnector(ss.Connector):
     """
     Connector for rotavirus genetic reassortment between co-infected strains
 
-    This connector replicates the v1 reassortment logic where co-infected hosts
-    can generate reassortant strains by mixing G,P antigenic segments from
-    their infecting strains. All possible reassortants are pre-populated as
-    dormant diseases and activated when reassortment occurs.
-
-    The v1 algorithm:
-    1. Find co-infected hosts (≥2 rotavirus strains)
-    2. Draw reassortment events using population-level Poisson
-    3. For selected hosts, generate G,P combinations excluding parents
-    4. Infect with all valid reassortants
-
-    The v2 algorithm:
-    1. Find co-infected hosts (≥2 rotavirus diseases active)
+    1. Find co-infected hosts (≥2 rotavirus strains active)
     2. Per-host Bernoulli draws based on reassortment rate
     3. For hosts with reassortment, generate G,P combinations excluding parents
     4. Activate dormant diseases using set_prognoses
@@ -51,8 +39,7 @@ class RotaReassortmentConnector(ss.Connector):
 
         # Define parameters
         self.define_pars(
-            reassortment_prob=reassortment_prob, # Daily reassortment probability per strain pair per host
-            # reassortment_prob_dist=ss.bernoulli(p=self.reassortment_prob_by_num_infections),  # Bernoulli for filtering
+            reassortment_prob=reassortment_prob,  # Daily reassortment probability per strain pair per host
             reassortment_prob_dist=ss.bernoulli(p=reassortment_prob),  # Bernoulli for filtering
         )
 
@@ -61,10 +48,12 @@ class RotaReassortmentConnector(ss.Connector):
         self._gp_to_disease = {}  # Mapping: (G,P) → disease instance
         self._disease_to_gp = {}  # Mapping: disease instance → (G,P)
 
-
-    # This is a callback to increase reassortment probability when multiple infections are present. Assumes every pair
-    # of co-infecting strains can reassort independently, but only 1 reassortment event may occur per timestep.
     def reassortment_prob_by_num_infections(self, sim, uids):
+        """
+        This is a callback which can optionally be increase reassortment probability when multiple strains are present.
+        Assumes every pair of co-infecting strains can reassort independently, but only 1 reassortment event may occur
+        per timestep.
+        """
         n_infections = sim.people.rotaimmunity.num_current_infections[uids]
         n_combinations = n_infections * (n_infections - 1) / 2
 
@@ -72,7 +61,6 @@ class RotaReassortmentConnector(ss.Connector):
         # (s1, s2), (s1, s3), (s2, s3)
 
         return 1 - (1 - self.pars.reassortment_prob) ** (n_combinations - 1)
-
 
     def init_pre(self, sim):
         """Initialize before simulation starts - detect Rotavirus diseases"""
@@ -124,7 +112,6 @@ class RotaReassortmentConnector(ss.Connector):
         """
         Perform reassortment step - called each timestep
 
-        Algorithm:
         1. Find co-infected hosts (agents with ≥2 active Rotavirus infections)
         2. For each co-infected host, draw Bernoulli to determine if reassortment occurs
         3. For hosts with reassortment, generate all valid G,P combinations from parent strains
@@ -181,7 +168,7 @@ class RotaReassortmentConnector(ss.Connector):
 
     def _get_reassortant_infections(self, uid):
         """
-        Generate reassortant infection plans for a single co-infected host
+        Generate reassortant infection plans for a single co-infected host. Selects one reassortant strain at random.
 
         Args:
             uid: Host agent ID

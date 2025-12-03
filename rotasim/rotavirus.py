@@ -43,13 +43,12 @@ class Rotavirus(ss.Infection):
         super().__init__()
 
         self.define_pars(
-            init_age_dist= [(0, 100, 1),],  # Age distribution for initial infections
-            init_prevalence = 0.04, # Overall initial prevalence across all ages
-            init_prev=ss.bernoulli(p=self._init_prevalence_by_age),  # Initial prevalence dist (_init_prevalence_by_age uses init_age_dist and init_prevalence to set age-specific rates)
+            init_age_dist=[(0, 100, 1)],  # Age distribution for initial infections
+            initial_population_prevalence=0.04,  # Overall initial prevalence across all ages
+            init_prevalence_callback=None,  # Whether to use age-specific initial prevalence
+            init_prev=None,  # Initial prevalence dist (_init_prevalence_by_age uses init_age_dist and init_prevalence to set age-specific rates)
             beta=None,  # Transmission rate per day (matches working value from tests/simple.py for endemic circulation)
             dur_inf=ss.lognorm_ex(mean=13, unit="days"),  # Duration of infection (~13 days)
-            # dur_symptomatic_shedding=ss.lognorm_ex(mean=13, unit="days"),
-            # asymptomatic_shedding_rate = 0.1,
             waning_rate_dist=ss.normal(
                 loc=91, scale=14, unit="days"
             ),  # Duration of temporary immunity (13 weeks = 91 days mean, 2 weeks SD)
@@ -73,10 +72,17 @@ class Rotavirus(ss.Infection):
 
         self.update_pars(pars=pars, **kwargs)
 
+        # Handle age-specific initial prevalence if specified
+        if self.pars.init_prev is not None and self.pars.init_prevalence_callback is not None:
+            raise ValueError("Cannot specify both init_prev and init_prevalence_callback. Either provide an initialized "
+                             "init_prev distribution or a callback function to return custom prevalence.")
+        if self.pars.init_prevalence_callback is not None:
+            self.pars.init_prev = ss.bernoulli(self.pars.init_prevalence_callback)
+
     def _init_prevalence_by_age(self, sim, uids):
         p = np.zeros(len(uids))
         total_pop = len(uids)
-        n_infections_expected = int(total_pop * self.pars.init_prevalence)
+        n_infections_expected = int(total_pop * self.pars.initial_population_prevalence)
         for age_min, age_max, percent in self.pars.init_age_dist:
             age_group_members = ((sim.people.age >= age_min) & (sim.people.age < age_max)).uids
             age_group_pop = len(age_group_members)
@@ -135,9 +141,6 @@ class Rotavirus(ss.Infection):
         # Sample duration of infection for each agent
         # dur_inf is typically ss.lognorm_ex(mean=7) for ~7 days
         dur_inf = self.pars.dur_inf.rvs(uids)
-        # dur_symp = self.pars.dur_symptomatic_shedding.rvs(uids)
-
-        # self.ti_asymptomatic[uids] = ti + np.minimum(dur_inf, dur_symp)
 
         # Set recovery time: current time + infection duration
         self.ti_recovered[uids] = ti + dur_inf
@@ -158,9 +161,6 @@ class Rotavirus(ss.Infection):
         """
         # Progress infected -> recovered (following SIR example pattern)
         sim = self.sim
-
-        # asymptomatic = (self.infected & (self.ti_asymptomatic <= self.ti)).uids
-
 
         recovering = (self.infected & (self.ti_recovered <= self.ti)).uids
         self.infected[recovering] = False
@@ -192,8 +192,6 @@ class Rotavirus(ss.Infection):
         self.waned_immunity_efficacy[waning_started_uids] = decay_factor
         self.waned_immunity_efficacy[infected_uids] = 1
         self.waned_immunity_efficacy[waning_not_started_uids] = 1
-
-
 
         self.results["new_recovered"][self.ti] = len(recovering)
 

@@ -5,9 +5,32 @@ Provides convenient functions for generating strain combinations and fitness sce
 
 # Standard library imports
 import itertools
+
+import numpy as np
 import starsim as ss
 import sciris as sc
 
+
+def _init_prevalence_by_age(self, sim, uids):
+    """
+    Callback function to set age-specific initial prevalence probabilities based on defined age distribution. Intended
+    to be passed to a ss.Bernoulli dist as the p parameter.
+
+    Args:
+        self: Rotavirus instance
+        sim: Simulation instance
+        uids: Array of unique IDs for the population
+    """
+    p = np.zeros(len(uids))
+    total_pop = len(uids)
+    n_infections_expected = int(total_pop * self.pars.initial_population_prevalence)
+    for age_min, age_max, percent in self.pars.init_age_dist:
+        age_group_members = ((sim.people.age >= age_min) & (sim.people.age < age_max)).uids
+        age_group_pop = len(age_group_members)
+        n_infections_in_age_group = percent * n_infections_expected
+        p[age_group_members] = n_infections_in_age_group / age_group_pop
+        print(f" ({age_min}-{age_max}): percent of infections: {percent} / total infections: {n_infections_in_age_group} / age group size: {age_group_pop} / prob per agent in age group: {n_infections_in_age_group / age_group_pop}")
+    return p
 
 DEFAULT_INITIAL_INFECTION_AGE_DIST = [
     (0, 1, 0.138),  # <1 year: 13.8% of infections
@@ -17,24 +40,30 @@ DEFAULT_INITIAL_INFECTION_AGE_DIST = [
 ]
 
 SCENARIO_DEFAULTS = {
-            "fitness": 1.0,
-            "init_prevalence": 0.0,
-            "init_age_dist": DEFAULT_INITIAL_INFECTION_AGE_DIST,
-            "dur_inf": ss.lognorm_ex(mean=13),
-            "waning_delay": ss.days(0),
-            "waning_rate_dist": ss.normal(loc=91, scale=14, unit="days"),
-        }
+    "fitness": 0.0,
+    "initial_population_prevalence": 0.0,
+    "init_prevalence_callback": _init_prevalence_by_age,
+    "init_age_dist": DEFAULT_INITIAL_INFECTION_AGE_DIST,
+    "dur_inf": ss.lognorm_ex(mean=13),
+    "waning_delay": ss.days(0),
+    "waning_rate_dist": ss.normal(loc=91, scale=14, unit="days"),
+}
 
 # Unified scenario system - contains strains, fitness, and prevalence all in one place
+# IMPORTANT: If a strain does not specify fitness or prevalence, it will use the scenario default which are both 0. This
+# means the strain will not spread unless explicitly declared in the scenario or overridden later. This is most likely to
+# be a source of confusion for strains that emerge through reassortment and are not explicitly declared in the scenario.
 SCENARIOS = {
     "simple": {
         "description": "Simple two-strain scenario - G1P8 and G2P4 with equal fitness and prevalence",
         "strains": {
             (1, 8): {
-                "init_prevalence": 0.03,
+                "initial_population_prevalence": 0.03,
+                "fitness": 1.0,
             },
             (2, 4): {
-                "init_prevalence": 0.01
+                "initial_population_prevalence": 0.01,
+                "fitness": 1.0,
             },
         },
         "defaults": SCENARIO_DEFAULTS,
@@ -44,7 +73,7 @@ SCENARIOS = {
         "strains": {
             (1, 8): {
                 "fitness": 1.0,
-                "init_prevalence": 0.04,
+                "initial_population_prevalence": 0.04,
             },
         },
         "defaults": SCENARIO_DEFAULTS,
@@ -52,68 +81,49 @@ SCENARIOS = {
     "baseline": {
         "description": "Baseline scenario - common global strains with equal fitness",
         "strains": {
-            (1, 8): {"fitness": 1.0, "init_prev": 0.015},
-            (2, 4): {"fitness": 1.0, "init_prev": 0.008},
-            (3, 8): {"fitness": 1.0, "init_prev": 0.007},
+            (1, 8): {"fitness": 1.0, "initial_population_prevalence": 0.015},
+            (2, 4): {"fitness": 1.0, "initial_population_prevalence": 0.008},
+            (3, 8): {"fitness": 1.0, "initial_population_prevalence": 0.007},
         },
-        "default_fitness": 1.0,
+        "defaults": SCENARIO_DEFAULTS,
     },
     "realistic_competition": {
         "description": "G1P8 dominant with realistic strain competition",
         "strains": {
-            (1, 8): {"fitness": 1.0, "init_prev": 0.015},
-            (2, 4): {"fitness": 0.2, "init_prev": 0.008},
-            (3, 8): {"fitness": 0.4, "init_prev": 0.007},
-            (4, 8): {"fitness": 0.5, "init_prev": 0.005},
+            (1, 8): {"fitness": 1.0, "initial_population_prevalence": 0.015},
+            (2, 4): {"fitness": 0.2, "initial_population_prevalence": 0.008},
+            (3, 8): {"fitness": 0.4, "initial_population_prevalence": 0.007},
+            (4, 8): {"fitness": 0.5, "initial_population_prevalence": 0.005},
         },
-        "default_fitness": 0.05,
+        "defaults": SCENARIO_DEFAULTS,
     },
     "balanced_competition": {
         "description": "G1P8 dominant with moderate balanced competition",
         "strains": {
-            (1, 8): {"fitness": 1.0, "init_prev": 0.015},
-            (2, 4): {"fitness": 0.6, "init_prev": 0.008},
-            (3, 8): {"fitness": 0.9, "init_prev": 0.007},
-            (4, 8): {"fitness": 0.9, "init_prev": 0.005},
+            (1, 8): {"fitness": 1.0, "initial_population_prevalence": 0.015},
+            (2, 4): {"fitness": 0.6, "initial_population_prevalence": 0.008},
+            (3, 8): {"fitness": 0.9, "initial_population_prevalence": 0.007},
+            (4, 8): {"fitness": 0.9, "initial_population_prevalence": 0.005},
         },
-        "default_fitness": 0.2,
+        "defaults": SCENARIO_DEFAULTS,
     },
     "high_diversity": {
         "description": "High diversity with 12 strains and varied fitness",
         "strains": {
-            (1, 8): {"fitness": 1.0, "init_prev": 0.012},
-            (2, 4): {"fitness": 0.7, "init_prev": 0.007},
-            (3, 8): {"fitness": 0.85, "init_prev": 0.005},
-            (4, 8): {"fitness": 0.88, "init_prev": 0.004},
-            (9, 8): {"fitness": 0.95, "init_prev": 0.003},
-            (12, 8): {"fitness": 0.93, "init_prev": 0.003},
-            (9, 6): {"fitness": 0.85, "init_prev": 0.002},
-            (12, 6): {"fitness": 0.90, "init_prev": 0.002},
-            (9, 4): {"fitness": 0.90, "init_prev": 0.002},
-            (1, 6): {"fitness": 0.6, "init_prev": 0.002},
-            (2, 8): {"fitness": 0.6, "init_prev": 0.002},
-            (2, 6): {"fitness": 0.6, "init_prev": 0.002},
+            (1, 8): {"fitness": 1.0, "initial_population_prevalence": 0.012},
+            (2, 4): {"fitness": 0.7, "initial_population_prevalence": 0.007},
+            (3, 8): {"fitness": 0.85, "initial_population_prevalence": 0.005},
+            (4, 8): {"fitness": 0.88, "initial_population_prevalence": 0.004},
+            (9, 8): {"fitness": 0.95, "initial_population_prevalence": 0.003},
+            (12, 8): {"fitness": 0.93, "initial_population_prevalence": 0.003},
+            (9, 6): {"fitness": 0.85, "initial_population_prevalence": 0.002},
+            (12, 6): {"fitness": 0.90, "initial_population_prevalence": 0.002},
+            (9, 4): {"fitness": 0.90, "initial_population_prevalence": 0.002},
+            (1, 6): {"fitness": 0.6, "initial_population_prevalence": 0.002},
+            (2, 8): {"fitness": 0.6, "initial_population_prevalence": 0.002},
+            (2, 6): {"fitness": 0.6, "initial_population_prevalence": 0.002},
         },
-        "default_fitness": 0.4,
-    },
-    "low_diversity": {
-        "description": "Low diversity with 4 main competitive strains",
-        "strains": {
-            (1, 8): {"fitness": 0.98, "init_prev": 0.020},
-            (2, 4): {"fitness": 0.7, "init_prev": 0.012},
-            (3, 8): {"fitness": 0.8, "init_prev": 0.008},
-            (4, 8): {"fitness": 0.8, "init_prev": 0.005},
-        },
-        "default_fitness": 0.5,
-    },
-    "emergence_scenario": {
-        "description": "Scenario for studying strain emergence with weak background",
-        "strains": {
-            (1, 8): {"fitness": 1.0, "init_prev": 0.015},
-            (2, 4): {"fitness": 0.4, "init_prev": 0.005},
-            (3, 8): {"fitness": 0.7, "init_prev": 0.003},
-        },
-        "default_fitness": 0.05,  # Very low fitness for new emerging strains
+        "defaults": SCENARIO_DEFAULTS,
     },
 }
 

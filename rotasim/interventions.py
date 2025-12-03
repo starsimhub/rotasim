@@ -85,7 +85,7 @@ class RotaVaccination(ss.Intervention):
         min_age=ss.days(42),
         max_age=ss.days(365),
         uptake_dist=ss.bernoulli(0.8),
-        waning_rate_dist=ss.lognorm_ex(mean=365),  # Default: 1 year mean waning time,
+        waning_rate_dist=ss.lognorm_ex(mean=365),  # Default: 1 year mean waning time
         waning_delay=ss.days(0),
         homotypic_efficacy=1.0,
         partial_heterotypic_efficacy=0.6,
@@ -282,7 +282,7 @@ class RotaVaccination(ss.Intervention):
                 self._vaccinate_agents(vaccinated_uids)
 
                 if self.pars.verbose:
-                    total_eligible = len(vaccinated_uids)
+                    total_eligible = len(eligible_uids)
                     print(f"Day {self.sim.ti}: Vaccinated {len(vaccinated_uids)}/{total_eligible} eligible agents")
 
     def _vaccinate_agents(self, uids):

@@ -285,9 +285,6 @@ class EventStats(ss.Analyzer):
         self.events["infected_agents"] = int(np.sum(infection_counts > 0))  # Agents infected with any strain
         self.events["coinfected_agents"] = int(np.sum(infection_counts > 1))  # Agents infected with >1 strain
 
-        if self.sim.pars.verbose:
-            print(self.events)
-
         # Store results
         for event_type, count in self.events.items():
             self.results[event_type][self.sim.ti] = count

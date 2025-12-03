@@ -279,8 +279,6 @@ class RotaImmunityConnector(ss.Connector):
             # Final relative susceptibility = 1 - total protection
             # Combine acquired immunity with permanent baseline immunity (use maximum protection)
             disease.rel_sus[:] = (1 - combined_immunity_factor * strain_match_immunity_efficacy)
-            print(f"mean rel sus: {np.mean(disease.rel_sus)}")
-
 
     def record_infection(self, disease, new_infected_uids):
         """
