@@ -73,7 +73,12 @@ class RotaImmunityConnector(ss.Connector):
                 p=0.02
             ),  # Probability of transmitting all strains instead of dominant strain selection (2%). We may want to remove this feature later.
             immunity_init_dist = ss.randint(),
-            baseline_immunity_exponential_rate = 0.1,
+            baseline_immunity_exponential_rate = 0.1,  # Used for exponential model only
+            # Fixed susceptibility model (alternative to exponential model)
+            use_fixed_susceptibility=False,  # Use fixed susceptibility values based on infection count
+            sus_after_1=0.67,  # Susceptibility after 1 infection (33% protection)
+            sus_after_2=0.50,  # Susceptibility after 2 infections (50% protection)
+            sus_after_3plus=0.36,  # Susceptibility after 3+ infections (64% protection)
         )
 
         # Update with user parameters
@@ -262,11 +267,23 @@ class RotaImmunityConnector(ss.Connector):
     def _calculate_disease_susceptibilities(self):
         """Calculate disease susceptibilities based on immunity matching and decay factors"""
 
-        # long term baseline immunity increases with number of exposures
-        # todo: add a waning term based on most recent exposure
-        baseline_immunity = (1- np.exp(
-            -self.pars.baseline_immunity_exponential_rate * self.num_recovered_infections
-        ))
+        # Calculate baseline immunity using either fixed or exponential model
+        if self.pars.use_fixed_susceptibility:
+            # Fixed susceptibility model: discrete values based on infection count
+            # Protection = 1 - susceptibility
+            baseline_immunity = np.zeros_like(self.num_recovered_infections)
+            baseline_immunity[self.num_recovered_infections == 1] = 1 - self.pars.sus_after_1  # 33% protection
+            baseline_immunity[self.num_recovered_infections == 2] = 1 - self.pars.sus_after_2  # 50% protection
+            baseline_immunity[self.num_recovered_infections >= 3] = 1 - self.pars.sus_after_3plus  # 64% protection
+            # baseline_immunity[self.num_recovered_infections == 0] remains 0 (naive, no protection)
+        else:
+            # Exponential saturation model (original): continuous exponential growth approaching 1.0
+            # OLD CODE (kept for reference):
+            # long term baseline immunity increases with number of exposures
+            # todo: add a waning term based on most recent exposure
+            baseline_immunity = (1- np.exp(
+                -self.pars.baseline_immunity_exponential_rate * self.num_recovered_infections
+            ))
 
         combined_immunity_factor = baseline_immunity
 

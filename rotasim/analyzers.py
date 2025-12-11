@@ -422,9 +422,20 @@ class InfectedStrainStats(ss.Analyzer):
         df = analyzer.to_df()  # Event log format
     """
 
-    def __init__(self, **kwargs):
-        """Initialize infected strain statistics analyzer"""
+    def __init__(self, use_infection_based_severity=True, constant_severity=0.05, **kwargs):
+        """
+        Initialize infected strain statistics analyzer
+
+        Args:
+            use_infection_based_severity (bool): If True, severity varies by infection number (default).
+                                                   If False, use constant_severity for all infections.
+            constant_severity (float): Severity value when use_infection_based_severity=False (default: 0.05)
+        """
         super().__init__(**kwargs)
+
+        # Store severity configuration
+        self.use_infection_based_severity = use_infection_based_severity
+        self.constant_severity = constant_severity
 
         # Store infection events as lists
         self.infection_events = {
@@ -437,7 +448,7 @@ class InfectedStrainStats(ss.Analyzer):
             'severity': []  # Severity probability based on infection number
         }
 
-        # Severity rates by infection number
+        # Severity rates by infection number (only used if use_infection_based_severity=True)
         # Primary: 5.1%, Secondary: 6.44%, Third: 4.32%, Fourth+: 3.78%
         self.severity_rates = {
             1: 0.051,
@@ -521,12 +532,16 @@ class InfectedStrainStats(ss.Analyzer):
                 # Get infection number for this agent
                 n_current = int(disease.n_infections[agent_id])
 
-                # Calculate severity probability based on current infection number
-                # Tracking 1st, 2nd, 3rd, and 4+ infections
-                if n_current <= 3:
-                    severity_prob = self.severity_rates[n_current]
+                # Calculate severity probability
+                if self.use_infection_based_severity:
+                    # Severity varies by infection number: 1st, 2nd, 3rd, and 4+ infections
+                    if n_current <= 3:
+                        severity_prob = self.severity_rates[n_current]
+                    else:
+                        severity_prob = self.severity_rates[4]  # 4th and higher
                 else:
-                    severity_prob = self.severity_rates[4]  # 4th and higher
+                    # Constant severity for all infections
+                    severity_prob = self.constant_severity
 
                 # Record the infection event
                 self.infection_events['id'].append(int(agent_id))

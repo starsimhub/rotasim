@@ -1,5 +1,5 @@
 """
-Calibration script for UK data (2008-2012)
+Calibration script for UK data (2008-2012) - with PyCharm sys.path fix
 
 UK Demographics:
 - Population: [0.63%, 0.63%, 1.27%, 3.66%, 93.81%] for 6mo bins
@@ -9,12 +9,17 @@ UK Demographics:
 - Follow-up period: 5 years (2008-2012)
 """
 
-# Fix for PyCharm: Remove parent directory from sys.path to avoid namespace package issues
+# FIX: Remove problematic parent directory from sys.path BEFORE importing rotasim
 import sys
+import os
+
+# Remove the parent directory that causes namespace package issues
 problem_path = '/Users/aliciakraay/PycharmProjects/ryan_rotasim'
 if problem_path in sys.path:
     sys.path.remove(problem_path)
+    print(f"Removed problematic path from sys.path: {problem_path}")
 
+# Now proceed with normal imports
 import numpy as np
 import sciris as sc
 import starsim as ss
@@ -108,11 +113,11 @@ print(age_distribution)
 # Calibration parameters - use same cross-protection approach as Bangladesh
 # UPDATED: Tighter parameter ranges to prevent corner solutions
 calib_pars = sc.objdict(
-    reporting_rate=[0.01, 0.001, 0.10],  # Reporting rate (1% best, 0.5-10% range) - increased from previous unrealistically low range
+    reporting_rate=[0.01, 0.005, 0.1],  # Reporting rate (1% best, 0.5-10% range) - increased from previous unrealistically low range
     # homotypic_immunity_efficacy=[1.0, 1.0, 1.0],
     # partial_heterotypic_immunity_efficacy=[0.5, 0.3, 0.7],
     # complete_heterotypic_immunity_efficacy=[0.1, 0.1, 0.1],
-    base_beta=[0.5, 0.2, 1.0],  # Base transmission rate - Increased range to account for asymptomatic phase transmission reduction
+    base_beta=[0.4, 0.35, 0.55],  # Base transmission rate - MIN raised from 0.05 to 0.08 to prevent unrealistically low transmission
     # maternal_immunity_efficacy=[0.0, 0.0, 0.0],  # Keep at 0
     # adult_baseline_immunity=[0.45, 0.4, 0.5],  # Cumulative immunity from childhood infections - MAX lowered from 0.99 to 0.98 to allow some adult susceptibility
     # baseline_immunity_exponential_rate = [0.1, 0.05, 0.15] # adjust the rate term in the increasing form exponential decay function for baseline immunity based on number of cumulative infections.

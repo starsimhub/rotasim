@@ -1,0 +1,25 @@
+============================================================
+MLE Confidence Intervals: age_and_infection_simple
+============================================================
+
+MLE Parameters:
+  reporting_rate: 0.028400
+  base_beta: 2.082000
+  beta0: -1.421000
+  beta1: 0.171000
+  beta2: -0.004516
+
+Running 50 stochastic simulations...
+============================================================
+Run 1/50...Rotasim: Setting up multi-strain simulation
+  Scenario: single
+  Base beta: 0.16
+  Strains: 1
+  Connectors: Adding default connectors: RotaImmunityConnector, RotaReassortmentConnector
+  Time units: day, dt=day
+  Total diseases: 1 (1 active + 0 dormant)
+Traceback (most recent call last):
+  File "/Users/aliciakraay/PycharmProjects/ryan_rotasim/rotasim/calibration/mle_confidence_intervals.py", line 84, in <module>
+    sim.connectors.rotaimmunityconnector.initialize_immunity(
+    ^^^^^^^^^^^^^^
+AttributeError: 'Sim' object has no attribute 'connectors'

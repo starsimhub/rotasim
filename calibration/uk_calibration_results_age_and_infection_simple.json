@@ -1,0 +1,21 @@
+{
+  "symptom_model": "age_and_infection_simple",
+  "best_parameters": {
+    "beta0": -1.4214585938114395,
+    "beta1": 0.17098147524072754,
+    "beta2": -0.004515534604351019,
+    "reporting_rate": 0.028375457297832203,
+    "base_beta": 2.08214674694885
+  },
+  "incidence": {
+    "target": 27.56,
+    "before": 4.980978886875743,
+    "after": 11.160505818405962
+  },
+  "gof": {
+    "before_total": 0.8781618674312862,
+    "after_total": 0.23500483821566162,
+    "before_age": 0.7962350854563044,
+    "after_age": 0.17550014234846645
+  }
+}
