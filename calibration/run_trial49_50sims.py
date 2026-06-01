@@ -24,7 +24,7 @@ sys.path.insert(0, str(thisdir))
 process_incidence_uk_age = sc.importbypath(thisdir / 'process_incidence_uk_age.py')
 
 print("=" * 80)
-print("RUNNING 50 SIMULATIONS WITH TRIAL #49 PARAMETERS")
+print("RUNNING 20 SIMULATIONS WITH TRIAL #49 PARAMETERS")
 print("=" * 80)
 print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 print()
@@ -63,7 +63,7 @@ print()
 
 def run_simulation(seed, params):
     """Run a single simulation with given parameters and seed"""
-    print(f"Running simulation {seed+1}/50 (seed={seed})...", end=' ')
+    print(f"Running simulation {seed+1}/20 (seed={seed})...", end=' ')
 
     # Create analyzer
     analyzer = rs.InfectedStrainStats(use_infection_based_severity=False, constant_severity=0.2)
@@ -158,14 +158,14 @@ def run_simulation(seed, params):
     }
 
 
-# Run 50 simulations
+# Run 20 simulations
 print("=" * 80)
-print("Running 50 simulations...")
+print("Running 20 simulations...")
 print("=" * 80)
 print()
 
 results = []
-for seed in range(50):
+for seed in range(20):
     result = run_simulation(seed, TRIAL_49_PARAMS)
     results.append(result)
 
@@ -229,7 +229,7 @@ print(f"  Max:    {np.max(gof_values):.4f}")
 print()
 
 # Save results
-output_csv = thisdir / 'trial49_50sims_results.csv'
+output_csv = thisdir / 'trial49_20sims_results.csv'
 df_results.to_csv(output_csv, index=False)
 print(f"Detailed results saved to: {output_csv}")
 
@@ -237,7 +237,7 @@ print(f"Detailed results saved to: {output_csv}")
 summary = {
     'trial_number': 49,
     'parameters': TRIAL_49_PARAMS,
-    'n_simulations': 50,
+    'n_simulations': 20,
     'target_incidence': target_incidence,
     'target_age_distribution': target_age_distribution.proportion.tolist(),
     'incidence_stats': {
@@ -266,7 +266,7 @@ summary = {
     'completed_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
 }
 
-output_json = thisdir / 'trial49_50sims_summary.json'
+output_json = thisdir / 'trial49_20sims_summary.json'
 with open(output_json, 'w') as f:
     json.dump(summary, f, indent=2)
 print(f"Summary statistics saved to: {output_json}")
