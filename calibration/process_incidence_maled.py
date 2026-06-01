@@ -146,6 +146,28 @@ def _apply_age_symptom_filter(dat: pd.DataFrame, symptom_model: str,
     return out
 
 
+def compute_person_months_steady_state(ages_years: np.ndarray,
+                                        window_months: float) -> dict[str, float]:
+    """Estimate person-months per MAL-ED age bin from a steady-state population.
+
+    Snapshots the population age distribution at a single moment (typically sim
+    end) and multiplies each bin's headcount by the calibration window length
+    in months. Valid for a steady-state sim where the age distribution is
+    stationary; would be inaccurate for a true cohort sim (use the dedicated
+    cohort accounting instead).
+
+    Args:
+      ages_years: 1D array of agent ages (years), e.g. sim.people.age.values.
+      window_months: length of the calibration window in months.
+    """
+    pt = {}
+    for bin_label, (lo_m, hi_m) in MALED_AGE_MONTH_RANGE.items():
+        lo_y, hi_y = lo_m / 12.0, hi_m / 12.0
+        count = int(((ages_years >= lo_y) & (ages_years < hi_y)).sum())
+        pt[bin_label] = float(count) * float(window_months)
+    return pt
+
+
 def compute_model_ir_by_age(events: pd.DataFrame, person_months_by_bin: dict[str, float]) -> pd.DataFrame:
     """Aggregate symptomatic events to MAL-ED bins and divide by person-time.
 
