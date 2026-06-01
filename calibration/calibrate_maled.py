@@ -47,7 +47,17 @@ parser.add_argument('--w-inc', type=float, default=1.0,
                     help='GOF weight on incidence-by-age component (default: 1.0)')
 parser.add_argument('--w-first', type=float, default=1.0,
                     help='GOF weight on first-infection-age component (default: 1.0)')
+parser.add_argument('--smoke', action='store_true',
+                    help='Run a tiny end-to-end smoke test (5k agents, 5y sim, 1 trial, 1 rep).')
 args = parser.parse_args()
+
+# Smoke-test overrides — small enough to finish in a few minutes locally but
+# still exercises the full sim → analyzer → GOF pipeline.
+if args.smoke:
+    args.n_trials = 1
+    args.n_reps   = 1
+    args.n_jobs   = 1
+    args.db_path  = f'rota_maled_smoke_{args.site}.db'
 
 if args.db_path is None:
     args.db_path = f'rota_maled_{args.site}.db'
@@ -110,8 +120,18 @@ logger.info(f"Target first-infection quartiles (months): "
             f"(n_events={fi['n_events']}/{fi['n_total']})")
 
 # Calibration window matches calibrate_hybrid_multisim: years 5-10.
-CAL_WINDOW = (5.0, 10.0)
+# Smoke test uses a compressed 5-year sim with window (2, 5).
+if args.smoke:
+    SIM_START, SIM_STOP = '2003-01-01', '2008-01-01'
+    SIM_N_AGENTS = 5_000
+    CAL_WINDOW = (2.0, 5.0)
+else:
+    SIM_START, SIM_STOP = '2003-01-01', '2013-01-01'
+    SIM_N_AGENTS = 100_000
+    CAL_WINDOW = (5.0, 10.0)
 CAL_WINDOW_MONTHS = (CAL_WINDOW[1] - CAL_WINDOW[0]) * 12.0
+logger.info(f"Sim: n_agents={SIM_N_AGENTS}, range={SIM_START}..{SIM_STOP}, "
+            f"calibration window (years)={CAL_WINDOW}")
 
 
 # -------- Calibration class --------
@@ -214,7 +234,14 @@ class MALEDCalibration(ss.Calibration):
             logger.info(f"    mean total   = {np.mean(gofs):.4f} ± {np.std(gofs):.4f}")
             logger.info(f"    range total  = [{np.min(gofs):.4f}, {np.max(gofs):.4f}]")
             return median_gof
-        gof_total, _, _ = self.compute_gof_single(sim_or_multisim)
+        gof_total, g, model_out = self.compute_gof_single(sim_or_multisim)
+        logger.info(f"  Model IR (per 100 PM): "
+                    f"{ {b: round(v, 3) for b, v in model_out['ir_by_age']['IR'].items()} }")
+        logger.info(f"  Model first-inf (mo):  Q25={model_out['first_infection']['q25']:.2f}  "
+                    f"med={model_out['first_infection']['median']:.2f}  "
+                    f"Q75={model_out['first_infection']['q75']:.2f}  "
+                    f"(n={model_out['first_infection']['n_events']})")
+        logger.info(f"  GOF: total={gof_total:.4f}  inc={g['gof_incidence']:.4f}  first_inf={g['gof_first_infection']:.4f}")
         return gof_total
 
     def trial_to_sim_pars(self, trial):
@@ -271,11 +298,11 @@ logger.info("Creating base simulation...")
 analyzer = rs.InfectedStrainStats(use_infection_based_severity=False, constant_severity=0.2)
 immunity_connector = rs.RotaImmunityConnector(use_fixed_susceptibility=False)
 # Reuse UK age data file for now; switch to a MAL-ED-specific demographic file later if needed.
-people = ss.People(n_agents=100000, age_data=thisdir / 'uk_age_data.csv')
+people = ss.People(n_agents=SIM_N_AGENTS, age_data=thisdir / 'uk_age_data.csv')
 sim = rs.Sim(
-    n_agents=100000,
-    start='2003-01-01',
-    stop='2013-01-01',
+    n_agents=SIM_N_AGENTS,
+    start=SIM_START,
+    stop=SIM_STOP,
     verbose=False,
     scenario='single',
     people=people,
