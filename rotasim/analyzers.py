@@ -443,6 +443,7 @@ class InfectedStrainStats(ss.Analyzer):
             'Strain': [],
             'CollectionTime': [],
             'Age': [],
+            'age_months_precise': [],  # Continuous age in months (for MAL-ED calibration)
             'PopulationSize': [],
             'n_infections': [],  # Infection number (1st, 2nd, 3rd, etc.)
             'severity': []  # Severity probability based on infection number
@@ -548,6 +549,7 @@ class InfectedStrainStats(ss.Analyzer):
                 self.infection_events['Strain'].append(strain_name)
                 self.infection_events['CollectionTime'].append(float(current_time_years))
                 self.infection_events['Age'].append(age_category)
+                self.infection_events['age_months_precise'].append(float(age_years) * 12.0)
                 self.infection_events['PopulationSize'].append(int(pop_size))
                 self.infection_events['n_infections'].append(n_current)  # Current infection number (1st, 2nd, 3rd, etc.)
                 self.infection_events['severity'].append(severity_prob)

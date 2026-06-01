@@ -240,7 +240,13 @@ def process_model(dat: pd.DataFrame,
     # Per-agent infection order within the calibration window.
     df = df.sort_values(['id', 'CollectionTime'])
     df['n_infections'] = df.groupby('id').cumcount() + 1
-    df['age_months_est'] = df['Age'].map(FINE_BIN_MIDPOINT_MONTHS)
+
+    # Precise continuous age in months if the analyzer recorded it; fall back to
+    # the fine-bin midpoint for older analyzer outputs that lack this column.
+    if 'age_months_precise' in df.columns:
+        df['age_months_est'] = df['age_months_precise'].astype(float)
+    else:
+        df['age_months_est'] = df['Age'].map(FINE_BIN_MIDPOINT_MONTHS)
 
     # Symptomatic filtering (mirrors UK pipeline).
     df_symp = _apply_age_symptom_filter(df, symptom_model=symptom_model,

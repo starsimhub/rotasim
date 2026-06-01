@@ -133,6 +133,26 @@ CAL_WINDOW_MONTHS = (CAL_WINDOW[1] - CAL_WINDOW[0]) * 12.0
 logger.info(f"Sim: n_agents={SIM_N_AGENTS}, range={SIM_START}..{SIM_STOP}, "
             f"calibration window (years)={CAL_WINDOW}")
 
+# Site-specific demographics (modern, MAL-ED enrollment era ~2011-2014).
+# Death rate is set close to UN estimates; emigration omitted for simplicity --
+# the burn-in lets the age pyramid equilibrate under births and deaths alone.
+SITE_DEMOGRAPHICS = {
+    'bangladesh': dict(birth_rate=19, death_rate=6),
+    'pakistan':   dict(birth_rate=27, death_rate=7),
+}
+demo = SITE_DEMOGRAPHICS[args.site]
+logger.info(f"Demographics ({args.site}): birth_rate={demo['birth_rate']}/1000/y, "
+            f"death_rate={demo['death_rate']}/1000/y")
+
+# MAL-ED reporting is ~100%: every monthly + diarrheal stool is TAC-tested, so
+# the only filter between sim infections and "symptomatic case" is the
+# age-symptom probability. Fix reporting_rate and constant_severity at 1.0.
+FIXED_REPORTING_RATE   = 1.0
+FIXED_CONSTANT_SEVERITY = 1.0
+logger.info(f"Fixed reporting_rate={FIXED_REPORTING_RATE}, "
+            f"constant_severity={FIXED_CONSTANT_SEVERITY} "
+            f"(MAL-ED is intensively sampled; no surveillance filter)")
+
 
 # -------- Calibration class --------
 class MALEDCalibration(ss.Calibration):
@@ -160,7 +180,8 @@ class MALEDCalibration(ss.Calibration):
                 disease.pars.beta = ss.perday(sim.pars.base_beta * disease.pars.fitness)
 
         # Stash params on the sim for sim_to_summary to read later.
-        sim._reporting_rate  = sim_pars['reporting_rate']
+        # reporting_rate is fixed at 1.0 for MAL-ED (intensive surveillance).
+        sim._reporting_rate  = FIXED_REPORTING_RATE
         sim._beta0           = sim_pars['beta0']
         sim._beta1           = sim_pars['beta1']
         sim._beta2           = sim_pars['beta2']
@@ -186,7 +207,7 @@ class MALEDCalibration(ss.Calibration):
             logger.info(f"\nTrial {trial}:")
             logger.info(f"  Age params: beta0={sim_pars['beta0']:.4f}, beta1={sim_pars['beta1']:.4f}, beta2={sim_pars['beta2']:.4f}")
             logger.info(f"  Immunity: sus_1={sim_pars['sus_after_1']:.3f}, sus_2={sim_pars['sus_after_2']:.3f}, sus_3+={sim_pars['sus_after_3plus']:.3f}")
-            logger.info(f"  Other: reporting={sim_pars['reporting_rate']:.6f}, beta={sim_pars['base_beta']:.4f}")
+            logger.info(f"  Transmission: beta={sim_pars['base_beta']:.4f} (reporting fixed at {FIXED_REPORTING_RATE})")
 
         if n_reps == 1:
             return self._build_sim(sim_pars)
@@ -245,8 +266,8 @@ class MALEDCalibration(ss.Calibration):
         return gof_total
 
     def trial_to_sim_pars(self, trial):
-        # Same 8-parameter space and same monotonicity constraint as the UK hybrid fit.
-        reporting_rate  = trial.suggest_float('reporting_rate', 0.0001, 0.01, log=True)
+        # 7-parameter space for MAL-ED (reporting_rate fixed at 1.0).
+        # Monotonicity: sus_after_3plus <= sus_after_2 <= sus_after_1.
         base_beta       = trial.suggest_float('base_beta',      0.05, 0.5,    log=True)
         beta0           = trial.suggest_float('beta0',          -5.0, 2.0)
         beta1           = trial.suggest_float('beta1',          -1.0, 1.0)
@@ -255,7 +276,7 @@ class MALEDCalibration(ss.Calibration):
         sus_after_2     = trial.suggest_float('sus_after_2',     sus_after_3plus, 1.0)
         sus_after_1     = trial.suggest_float('sus_after_1',     sus_after_2,     1.0)
         return dict(
-            reporting_rate=reporting_rate, base_beta=base_beta,
+            base_beta=base_beta,
             beta0=beta0, beta1=beta1, beta2=beta2,
             sus_after_1=sus_after_1, sus_after_2=sus_after_2,
             sus_after_3plus=sus_after_3plus,
@@ -293,11 +314,16 @@ class MALEDCalibration(ss.Calibration):
         return study
 
 
-# -------- Base simulation (mirrors UK setup) --------
+# -------- Base simulation --------
+# Differs from calibrate_hybrid_multisim in three ways:
+#   1. constant_severity=1.0 (no severity filter — MAL-ED is full-ascertainment)
+#   2. site-specific birth/death rates
+#   3. UK age_data CSV used as a starting point; the multi-year burn-in lets the
+#      pyramid equilibrate to the configured birth/death rates.
 logger.info("Creating base simulation...")
-analyzer = rs.InfectedStrainStats(use_infection_based_severity=False, constant_severity=0.2)
+analyzer = rs.InfectedStrainStats(use_infection_based_severity=False,
+                                   constant_severity=FIXED_CONSTANT_SEVERITY)
 immunity_connector = rs.RotaImmunityConnector(use_fixed_susceptibility=False)
-# Reuse UK age data file for now; switch to a MAL-ED-specific demographic file later if needed.
 people = ss.People(n_agents=SIM_N_AGENTS, age_data=thisdir / 'uk_age_data.csv')
 sim = rs.Sim(
     n_agents=SIM_N_AGENTS,
@@ -309,8 +335,8 @@ sim = rs.Sim(
     analyzers=[analyzer],
     networks=ss.RandomNet(n_contacts=7),
     demographics=[
-        ss.Births(birth_rate=ss.peryear(13)),
-        ss.Deaths(death_rate=ss.peryear(6)),
+        ss.Births(birth_rate=ss.peryear(demo['birth_rate'])),
+        ss.Deaths(death_rate=ss.peryear(demo['death_rate'])),
     ],
     interventions=[],
     connectors=[immunity_connector],
@@ -364,7 +390,8 @@ logger.info("\nTop 5 trials:")
 sorted_trials = sorted(completed, key=lambda t: t.value if t.value is not None else float('inf'))
 for i, t in enumerate(sorted_trials[:5]):
     logger.info(f"  #{t.number}: GOF={t.value:.4f}  "
-                f"beta={t.params['base_beta']:.3f}  rep={t.params['reporting_rate']:.5f}  "
+                f"beta={t.params['base_beta']:.3f}  "
+                f"age_symp=[{t.params['beta0']:.2f},{t.params['beta1']:.2f},{t.params['beta2']:.2f}]  "
                 f"sus=[{t.params['sus_after_1']:.2f},{t.params['sus_after_2']:.2f},{t.params['sus_after_3plus']:.2f}]")
 
 logger.info("\n" + "=" * 80)
