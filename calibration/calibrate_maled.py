@@ -1,272 +1,165 @@
 """
-MAL-ED birth-cohort calibration with MultiSim.
+MAL-ED birth-cohort calibration with multiprocessing.Pool (spawn).
 
-Mirrors calibrate_hybrid_multisim.py (same 8 parameters, same sim setup, same
-Optuna+MultiSim machinery, same TPE sampler seed for reproducibility) but
-targets MAL-ED incidence-by-age + age-at-first-infection per-site (Bangladesh
-or Pakistan).
+Same calibration target as before (per-site IR-by-age + first-infection
+quartiles), same 7-parameter Optuna+TPE search, but workers are now spawned
+fresh per replicate rather than forked from a parent that pre-built 20 sims.
 
-GOF (from process_incidence_maled.gof):
-  GOF_inc   = sum over MAL-ED age bins of (log(IR_target) - log(IR_model))^2
-  GOF_first = ((med_target - med_model)^2 + 0.5*((Q25_diff)^2 + (Q75_diff)^2)) / med_target^2
-  GOF       = w_inc * GOF_inc + w_first * GOF_first   (equal weight by default)
+Why the change: the previous MultiSim approach built 20 sim objects in the
+parent process before forking, so each worker inherited all 20 via CoW.
+That hit a memory ceiling (~340 GB) and got OOM-killed on shared VMs. With
+spawn-based pool, each worker starts clean and builds only the one sim it
+runs (~5-8 GB per worker, ~50-80 GB total for n_reps=10).
 
 Usage:
   python calibrate_maled.py --site bangladesh --n-trials 50 --n-reps 20
-  python calibrate_maled.py --site pakistan   --n-trials 50 --n-reps 20
+  python calibrate_maled.py --site bangladesh --smoke
 
-Multi-worker:
+Multi-worker (Optuna-coordinated):
   python calibrate_maled.py --site bangladesh --n-trials 10 --total-trials 50 --worker-id 1
 """
 import sys
+import os
+import json
 import logging
 import argparse
-import os
 from datetime import datetime
+from multiprocessing import get_context
 
-# -------- CLI --------
-parser = argparse.ArgumentParser(description='Run MAL-ED calibration with MultiSim')
-parser.add_argument('--site', type=str, required=True,
-                    choices=['bangladesh', 'pakistan'],
-                    help='MAL-ED site to calibrate against')
-parser.add_argument('--n-trials', type=int, default=50,
-                    help='Number of trials for THIS worker (default: 50)')
-parser.add_argument('--total-trials', type=int, default=None,
-                    help='Total trials across ALL workers (default: same as n-trials)')
-parser.add_argument('--n-reps', type=int, default=20,
-                    help='Replicates per trial (default: 20)')
-parser.add_argument('--n-jobs', type=int, default=1,
-                    help='Parallel trials via Optuna study.optimize (default: 1, -1 for all CPUs)')
-parser.add_argument('--worker-id', type=str, default=None,
-                    help='Worker ID for logging (default: auto-generated)')
-parser.add_argument('--n-cpus-per-trial', type=int, default=None,
-                    help='CPUs for MultiSim parallelization within each trial')
-parser.add_argument('--db-path', type=str, default=None,
-                    help='Optuna SQLite path (default: rota_maled_<site>.db)')
-parser.add_argument('--w-inc', type=float, default=1.0,
-                    help='GOF weight on incidence-by-age component (default: 1.0)')
-parser.add_argument('--w-first', type=float, default=1.0,
-                    help='GOF weight on first-infection-age component (default: 1.0)')
-parser.add_argument('--smoke', action='store_true',
-                    help='Run a tiny end-to-end smoke test (5k agents, 5y sim, 1 trial, 1 rep).')
-args = parser.parse_args()
-
-# Smoke-test overrides — small enough to finish in a few minutes locally but
-# still exercises the full sim → analyzer → GOF pipeline.
-if args.smoke:
-    args.n_trials = 1
-    args.n_reps   = 1
-    args.n_jobs   = 1
-    args.db_path  = f'rota_maled_smoke_{args.site}.db'
-
-if args.db_path is None:
-    args.db_path = f'rota_maled_{args.site}.db'
-if args.worker_id is None:
-    args.worker_id = os.environ.get('SLURM_ARRAY_TASK_ID',
-                     os.environ.get('PBS_ARRAYID',
-                                    datetime.now().strftime('%H%M%S')))
-
-# -------- Logging --------
-log_file = f'calibrate_maled_{args.site}_worker{args.worker_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
-)
-logger = logging.getLogger(__name__)
-logger.info("=" * 80)
-logger.info(f"MAL-ED CALIBRATION ({args.site.title()})")
-logger.info(f"Worker ID: {args.worker_id}")
-logger.info(f"Log file: {log_file}")
-logger.info(f"Trials for this worker: {args.n_trials}")
-if args.total_trials:
-    logger.info(f"Total trials across all workers: {args.total_trials}")
-logger.info(f"Replicates per trial: {args.n_reps}")
-logger.info(f"Parallel jobs: {args.n_jobs if args.n_jobs != -1 else 'all CPUs'}")
-logger.info(f"GOF weights: w_inc={args.w_inc}, w_first={args.w_first}")
-logger.info(f"Database: {args.db_path}")
-logger.info("=" * 80)
-
-# Strip the parent path that pulls in a different rotasim install (same trick
-# as calibrate_hybrid_multisim).
-problem_path = '/Users/aliciakraay/PycharmProjects/ryan_rotasim'
-if problem_path in sys.path:
-    sys.path.remove(problem_path)
-
-# -------- Imports --------
 import numpy as np
 import sciris as sc
 import starsim as ss
 import rotasim as rs
 import optuna
-import json
+
+# ---------------------------------------------------------------------------
+# Module-level setup that workers also need.
+# ---------------------------------------------------------------------------
+# Strip an alternate sibling install of rotasim from sys.path if present
+# (same trick as the previous version).
+_PROBLEM_PATH = '/Users/aliciakraay/PycharmProjects/ryan_rotasim'
+if _PROBLEM_PATH in sys.path:
+    sys.path.remove(_PROBLEM_PATH)
 
 thisdir = sc.thispath(__file__)
-sys.path.insert(0, str(thisdir))
+if str(thisdir) not in sys.path:
+    sys.path.insert(0, str(thisdir))
 process_incidence_maled = sc.importbypath(thisdir / 'process_incidence_maled.py')
 
-# -------- Targets --------
-logger.info(f"Loading MAL-ED targets for {args.site}...")
-TARGETS = process_incidence_maled.load_targets(args.site)
-logger.info("Target IR by age (per 100 person-months):")
-for bin_label in process_incidence_maled.MALED_AGE_BINS:
-    ir = TARGETS['ir_by_age'].loc[bin_label, 'IR']
-    pt = TARGETS['ir_by_age'].loc[bin_label, 'PT']
-    cs = TARGETS['ir_by_age'].loc[bin_label, 'cases']
-    logger.info(f"  {bin_label:<8}  cases={cs:>3}  PT={pt:>5}  IR={ir:.3f}")
-fi = TARGETS['first_infection']
-logger.info(f"Target first-infection quartiles (months): "
-            f"Q25={fi['q25']:.2f}, median={fi['median']:.2f}, Q75={fi['q75']:.2f} "
-            f"(n_events={fi['n_events']}/{fi['n_total']})")
-
-# Calibration window matches calibrate_hybrid_multisim: years 5-10.
-# Smoke test uses a compressed 5-year sim with window (2, 5).
-if args.smoke:
-    SIM_START, SIM_STOP = '2003-01-01', '2008-01-01'
-    SIM_N_AGENTS = 5_000
-    CAL_WINDOW = (2.0, 5.0)
-else:
-    SIM_START, SIM_STOP = '2003-01-01', '2013-01-01'
-    SIM_N_AGENTS = 100_000
-    CAL_WINDOW = (5.0, 10.0)
-CAL_WINDOW_MONTHS = (CAL_WINDOW[1] - CAL_WINDOW[0]) * 12.0
-logger.info(f"Sim: n_agents={SIM_N_AGENTS}, range={SIM_START}..{SIM_STOP}, "
-            f"calibration window (years)={CAL_WINDOW}")
+# MAL-ED reporting is ~100% (intensive TAC sampling), so we keep both the
+# reporting filter and severity filter at 1.0 -- the only thing between
+# infections and observed symptomatic cases is the age-symptom probability.
+FIXED_REPORTING_RATE    = 1.0
+FIXED_CONSTANT_SEVERITY = 1.0
 
 # Site-specific demographics (modern, MAL-ED enrollment era ~2011-2014).
-# Death rate is set close to UN estimates; emigration omitted for simplicity --
-# the burn-in lets the age pyramid equilibrate under births and deaths alone.
 SITE_DEMOGRAPHICS = {
     'bangladesh': dict(birth_rate=19, death_rate=6),
     'pakistan':   dict(birth_rate=27, death_rate=7),
 }
-demo = SITE_DEMOGRAPHICS[args.site]
-logger.info(f"Demographics ({args.site}): birth_rate={demo['birth_rate']}/1000/y, "
-            f"death_rate={demo['death_rate']}/1000/y")
 
-# MAL-ED reporting is ~100%: every monthly + diarrheal stool is TAC-tested, so
-# the only filter between sim infections and "symptomatic case" is the
-# age-symptom probability. Fix reporting_rate and constant_severity at 1.0.
-FIXED_REPORTING_RATE   = 1.0
-FIXED_CONSTANT_SEVERITY = 1.0
-logger.info(f"Fixed reporting_rate={FIXED_REPORTING_RATE}, "
-            f"constant_severity={FIXED_CONSTANT_SEVERITY} "
-            f"(MAL-ED is intensively sampled; no surveillance filter)")
+MALED_SITES = list(SITE_DEMOGRAPHICS.keys())
 
 
-# -------- Calibration class --------
-class MALEDCalibration(ss.Calibration):
-    def __init__(self, sim, targets, total_trials=50, n_reps=20, n_jobs=1, n_cpus=None,
-                 w_inc=1.0, w_first=1.0, **kwargs):
-        super().__init__(sim=sim, calib_pars={}, **kwargs)
-        self.targets = targets
+# ---------------------------------------------------------------------------
+# Worker function: runs in a spawned subprocess. Must be picklable and
+# self-sufficient. Builds its own sim from `sim_config`, applies trial params,
+# runs, returns the small `model_out` dict back to the parent.
+# ---------------------------------------------------------------------------
+def _run_one_replicate(args):
+    sim_config, sim_pars, rand_seed, cal_window = args
+
+    # Build base sim from picklable config (no pre-built sim objects crossing
+    # the process boundary -- spawn cannot pickle a fully-initialised Sim
+    # anyway, and even if it could, this is the whole point of the refactor).
+    analyzer = rs.InfectedStrainStats(
+        use_infection_based_severity=False,
+        constant_severity=sim_config['constant_severity'],
+    )
+    immunity_connector = rs.RotaImmunityConnector(use_fixed_susceptibility=False)
+    people = ss.People(n_agents=sim_config['n_agents'],
+                       age_data=sim_config['age_data_path'])
+    sim = rs.Sim(
+        n_agents=sim_config['n_agents'],
+        start=sim_config['start'],
+        stop=sim_config['stop'],
+        verbose=False,
+        scenario='single',
+        people=people,
+        analyzers=[analyzer],
+        networks=ss.RandomNet(n_contacts=sim_config['n_contacts']),
+        demographics=[
+            ss.Births(birth_rate=ss.peryear(sim_config['birth_rate'])),
+            ss.Deaths(death_rate=ss.peryear(sim_config['death_rate'])),
+        ],
+        interventions=[],
+        connectors=[immunity_connector],
+        rand_seed=rand_seed,
+    )
+
+    # Apply trial parameters (transmission + per-disease beta scaling).
+    sim.pars.base_beta = sim_pars['base_beta']
+    for disease in sim.pars.diseases:
+        if isinstance(disease, rs.Rotavirus):
+            disease.pars.beta = ss.perday(sim.pars.base_beta * disease.pars.fitness)
+
+    sim.init()
+
+    # Configure fitted-susceptibility immunity after init.
+    ic = sim.connectors.rotaimmunityconnector
+    ic.pars['use_fixed_susceptibility'] = True
+    ic.pars['sus_after_1']     = sim_pars['sus_after_1']
+    ic.pars['sus_after_2']     = sim_pars['sus_after_2']
+    ic.pars['sus_after_3plus'] = sim_pars['sus_after_3plus']
+    ic.initialize_immunity(min_age=18, max_age=125,
+                           min_exposures=5, max_exposures=15)
+
+    sim.run()
+
+    # Reduce the sim's analyzer output to the small model_out dict we need
+    # downstream. Everything large stays inside the worker process and is
+    # released when the worker is reused for the next task or torn down.
+    df = sim.analyzers['infectedstrainstats'].to_df()
+    pt = process_incidence_maled.compute_person_months_steady_state(
+        ages_years=sim.people.age.values,
+        window_months=(cal_window[1] - cal_window[0]) * 12.0,
+    )
+    model_out = process_incidence_maled.process_model(
+        df,
+        person_months_by_bin=pt,
+        symptom_model='age_and_infection_simple',
+        beta0=sim_pars['beta0'],
+        beta1=sim_pars['beta1'],
+        beta2=sim_pars['beta2'],
+        reporting_rate=sim_config['reporting_rate'],
+        calibration_window=cal_window,
+        censor_at_months=36.0,
+    )
+    return model_out
+
+
+# ---------------------------------------------------------------------------
+# Calibration object. No longer subclasses ss.Calibration -- we use Optuna
+# directly. The class just holds the configuration and per-trial state.
+# ---------------------------------------------------------------------------
+class MALEDCalibration:
+    def __init__(self, sim_config, targets, cal_window, total_trials, n_reps,
+                 n_jobs, n_cpus, w_inc, w_first, db_path, study_name, logger):
+        self.sim_config   = sim_config
+        self.targets      = targets
+        self.cal_window   = cal_window
         self.total_trials = total_trials
-        self.n_reps = n_reps
-        self.n_jobs = n_jobs
-        self.n_cpus = n_cpus
-        self.w_inc = w_inc
-        self.w_first = w_first
+        self.n_reps       = n_reps
+        self.n_jobs       = n_jobs
+        self.n_cpus       = n_cpus
+        self.w_inc        = w_inc
+        self.w_first      = w_first
+        self.db_path      = db_path
+        self.study_name   = study_name
+        self.logger       = logger
 
-    def _build_sim(self, sim_pars, rand_seed=None):
-        """Make an initialised sim with the given parameter overrides."""
-        sim = sc.dcp(self.sim)
-        if rand_seed is not None:
-            sim.pars.rand_seed = rand_seed
-
-        # Transmission scaling.
-        sim.pars.base_beta = sim_pars['base_beta']
-        for disease in sim.pars.diseases:
-            if isinstance(disease, rs.Rotavirus):
-                disease.pars.beta = ss.perday(sim.pars.base_beta * disease.pars.fitness)
-
-        # Stash params on the sim for sim_to_summary to read later.
-        # reporting_rate is fixed at 1.0 for MAL-ED (intensive surveillance).
-        sim._reporting_rate  = FIXED_REPORTING_RATE
-        sim._beta0           = sim_pars['beta0']
-        sim._beta1           = sim_pars['beta1']
-        sim._beta2           = sim_pars['beta2']
-
-        sim.init()
-
-        # Fixed-susceptibility immunity (same as hybrid UK calibration).
-        ic = sim.connectors.rotaimmunityconnector
-        ic.pars['use_fixed_susceptibility'] = True
-        ic.pars['sus_after_1']     = sim_pars['sus_after_1']
-        ic.pars['sus_after_2']     = sim_pars['sus_after_2']
-        ic.pars['sus_after_3plus'] = sim_pars['sus_after_3plus']
-        ic.initialize_immunity(min_age=18, max_age=125, min_exposures=5, max_exposures=15)
-
-        return sim
-
-    def run_sim(self, calib_pars=None, sim_pars=None, trial=None, n_reps=None):
-        if n_reps is None:
-            n_reps = self.n_reps
-        sim_pars = sim_pars or {}
-
-        if trial is not None:
-            logger.info(f"\nTrial {trial}:")
-            logger.info(f"  Age params: beta0={sim_pars['beta0']:.4f}, beta1={sim_pars['beta1']:.4f}, beta2={sim_pars['beta2']:.4f}")
-            logger.info(f"  Immunity: sus_1={sim_pars['sus_after_1']:.3f}, sus_2={sim_pars['sus_after_2']:.3f}, sus_3+={sim_pars['sus_after_3plus']:.3f}")
-            logger.info(f"  Transmission: beta={sim_pars['base_beta']:.4f} (reporting fixed at {FIXED_REPORTING_RATE})")
-
-        if n_reps == 1:
-            return self._build_sim(sim_pars)
-
-        rand_seeds = np.random.randint(0, int(1e6), n_reps)
-        sims = [self._build_sim(sim_pars, rand_seed=int(s)) for s in rand_seeds]
-        return ss.MultiSim(sims=sims)
-
-    def sim_to_summary(self, sim):
-        """Run process_incidence_maled.process_model on this sim's analyzer output."""
-        df = sim.analyzers['infectedstrainstats'].to_df()
-        pt = process_incidence_maled.compute_person_months_steady_state(
-            ages_years=sim.people.age.values,
-            window_months=CAL_WINDOW_MONTHS,
-        )
-        return process_incidence_maled.process_model(
-            df,
-            person_months_by_bin=pt,
-            symptom_model='age_and_infection_simple',
-            beta0=sim._beta0, beta1=sim._beta1, beta2=sim._beta2,
-            reporting_rate=sim._reporting_rate,
-            calibration_window=CAL_WINDOW,
-            censor_at_months=36.0,
-        )
-
-    def compute_gof_single(self, sim):
-        model_out = self.sim_to_summary(sim)
-        g = process_incidence_maled.gof(model_out, self.targets,
-                                        w_inc=self.w_inc, w_first=self.w_first)
-        return g['gof'], g, model_out
-
-    def compute_gof(self, sim_or_multisim):
-        if isinstance(sim_or_multisim, ss.MultiSim):
-            gofs, breakdowns = [], []
-            for sim in sim_or_multisim.sims:
-                gof_total, g, _ = self.compute_gof_single(sim)
-                gofs.append(gof_total)
-                breakdowns.append(g)
-            median_gof = float(np.median(gofs))
-            median_inc = float(np.median([b['gof_incidence']        for b in breakdowns]))
-            median_fi  = float(np.median([b['gof_first_infection'] for b in breakdowns]))
-            logger.info(f"  GOF across {len(gofs)} replicates:")
-            logger.info(f"    median total = {median_gof:.4f} "
-                        f"(inc={median_inc:.4f}, first_inf={median_fi:.4f})")
-            logger.info(f"    mean total   = {np.mean(gofs):.4f} ± {np.std(gofs):.4f}")
-            logger.info(f"    range total  = [{np.min(gofs):.4f}, {np.max(gofs):.4f}]")
-            return median_gof
-        gof_total, g, model_out = self.compute_gof_single(sim_or_multisim)
-        logger.info(f"  Model IR (per 100 PM): "
-                    f"{ {b: round(v, 3) for b, v in model_out['ir_by_age']['IR'].items()} }")
-        logger.info(f"  Model first-inf (mo):  Q25={model_out['first_infection']['q25']:.2f}  "
-                    f"med={model_out['first_infection']['median']:.2f}  "
-                    f"Q75={model_out['first_infection']['q75']:.2f}  "
-                    f"(n={model_out['first_infection']['n_events']})")
-        logger.info(f"  GOF: total={gof_total:.4f}  inc={g['gof_incidence']:.4f}  first_inf={g['gof_first_infection']:.4f}")
-        return gof_total
-
-    def trial_to_sim_pars(self, trial):
-        # 7-parameter space for MAL-ED (reporting_rate fixed at 1.0).
+    def _trial_to_sim_pars(self, trial):
+        # 7-parameter space (reporting_rate fixed at 1.0).
         # Monotonicity: sus_after_3plus <= sus_after_2 <= sus_after_1.
         base_beta       = trial.suggest_float('base_beta',      0.05, 0.5,    log=True)
         beta0           = trial.suggest_float('beta0',          -5.0, 2.0)
@@ -274,7 +167,7 @@ class MALEDCalibration(ss.Calibration):
         beta2           = trial.suggest_float('beta2',          -0.5, 0.5)
         sus_after_3plus = trial.suggest_float('sus_after_3plus', 0.1, 1.0)
         sus_after_2     = trial.suggest_float('sus_after_2',     sus_after_3plus, 1.0)
-        sus_after_1     = trial.suggest_float('sus_after_1',     sus_after_2,     1.0)
+        sus_after_1     = trial.suggest_float('sus_after_1',     sus_after_2, 1.0)
         return dict(
             base_beta=base_beta,
             beta0=beta0, beta1=beta1, beta2=beta2,
@@ -282,118 +175,273 @@ class MALEDCalibration(ss.Calibration):
             sus_after_3plus=sus_after_3plus,
         )
 
-    def trial_pars_to_sim_pars(self, trial_pars=None, which='best'):
-        return trial_pars
+    def _run_replicates(self, sim_pars):
+        """Spawn n_reps workers; each builds and runs one sim; collect summaries."""
+        seeds = np.random.randint(0, int(1e6), self.n_reps).tolist()
+        args_list = [(self.sim_config, sim_pars, int(s), self.cal_window) for s in seeds]
+
+        n_workers = min(self.n_reps, self.n_cpus or self.n_reps)
+        ctx = get_context('spawn')
+        with ctx.Pool(processes=n_workers) as pool:
+            model_outs = pool.map(_run_one_replicate, args_list)
+        return model_outs
+
+    def _aggregate(self, model_outs):
+        """Compute per-rep GOF, return (median_total, breakdown, per-rep details)."""
+        gofs, breakdowns = [], []
+        for mo in model_outs:
+            g = process_incidence_maled.gof(mo, self.targets,
+                                            w_inc=self.w_inc, w_first=self.w_first)
+            gofs.append(g['gof'])
+            breakdowns.append(g)
+        return dict(
+            median_total = float(np.median(gofs)),
+            mean_total   = float(np.mean(gofs)),
+            std_total    = float(np.std(gofs)),
+            min_total    = float(np.min(gofs)),
+            max_total    = float(np.max(gofs)),
+            median_inc   = float(np.median([b['gof_incidence']        for b in breakdowns])),
+            median_first = float(np.median([b['gof_first_infection'] for b in breakdowns])),
+            per_rep_gofs = gofs,
+        )
+
+    def _log_summary(self, agg, model_outs, sim_pars, trial_num):
+        # Median IR per bin and median first-inf quartile across reps.
+        bins = process_incidence_maled.MALED_AGE_BINS
+        median_ir = {b: float(np.median([mo['ir_by_age'].loc[b, 'IR']
+                                          for mo in model_outs])) for b in bins}
+        median_q  = {k: float(np.median([mo['first_infection'][k] for mo in model_outs]))
+                     for k in ('q25', 'median', 'q75')}
+        self.logger.info(f"  GOF across {len(model_outs)} replicates:")
+        self.logger.info(f"    median total = {agg['median_total']:.4f} "
+                         f"(inc={agg['median_inc']:.4f}, first_inf={agg['median_first']:.4f})")
+        self.logger.info(f"    mean total   = {agg['mean_total']:.4f} ± {agg['std_total']:.4f}")
+        self.logger.info(f"    range total  = [{agg['min_total']:.4f}, {agg['max_total']:.4f}]")
+        self.logger.info(f"  Median model IR (per 100 PM): "
+                         + ", ".join(f"{b}={median_ir[b]:.3f}" for b in bins))
+        self.logger.info(f"  Median model first-inf (mo): "
+                         f"Q25={median_q['q25']:.2f}, "
+                         f"med={median_q['median']:.2f}, "
+                         f"Q75={median_q['q75']:.2f}")
 
     def run_trial(self, trial):
-        logger.info(f"Starting trial {trial.number}...")
+        self.logger.info(f"Starting trial {trial.number}...")
         try:
-            sim_pars = self.trial_to_sim_pars(trial)
-            sim_or_ms = self.run_sim(sim_pars=sim_pars, trial=trial.number)
-            sim_or_ms.run()
-            gof_total = self.compute_gof(sim_or_ms)
-            logger.info(f"Trial {trial.number}: Median GOF = {gof_total:.4f}")
-            return gof_total
+            sim_pars = self._trial_to_sim_pars(trial)
+            self.logger.info(f"\nTrial {trial.number}:")
+            self.logger.info(f"  Age params: beta0={sim_pars['beta0']:.4f}, "
+                             f"beta1={sim_pars['beta1']:.4f}, beta2={sim_pars['beta2']:.4f}")
+            self.logger.info(f"  Immunity: sus_1={sim_pars['sus_after_1']:.3f}, "
+                             f"sus_2={sim_pars['sus_after_2']:.3f}, "
+                             f"sus_3+={sim_pars['sus_after_3plus']:.3f}")
+            self.logger.info(f"  Transmission: beta={sim_pars['base_beta']:.4f} "
+                             f"(reporting fixed at {FIXED_REPORTING_RATE})")
+
+            model_outs = self._run_replicates(sim_pars)
+            agg = self._aggregate(model_outs)
+            self._log_summary(agg, model_outs, sim_pars, trial.number)
+            self.logger.info(f"Trial {trial.number}: Median GOF = {agg['median_total']:.4f}")
+            return agg['median_total']
         except Exception as e:
-            logger.error(f"Trial {trial.number} FAILED: {e}", exc_info=True)
+            self.logger.error(f"Trial {trial.number} FAILED: {e}", exc_info=True)
             raise
 
-    def calibrate(self, db_path):
+    def calibrate(self):
+        # n_startup_trials shrinks with prior trials so resumes don't waste cycles
+        # re-sampling the same first random point each restart.
+        try:
+            existing = len(optuna.load_study(study_name=self.study_name,
+                                              storage=f'sqlite:///{self.db_path}').trials)
+        except KeyError:
+            existing = 0
+        n_startup = max(0, 10 - existing)
+
         study = optuna.create_study(
-            study_name=f'rota_maled_{args.site}',
+            study_name=self.study_name,
             direction='minimize',
-            storage=f'sqlite:///{db_path}',
+            storage=f'sqlite:///{self.db_path}',
             load_if_exists=True,
-            sampler=optuna.samplers.TPESampler(seed=12345),
+            sampler=optuna.samplers.TPESampler(seed=12345, n_startup_trials=n_startup),
         )
-        logger.info(f"Optuna study loaded ({study.study_name}, {len(study.trials)} existing trials)")
+        self.logger.info(f"Optuna study loaded ({study.study_name}, "
+                         f"{len(study.trials)} existing trials, "
+                         f"n_startup_trials for this worker={n_startup})")
         try:
             study.optimize(self.run_trial, n_trials=self.total_trials, n_jobs=self.n_jobs)
         except KeyboardInterrupt:
-            logger.info("Calibration interrupted by user")
+            self.logger.info("Calibration interrupted by user")
         return study
 
 
-# -------- Base simulation --------
-# Differs from calibrate_hybrid_multisim in three ways:
-#   1. constant_severity=1.0 (no severity filter — MAL-ED is full-ascertainment)
-#   2. site-specific birth/death rates
-#   3. UK age_data CSV used as a starting point; the multi-year burn-in lets the
-#      pyramid equilibrate to the configured birth/death rates.
-logger.info("Creating base simulation...")
-analyzer = rs.InfectedStrainStats(use_infection_based_severity=False,
-                                   constant_severity=FIXED_CONSTANT_SEVERITY)
-immunity_connector = rs.RotaImmunityConnector(use_fixed_susceptibility=False)
-people = ss.People(n_agents=SIM_N_AGENTS, age_data=thisdir / 'uk_age_data.csv')
-sim = rs.Sim(
-    n_agents=SIM_N_AGENTS,
-    start=SIM_START,
-    stop=SIM_STOP,
-    verbose=False,
-    scenario='single',
-    people=people,
-    analyzers=[analyzer],
-    networks=ss.RandomNet(n_contacts=7),
-    demographics=[
-        ss.Births(birth_rate=ss.peryear(demo['birth_rate'])),
-        ss.Deaths(death_rate=ss.peryear(demo['death_rate'])),
-    ],
-    interventions=[],
-    connectors=[immunity_connector],
-)
-logger.info("Base simulation created")
+# ---------------------------------------------------------------------------
+# Main: parses CLI, sets up logging, runs the calibration.
+# Wrapped in __main__ guard so spawned workers can reimport this module
+# without re-running argparse / logging / db creation.
+# ---------------------------------------------------------------------------
+def main():
+    parser = argparse.ArgumentParser(description='MAL-ED calibration (spawn-pool architecture)')
+    parser.add_argument('--site', type=str, required=True, choices=MALED_SITES,
+                        help='MAL-ED site to calibrate against')
+    parser.add_argument('--n-trials', type=int, default=50)
+    parser.add_argument('--total-trials', type=int, default=None)
+    parser.add_argument('--n-reps', type=int, default=20)
+    parser.add_argument('--n-jobs', type=int, default=1,
+                        help='Parallel trials via Optuna study.optimize')
+    parser.add_argument('--worker-id', type=str, default=None)
+    parser.add_argument('--n-cpus-per-trial', type=int, default=None,
+                        help='Max worker processes for the within-trial Pool')
+    parser.add_argument('--db-path', type=str, default=None)
+    parser.add_argument('--w-inc', type=float, default=1.0)
+    parser.add_argument('--w-first', type=float, default=1.0)
+    parser.add_argument('--smoke', action='store_true',
+                        help='Tiny end-to-end smoke test (5k agents, 5y sim, 1 trial, 1 rep).')
+    args = parser.parse_args()
 
-# -------- Run --------
-calib = MALEDCalibration(
-    sim=sim, targets=TARGETS,
-    total_trials=args.n_trials, n_reps=args.n_reps,
-    n_jobs=args.n_jobs, n_cpus=args.n_cpus_per_trial,
-    w_inc=args.w_inc, w_first=args.w_first,
-)
-study = calib.calibrate(db_path=args.db_path)
+    if args.smoke:
+        args.n_trials = 1
+        args.n_reps   = 1
+        args.n_jobs   = 1
+        args.db_path  = f'rota_maled_smoke_{args.site}.db'
 
-# -------- Summarise --------
-completed = [t for t in study.trials if t.state.name == 'COMPLETE']
-logger.info("=" * 60)
-logger.info(f"RESULTS ({args.site.title()})")
-logger.info("=" * 60)
-logger.info(f"Total completed trials: {len(completed)}")
+    if args.db_path is None:
+        args.db_path = f'rota_maled_{args.site}.db'
+    if args.worker_id is None:
+        args.worker_id = os.environ.get('SLURM_ARRAY_TASK_ID',
+                          os.environ.get('PBS_ARRAYID',
+                                          datetime.now().strftime('%H%M%S')))
 
-best = study.best_trial
-logger.info(f"\nBest trial: #{best.number}")
-logger.info(f"Best GOF (median across {args.n_reps} replicates): {best.value:.4f}")
-for key, value in best.params.items():
-    if key.startswith('sus_'):
-        logger.info(f"  {key:<20}: {value:.6f} ({(1-value)*100:.2f}% protection)")
+    log_file = (f'calibrate_maled_{args.site}_worker{args.worker_id}_'
+                f'{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
+    )
+    logger = logging.getLogger(__name__)
+    logger.info("=" * 80)
+    logger.info(f"MAL-ED CALIBRATION ({args.site.title()}) — spawn-pool architecture")
+    logger.info(f"Worker ID: {args.worker_id}")
+    logger.info(f"Log file: {log_file}")
+    logger.info(f"Trials for this worker: {args.n_trials}")
+    if args.total_trials:
+        logger.info(f"Total trials across all workers: {args.total_trials}")
+    logger.info(f"Replicates per trial: {args.n_reps}")
+    logger.info(f"Parallel trials: {args.n_jobs}")
+    logger.info(f"CPUs per trial: {args.n_cpus_per_trial or args.n_reps}")
+    logger.info(f"GOF weights: w_inc={args.w_inc}, w_first={args.w_first}")
+    logger.info(f"Database: {args.db_path}")
+    logger.info("=" * 80)
+
+    # Targets
+    targets = process_incidence_maled.load_targets(args.site)
+    logger.info(f"Loaded MAL-ED targets for {args.site}")
+    logger.info("Target IR by age (per 100 person-months):")
+    for bin_label in process_incidence_maled.MALED_AGE_BINS:
+        ir = targets['ir_by_age'].loc[bin_label, 'IR']
+        pt = targets['ir_by_age'].loc[bin_label, 'PT']
+        cs = targets['ir_by_age'].loc[bin_label, 'cases']
+        logger.info(f"  {bin_label:<8}  cases={cs:>3}  PT={pt:>5}  IR={ir:.3f}")
+    fi = targets['first_infection']
+    logger.info(f"Target first-infection (mo): Q25={fi['q25']:.2f}, "
+                f"med={fi['median']:.2f}, Q75={fi['q75']:.2f} "
+                f"(n_events={fi['n_events']}/{fi['n_total']})")
+
+    # Sim window
+    if args.smoke:
+        sim_start, sim_stop = '2003-01-01', '2008-01-01'
+        n_agents = 5_000
+        cal_window = (2.0, 5.0)
     else:
-        logger.info(f"  {key:<20}: {value:.6f}")
+        sim_start, sim_stop = '2003-01-01', '2013-01-01'
+        n_agents = 100_000
+        cal_window = (5.0, 10.0)
+    logger.info(f"Sim: n_agents={n_agents}, range={sim_start}..{sim_stop}, "
+                f"calibration window (years)={cal_window}")
 
-results = {
-    'site': args.site,
-    'completed_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-    'worker_id': args.worker_id,
-    'total_completed_trials': len(completed),
-    'n_reps_per_trial': args.n_reps,
-    'best_trial_number': best.number,
-    'best_gof': best.value,
-    'best_params': best.params,
-    'target_ir_by_age': TARGETS['ir_by_age']['IR'].to_dict(),
-    'target_first_infection': TARGETS['first_infection'],
-    'gof_weights': {'w_inc': args.w_inc, 'w_first': args.w_first},
-}
-out_path = thisdir / f'calibration_maled_{args.site}_worker{args.worker_id}.json'
-with open(out_path, 'w') as f:
-    json.dump(results, f, indent=2)
-logger.info(f"Results saved to: {out_path}")
+    # Demographics
+    demo = SITE_DEMOGRAPHICS[args.site]
+    logger.info(f"Demographics ({args.site}): birth_rate={demo['birth_rate']}/1000/y, "
+                f"death_rate={demo['death_rate']}/1000/y")
+    logger.info(f"Fixed reporting_rate={FIXED_REPORTING_RATE}, "
+                f"constant_severity={FIXED_CONSTANT_SEVERITY}")
 
-logger.info("\nTop 5 trials:")
-sorted_trials = sorted(completed, key=lambda t: t.value if t.value is not None else float('inf'))
-for i, t in enumerate(sorted_trials[:5]):
-    logger.info(f"  #{t.number}: GOF={t.value:.4f}  "
-                f"beta={t.params['base_beta']:.3f}  "
-                f"age_symp=[{t.params['beta0']:.2f},{t.params['beta1']:.2f},{t.params['beta2']:.2f}]  "
-                f"sus=[{t.params['sus_after_1']:.2f},{t.params['sus_after_2']:.2f},{t.params['sus_after_3plus']:.2f}]")
+    # Picklable sim configuration that workers reconstruct from
+    sim_config = dict(
+        n_agents=n_agents,
+        start=sim_start,
+        stop=sim_stop,
+        n_contacts=7,
+        birth_rate=demo['birth_rate'],
+        death_rate=demo['death_rate'],
+        constant_severity=FIXED_CONSTANT_SEVERITY,
+        reporting_rate=FIXED_REPORTING_RATE,
+        age_data_path=str(thisdir / 'uk_age_data.csv'),
+    )
 
-logger.info("\n" + "=" * 80)
-logger.info(f"WORKER {args.worker_id} DONE ({args.site}, {datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
-logger.info("=" * 80)
+    calib = MALEDCalibration(
+        sim_config=sim_config,
+        targets=targets,
+        cal_window=cal_window,
+        total_trials=args.n_trials,
+        n_reps=args.n_reps,
+        n_jobs=args.n_jobs,
+        n_cpus=args.n_cpus_per_trial,
+        w_inc=args.w_inc,
+        w_first=args.w_first,
+        db_path=args.db_path,
+        study_name=f'rota_maled_{args.site}',
+        logger=logger,
+    )
+    study = calib.calibrate()
+
+    # Summarise
+    completed = [t for t in study.trials if t.state.name == 'COMPLETE']
+    logger.info("=" * 60)
+    logger.info(f"RESULTS ({args.site.title()})")
+    logger.info("=" * 60)
+    logger.info(f"Total completed trials: {len(completed)}")
+
+    best = study.best_trial
+    logger.info(f"\nBest trial: #{best.number}")
+    logger.info(f"Best GOF (median across {args.n_reps} replicates): {best.value:.4f}")
+    for key, value in best.params.items():
+        if key.startswith('sus_'):
+            logger.info(f"  {key:<20}: {value:.6f} ({(1-value)*100:.2f}% protection)")
+        else:
+            logger.info(f"  {key:<20}: {value:.6f}")
+
+    results = {
+        'site': args.site,
+        'completed_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'worker_id': args.worker_id,
+        'total_completed_trials': len(completed),
+        'n_reps_per_trial': args.n_reps,
+        'best_trial_number': best.number,
+        'best_gof': best.value,
+        'best_params': best.params,
+        'target_ir_by_age': targets['ir_by_age']['IR'].to_dict(),
+        'target_first_infection': targets['first_infection'],
+        'gof_weights': {'w_inc': args.w_inc, 'w_first': args.w_first},
+    }
+    out_path = thisdir / f'calibration_maled_{args.site}_worker{args.worker_id}.json'
+    with open(out_path, 'w') as f:
+        json.dump(results, f, indent=2)
+    logger.info(f"Results saved to: {out_path}")
+
+    logger.info("\nTop 5 trials:")
+    sorted_trials = sorted(completed, key=lambda t: t.value if t.value is not None else float('inf'))
+    for t in sorted_trials[:5]:
+        logger.info(f"  #{t.number}: GOF={t.value:.4f}  "
+                    f"beta={t.params['base_beta']:.3f}  "
+                    f"age_symp=[{t.params['beta0']:.2f},{t.params['beta1']:.2f},{t.params['beta2']:.2f}]  "
+                    f"sus=[{t.params['sus_after_1']:.2f},{t.params['sus_after_2']:.2f},"
+                    f"{t.params['sus_after_3plus']:.2f}]")
+
+    logger.info("\n" + "=" * 80)
+    logger.info(f"WORKER {args.worker_id} DONE ({args.site}, "
+                f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
+    logger.info("=" * 80)
+
+
+if __name__ == '__main__':
+    main()
