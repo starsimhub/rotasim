@@ -57,9 +57,12 @@ class RotaImmunityConnector(ss.Connector):
             complete_heterotypic_immunity_efficacy=0.3,  # Protection from different G,P (or no prior exposure to any strain)
             naive_immunity_efficacy=0.0,  # Baseline immunity for naive individuals (0.0 = fully susceptible)
             # immunity_waning_delay=ss.days(14),  # Time delay before immunity decay starts (90 days = ~3 months)
-            # Maternal immunity parameters (passive immunity from mother)
-            # maternal_immunity_efficacy=0.9,  # Maximum protection from maternal antibodies at birth (90%)
-            # maternal_immunity_half_life=ss.days(90),  # Half-life of maternal immunity decay (90 days = 3 months)
+            # Maternal immunity parameters (passive immunity from mother).
+            # Default efficacy=0.0 means maternal immunity is OFF; set >0 to enable.
+            # Protection at age a (years): efficacy * exp(-ln(2) * a / half_life_years).
+            # Combined with acquired immunity via element-wise max in rel_sus calc.
+            maternal_immunity_efficacy=0.0,
+            maternal_immunity_half_life=ss.days(90),
             # Age-dependent baseline immunity parameters
             # adult_baseline_immunity=0.0,  # Baseline immunity for adults (e.g., from childhood exposure history). Calibration parameter.
             # adult_age_threshold=5.0,  # Age threshold (in years) for applying adult baseline immunity (default 5 years)
@@ -368,24 +371,23 @@ class RotaImmunityConnector(ss.Connector):
             # acquired_immunity_protection = strain_match_immunity_efficacy * self.final_decayed_immunity_factor
             # acquired_immunity_protection = np.maximum(strain_match_immunity_efficacy, self.final_decayed_immunity_factor.values)
 
-            # Add maternal immunity for naive agents (those with no prior infections)
-            # Maternal immunity decays exponentially with age: efficacy * exp(-age / half_life)
-            # if self.pars.maternal_immunity_efficacy > 0 and self.pars.maternal_immunity_half_life > 0:
-            #     naive_mask = ~self.has_immunity
-            #     if naive_mask.any():
-            #         # Get agent ages in days (sim.people.age is already in days in starsim)
-            #         agent_ages = self.sim.people.age[naive_mask]
-            #         # Calculate maternal immunity decay: efficacy * exp(-ln(2) * age / half_life)
-            #         maternal_decay = np.exp(-np.log(2) * agent_ages / self.pars.maternal_immunity_half_life.years)
-            #         maternal_protection = self.pars.maternal_immunity_efficacy * maternal_decay
-            #         # Apply maternal immunity only to naive agents
-            #         acquired_immunity_protection[naive_mask] = maternal_protection[naive_mask]
+            # Acquired immunity from prior infections (strain-match-weighted).
+            acquired_protection = combined_immunity_factor * strain_match_immunity_efficacy
 
-            # Final relative susceptibility = 1 - total protection
-            # Combine acquired immunity with permanent baseline immunity (use maximum protection)
-            # total_protection = np.maximum(acquired_immunity_protection, self.baseline_immunity[:])
-            disease.rel_sus[:] = (1 - combined_immunity_factor* strain_match_immunity_efficacy)
-            print(f"mean rel sus: {np.mean(disease.rel_sus)}")
+            # Maternal immunity: protection = efficacy * exp(-ln(2) * age_years / half_life_years).
+            # Applied to all agents but only meaningful for infants -- decays to ~0 by age ~1y
+            # with default 90-day half-life. Combined with acquired via element-wise max.
+            mat_eff = float(self.pars.maternal_immunity_efficacy)
+            if mat_eff > 0:
+                mat_hl_years = self.pars.maternal_immunity_half_life.years
+                agent_ages_years = self.sim.people.age.values
+                maternal_decay = np.exp(-np.log(2) * agent_ages_years / mat_hl_years)
+                maternal_protection = mat_eff * maternal_decay
+                total_protection = np.maximum(acquired_protection, maternal_protection)
+            else:
+                total_protection = acquired_protection
+
+            disease.rel_sus[:] = 1 - total_protection
 
             # Override susceptibility for long-term immune agents (cannot be reinfected)
             # DISABLED: Removed LTI mechanism per user request to implement simple SIRS model

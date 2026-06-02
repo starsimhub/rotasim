@@ -111,6 +111,11 @@ def _run_one_replicate(args):
     ic.pars['sus_after_1']     = sim_pars['sus_after_1']
     ic.pars['sus_after_2']     = sim_pars['sus_after_2']
     ic.pars['sus_after_3plus'] = sim_pars['sus_after_3plus']
+    # Maternal immunity (passive protection from mother, decays with age).
+    # Defaults to OFF (0.0 efficacy) if not in sim_pars -- lets us re-run old
+    # trials that pre-date this parameter via evaluate_trial.py.
+    ic.pars['maternal_immunity_efficacy']  = sim_pars.get('maternal_immunity_efficacy', 0.0)
+    ic.pars['maternal_immunity_half_life'] = ss.days(sim_pars.get('maternal_immunity_half_life_days', 90.0))
     ic.initialize_immunity(min_age=18, max_age=125,
                            min_exposures=5, max_exposures=15)
 
@@ -159,7 +164,7 @@ class MALEDCalibration:
         self.logger       = logger
 
     def _trial_to_sim_pars(self, trial):
-        # 7-parameter space (reporting_rate fixed at 1.0).
+        # 9-parameter space (reporting_rate fixed at 1.0; maternal immunity added).
         # Monotonicity: sus_after_3plus <= sus_after_2 <= sus_after_1.
         base_beta       = trial.suggest_float('base_beta',      0.05, 0.5,    log=True)
         beta0           = trial.suggest_float('beta0',          -5.0, 2.0)
@@ -168,11 +173,15 @@ class MALEDCalibration:
         sus_after_3plus = trial.suggest_float('sus_after_3plus', 0.1, 1.0)
         sus_after_2     = trial.suggest_float('sus_after_2',     sus_after_3plus, 1.0)
         sus_after_1     = trial.suggest_float('sus_after_1',     sus_after_2, 1.0)
+        maternal_immunity_efficacy        = trial.suggest_float('maternal_immunity_efficacy',        0.5, 0.95)
+        maternal_immunity_half_life_days  = trial.suggest_float('maternal_immunity_half_life_days', 30.0, 180.0)
         return dict(
             base_beta=base_beta,
             beta0=beta0, beta1=beta1, beta2=beta2,
             sus_after_1=sus_after_1, sus_after_2=sus_after_2,
             sus_after_3plus=sus_after_3plus,
+            maternal_immunity_efficacy=maternal_immunity_efficacy,
+            maternal_immunity_half_life_days=maternal_immunity_half_life_days,
         )
 
     def _run_replicates(self, sim_pars):
@@ -234,6 +243,8 @@ class MALEDCalibration:
             self.logger.info(f"  Immunity: sus_1={sim_pars['sus_after_1']:.3f}, "
                              f"sus_2={sim_pars['sus_after_2']:.3f}, "
                              f"sus_3+={sim_pars['sus_after_3plus']:.3f}")
+            self.logger.info(f"  Maternal: efficacy={sim_pars['maternal_immunity_efficacy']:.3f}, "
+                             f"half_life={sim_pars['maternal_immunity_half_life_days']:.1f} days")
             self.logger.info(f"  Transmission: beta={sim_pars['base_beta']:.4f} "
                              f"(reporting fixed at {FIXED_REPORTING_RATE})")
 
