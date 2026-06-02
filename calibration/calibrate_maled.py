@@ -173,8 +173,11 @@ class MALEDCalibration:
         sus_after_3plus = trial.suggest_float('sus_after_3plus', 0.1, 1.0)
         sus_after_2     = trial.suggest_float('sus_after_2',     sus_after_3plus, 1.0)
         sus_after_1     = trial.suggest_float('sus_after_1',     sus_after_2, 1.0)
-        maternal_immunity_efficacy        = trial.suggest_float('maternal_immunity_efficacy',        0.5, 0.95)
-        maternal_immunity_half_life_days  = trial.suggest_float('maternal_immunity_half_life_days', 30.0, 180.0)
+        # Widened ranges (v9 round 1 best was at the upper boundary of efficacy=0.944
+        # and half_life=148d, suggesting MAL-ED needs stronger/longer maternal protection
+        # than the original literature-based bounds allowed).
+        maternal_immunity_efficacy        = trial.suggest_float('maternal_immunity_efficacy',        0.5, 0.99)
+        maternal_immunity_half_life_days  = trial.suggest_float('maternal_immunity_half_life_days', 30.0, 365.0)
         return dict(
             base_beta=base_beta,
             beta0=beta0, beta1=beta1, beta2=beta2,
