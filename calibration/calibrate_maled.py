@@ -139,6 +139,7 @@ def _run_one_replicate(args):
         reporting_rate=sim_config['reporting_rate'],
         calibration_window=cal_window,
         censor_at_months=36.0,
+        p_asymp_detect=sim_config.get('p_asymp_detect', 0.4),
     )
     return model_out
 
@@ -149,19 +150,22 @@ def _run_one_replicate(args):
 # ---------------------------------------------------------------------------
 class MALEDCalibration:
     def __init__(self, sim_config, targets, cal_window, total_trials, n_reps,
-                 n_jobs, n_cpus, w_inc, w_first, db_path, study_name, logger):
-        self.sim_config   = sim_config
-        self.targets      = targets
-        self.cal_window   = cal_window
-        self.total_trials = total_trials
-        self.n_reps       = n_reps
-        self.n_jobs       = n_jobs
-        self.n_cpus       = n_cpus
-        self.w_inc        = w_inc
-        self.w_first      = w_first
-        self.db_path      = db_path
-        self.study_name   = study_name
-        self.logger       = logger
+                 n_jobs, n_cpus, w_inc, w_first, db_path, study_name, logger,
+                 fit_target='joint', p_asymp_detect=0.4):
+        self.sim_config     = sim_config
+        self.targets        = targets
+        self.cal_window     = cal_window
+        self.total_trials   = total_trials
+        self.n_reps         = n_reps
+        self.n_jobs         = n_jobs
+        self.n_cpus         = n_cpus
+        self.w_inc          = w_inc
+        self.w_first        = w_first
+        self.db_path        = db_path
+        self.study_name     = study_name
+        self.logger         = logger
+        self.fit_target     = fit_target
+        self.p_asymp_detect = p_asymp_detect
 
     def _trial_to_sim_pars(self, trial):
         # 9-parameter space (reporting_rate fixed at 1.0; maternal immunity added).
@@ -190,7 +194,9 @@ class MALEDCalibration:
     def _run_replicates(self, sim_pars):
         """Spawn n_reps workers; each builds and runs one sim; collect summaries."""
         seeds = np.random.randint(0, int(1e6), self.n_reps).tolist()
-        args_list = [(self.sim_config, sim_pars, int(s), self.cal_window) for s in seeds]
+        # Pass p_asymp_detect into sim_config so the worker uses the same value.
+        cfg = dict(self.sim_config, p_asymp_detect=self.p_asymp_detect)
+        args_list = [(cfg, sim_pars, int(s), self.cal_window) for s in seeds]
 
         n_workers = min(self.n_reps, self.n_cpus or self.n_reps)
         ctx = get_context('spawn')
@@ -203,7 +209,8 @@ class MALEDCalibration:
         gofs, breakdowns = [], []
         for mo in model_outs:
             g = process_incidence_maled.gof(mo, self.targets,
-                                            w_inc=self.w_inc, w_first=self.w_first)
+                                            w_inc=self.w_inc, w_first=self.w_first,
+                                            fit_target=self.fit_target)
             gofs.append(g['gof'])
             breakdowns.append(g)
         return dict(
@@ -307,6 +314,15 @@ def main():
     parser.add_argument('--db-path', type=str, default=None)
     parser.add_argument('--w-inc', type=float, default=1.0)
     parser.add_argument('--w-first', type=float, default=1.0)
+    parser.add_argument('--fit-target', type=str, default='joint',
+                        choices=['joint', 'symptomatic_ir', 'first_infection'],
+                        help='Which GOF component(s) to optimize against. '
+                             '"joint" = incidence + first-inf; '
+                             '"symptomatic_ir" = only the per-age-bin IR target; '
+                             '"first_infection" = only the age-at-first-detection target.')
+    parser.add_argument('--p-asymp-detect', type=float, default=0.4,
+                        help='Probability MAL-ED detects an asymptomatic infection '
+                             'via monthly stool (default 0.4 = ~shedding/collection_interval).')
     parser.add_argument('--smoke', action='store_true',
                         help='Tiny end-to-end smoke test (5k agents, 5y sim, 1 trial, 1 rep).')
     args = parser.parse_args()
@@ -318,7 +334,9 @@ def main():
         args.db_path  = f'rota_maled_smoke_{args.site}.db'
 
     if args.db_path is None:
-        args.db_path = f'rota_maled_{args.site}.db'
+        # Encode fit-target in default DB name so different modes don't share a study.
+        suffix = '' if args.fit_target == 'joint' else f'_{args.fit_target}'
+        args.db_path = f'rota_maled_{args.site}{suffix}.db'
     if args.worker_id is None:
         args.worker_id = os.environ.get('SLURM_ARRAY_TASK_ID',
                           os.environ.get('PBS_ARRAYID',
@@ -343,6 +361,8 @@ def main():
     logger.info(f"Parallel trials: {args.n_jobs}")
     logger.info(f"CPUs per trial: {args.n_cpus_per_trial or args.n_reps}")
     logger.info(f"GOF weights: w_inc={args.w_inc}, w_first={args.w_first}")
+    logger.info(f"Fit target: {args.fit_target}")
+    logger.info(f"P(asymp detect by MAL-ED): {args.p_asymp_detect:.2f}")
     logger.info(f"Database: {args.db_path}")
     logger.info("=" * 80)
 
@@ -392,6 +412,8 @@ def main():
         age_data_path=str(thisdir / 'uk_age_data.csv'),
     )
 
+    suffix = '' if args.fit_target == 'joint' else f'_{args.fit_target}'
+    study_name = f'rota_maled_{args.site}{suffix}'
     calib = MALEDCalibration(
         sim_config=sim_config,
         targets=targets,
@@ -403,8 +425,10 @@ def main():
         w_inc=args.w_inc,
         w_first=args.w_first,
         db_path=args.db_path,
-        study_name=f'rota_maled_{args.site}',
+        study_name=study_name,
         logger=logger,
+        fit_target=args.fit_target,
+        p_asymp_detect=args.p_asymp_detect,
     )
     study = calib.calibrate()
 

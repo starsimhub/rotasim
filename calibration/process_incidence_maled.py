@@ -220,18 +220,17 @@ def process_model(dat: pd.DataFrame,
                   censor_at_months: float = 36.0,
                   calibration_window: tuple[float, float] = (5.0, 10.0),
                   rng_seed: int | None = None,
+                  p_asymp_detect: float = 0.4,
                   verbose: bool = False) -> dict:
     """Extract MAL-ED-comparable summary statistics from a sim's InfectedStrainStats output.
 
-    `dat` is the dataframe returned by `analyzer.to_df()` — columns include
-    id, Strain, CollectionTime, Age (categorical bin), n_infections, severity.
-
-    `person_months_by_bin` must be supplied by the caller. The cleanest way to
-    compute it is from the sim's age-distribution snapshot: for each MAL-ED bin,
-    PT = (mean number of agents whose age falls in that bin during the window)
-         * window length in months. We expose it as an argument rather than
-         computing it here, so the same function can serve birth-cohort and
-         steady-state slicings.
+    Detection model (matches MAL-ED's stool-collection regime):
+      - Symptomatic infections: detected 100% (diarrheal stool sampled near event time).
+      - Asymptomatic infections: detected with prob `p_asymp_detect` (~0.3-0.5 for
+        rotavirus, depending on shedding duration vs monthly collection schedule).
+      - Each event's symptomatic/asymptomatic classification is sampled ONCE and
+        used for both the IR comparison and the first-detection-age comparison
+        (so the two GOF terms are internally consistent).
     """
     df = dat.copy()
     df = df[(df['CollectionTime'] >= calibration_window[0]) &
@@ -248,27 +247,65 @@ def process_model(dat: pd.DataFrame,
     else:
         df['age_months_est'] = df['Age'].map(FINE_BIN_MIDPOINT_MONTHS)
 
-    # Symptomatic filtering (mirrors UK pipeline).
-    df_symp = _apply_age_symptom_filter(df, symptom_model=symptom_model,
-                                        beta0=beta0, beta1=beta1, beta2=beta2,
-                                        reporting_rate=reporting_rate,
-                                        rng_seed=rng_seed)
-    df_symp_36 = df_symp[df_symp['age_months_est'] <= censor_at_months]
+    # --- Classify each event as symptomatic ONCE (used by both filters below) ---
+    if symptom_model in ('age_and_infection', 'age_and_infection_simple', 'age_only'):
+        symp_probs = df.apply(
+            lambda row: calculate_symptom_probability(
+                age_months=row['age_months_est'],
+                n_infections=row['n_infections'],
+                symptom_model='age_only',
+                beta0=beta0, beta1=beta1, beta2=beta2, beta3=0,
+            ),
+            axis=1,
+        )
+    elif symptom_model == 'infection_number':
+        symp_probs = (df['n_infections'] <= 3).astype(float)
+    else:
+        raise ValueError(f"Unknown symptom_model: {symptom_model}")
 
+    rng = np.random.default_rng(rng_seed)
+    df['is_symptomatic'] = rng.random(len(df)) < symp_probs.values
+
+    # Apply optional reporting filter on symptomatic events (kept for parity with
+    # UK pipeline; for MAL-ED we set reporting_rate=1.0 so this is a no-op).
+    if reporting_rate is not None and 'severity' in df.columns:
+        rep_keep = rng.random(len(df)) < (reporting_rate * df['severity'].values)
+        df.loc[df['is_symptomatic'] & ~rep_keep, 'is_symptomatic'] = False
+
+    # --- Symptomatic IR by age bin (matches MAL-ED diarrheal-stool surveillance) ---
+    df_symp_36 = df[df['is_symptomatic'] & (df['age_months_est'] <= censor_at_months)]
     ir = compute_model_ir_by_age(df_symp_36, person_months_by_bin)
 
-    # First-infection quartiles: use all infections (not just symptomatic) so the
-    # survival distribution matches MAL-ED's TAC-based first-positive definition.
-    df_all_36 = df[df['age_months_est'] <= censor_at_months]
-    quartiles = compute_model_first_inf_quartiles(df_all_36, censor_at_months=censor_at_months)
+    # --- First-DETECTED infection per agent (mirrors MAL-ED's monthly+diarrheal regime) ---
+    # Symptomatic events always detected; asymptomatic events detected with p_asymp_detect.
+    is_asymp = ~df['is_symptomatic']
+    df['is_detected'] = df['is_symptomatic'] | (is_asymp & (rng.random(len(df)) < p_asymp_detect))
+    df_detected_36 = df[df['is_detected'] & (df['age_months_est'] <= censor_at_months)].copy()
+    df_detected_36 = df_detected_36.sort_values(['id', 'CollectionTime'])
+    df_detected_36['n_detected'] = df_detected_36.groupby('id').cumcount() + 1
+    first_detected = df_detected_36[df_detected_36['n_detected'] == 1]
+    quartiles = _quartiles_from_ages(first_detected['age_months_est'].values, censor_at_months)
 
     if verbose:
         print(f"  symptomatic events <=36m: {len(df_symp_36)}")
-        print(f"  first-infection events <=36m: {quartiles['n_events']}")
+        print(f"  detected events <=36m:    {len(df_detected_36)}")
+        print(f"  first-detected per-agent: {len(first_detected)}")
         print(f"  IR by age bin: {ir['IR'].to_dict()}")
-        print(f"  first-inf quartiles (months): {quartiles}")
+        print(f"  first-detected quartiles (months): {quartiles}")
 
     return dict(ir_by_age=ir, first_infection=quartiles)
+
+
+def _quartiles_from_ages(ages: np.ndarray, censor_at_months: float | None) -> dict:
+    """Compute Q25/median/Q75 of an array of ages, with optional age censoring."""
+    ages = np.asarray(ages, dtype=float)
+    ages = ages[~np.isnan(ages)]
+    if censor_at_months is not None:
+        ages = ages[ages <= censor_at_months]
+    if len(ages) == 0:
+        return dict(median=np.nan, q25=np.nan, q75=np.nan, n_events=0)
+    q25, med, q75 = np.quantile(ages, [0.25, 0.5, 0.75])
+    return dict(median=float(med), q25=float(q25), q75=float(q75), n_events=int(len(ages)))
 
 
 # ---------------------------------------------------------------------------
@@ -294,12 +331,26 @@ def gof_first_infection(model_q: dict, target_q: dict) -> float:
 
 
 def gof(model_out: dict, targets: dict,
-        w_inc: float = 1.0, w_first: float = 1.0) -> dict:
+        w_inc: float = 1.0, w_first: float = 1.0,
+        fit_target: str = 'joint') -> dict:
+    """Combined GOF. `fit_target` selects which terms count:
+      - 'joint':           w_inc * GOF_inc + w_first * GOF_first
+      - 'symptomatic_ir':  GOF_inc only (w_first ignored)
+      - 'first_infection': GOF_first only (w_inc ignored)
+    Per-component values are always returned for logging.
+    """
     g_inc = gof_incidence(model_out['ir_by_age'], targets['ir_by_age'])
     g_first = gof_first_infection(model_out['first_infection'], targets['first_infection'])
-    total = w_inc * g_inc + w_first * g_first
+    if fit_target == 'symptomatic_ir':
+        total = g_inc
+    elif fit_target == 'first_infection':
+        total = g_first
+    elif fit_target == 'joint':
+        total = w_inc * g_inc + w_first * g_first
+    else:
+        raise ValueError(f"Unknown fit_target: {fit_target}")
     return dict(gof=total, gof_incidence=g_inc, gof_first_infection=g_first,
-                w_inc=w_inc, w_first=w_first)
+                w_inc=w_inc, w_first=w_first, fit_target=fit_target)
 
 
 # ---------------------------------------------------------------------------
