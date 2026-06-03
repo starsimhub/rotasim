@@ -116,6 +116,9 @@ def _run_one_replicate(args):
     # trials that pre-date this parameter via evaluate_trial.py.
     ic.pars['maternal_immunity_efficacy']  = sim_pars.get('maternal_immunity_efficacy', 0.0)
     ic.pars['maternal_immunity_half_life'] = ss.days(sim_pars.get('maternal_immunity_half_life_days', 90.0))
+    # Slow (breastfeeding) maternal component; defaults to OFF for trials predating it.
+    ic.pars['maternal_immunity_efficacy_slow']  = sim_pars.get('maternal_immunity_efficacy_slow', 0.0)
+    ic.pars['maternal_immunity_half_life_slow'] = ss.days(sim_pars.get('maternal_immunity_half_life_slow_days', 270.0))
     ic.initialize_immunity(min_age=18, max_age=125,
                            min_exposures=5, max_exposures=15)
 
@@ -168,7 +171,7 @@ class MALEDCalibration:
         self.p_asymp_detect = p_asymp_detect
 
     def _trial_to_sim_pars(self, trial):
-        # 9-parameter space (reporting_rate fixed at 1.0; maternal immunity added).
+        # 11-parameter space (reporting_rate fixed at 1.0; two-phase maternal immunity).
         # Monotonicity: sus_after_3plus <= sus_after_2 <= sus_after_1.
         base_beta       = trial.suggest_float('base_beta',      0.05, 0.5,    log=True)
         beta0           = trial.suggest_float('beta0',          -5.0, 2.0)
@@ -177,11 +180,16 @@ class MALEDCalibration:
         sus_after_3plus = trial.suggest_float('sus_after_3plus', 0.1, 1.0)
         sus_after_2     = trial.suggest_float('sus_after_2',     sus_after_3plus, 1.0)
         sus_after_1     = trial.suggest_float('sus_after_1',     sus_after_2, 1.0)
-        # Widened ranges (v9 round 1 best was at the upper boundary of efficacy=0.944
-        # and half_life=148d, suggesting MAL-ED needs stronger/longer maternal protection
-        # than the original literature-based bounds allowed).
-        maternal_immunity_efficacy        = trial.suggest_float('maternal_immunity_efficacy',        0.5, 0.99)
-        maternal_immunity_half_life_days  = trial.suggest_float('maternal_immunity_half_life_days', 30.0, 365.0)
+        # Two-phase maternal immunity:
+        #   FAST = transplacental IgG (high efficacy, short half-life ~weeks-2mo)
+        #   SLOW = breastfeeding IgA  (can be weaker, longer half-life ~4-18mo)
+        # Half-life ranges are disjoint (fast <= 90d < slow) so the two components
+        # can't swap roles, keeping the decomposition identifiable. Slow efficacy
+        # range starts at 0 so the optimizer can fall back to single-phase.
+        maternal_immunity_efficacy            = trial.suggest_float('maternal_immunity_efficacy',            0.5, 0.99)
+        maternal_immunity_half_life_days      = trial.suggest_float('maternal_immunity_half_life_days',     15.0, 90.0)
+        maternal_immunity_efficacy_slow       = trial.suggest_float('maternal_immunity_efficacy_slow',       0.0, 0.8)
+        maternal_immunity_half_life_slow_days = trial.suggest_float('maternal_immunity_half_life_slow_days', 120.0, 540.0)
         return dict(
             base_beta=base_beta,
             beta0=beta0, beta1=beta1, beta2=beta2,
@@ -189,6 +197,8 @@ class MALEDCalibration:
             sus_after_3plus=sus_after_3plus,
             maternal_immunity_efficacy=maternal_immunity_efficacy,
             maternal_immunity_half_life_days=maternal_immunity_half_life_days,
+            maternal_immunity_efficacy_slow=maternal_immunity_efficacy_slow,
+            maternal_immunity_half_life_slow_days=maternal_immunity_half_life_slow_days,
         )
 
     def _run_replicates(self, sim_pars):
@@ -221,8 +231,28 @@ class MALEDCalibration:
             max_total    = float(np.max(gofs)),
             median_inc   = float(np.median([b['gof_incidence']        for b in breakdowns])),
             median_first = float(np.median([b['gof_first_infection'] for b in breakdowns])),
-            per_rep_gofs = gofs,
+            per_rep_gofs  = gofs,
+            per_rep_inc   = [float(b['gof_incidence'])       for b in breakdowns],
+            per_rep_first = [float(b['gof_first_infection']) for b in breakdowns],
         )
+
+    def _store_per_rep(self, trial, agg, model_outs):
+        """Persist full per-replicate model output into the trial's user_attrs so
+        downstream analysis (e.g. error bars on IR-by-age and first-infection
+        quartiles) never needs to re-run the sims. Small payload: n_reps x 4 IR
+        values + n_reps x 3 quartiles + per-rep GOF components."""
+        bins = process_incidence_maled.MALED_AGE_BINS
+        trial.set_user_attr('age_bins', bins)
+        trial.set_user_attr(
+            'ir_by_age_per_rep',
+            [[float(mo['ir_by_age'].loc[b, 'IR']) for b in bins] for mo in model_outs])
+        trial.set_user_attr(
+            'first_inf_per_rep',
+            [[float(mo['first_infection'][k]) for k in ('q25', 'median', 'q75')]
+             for mo in model_outs])
+        trial.set_user_attr('per_rep_gof_inc', agg['per_rep_inc'])
+        trial.set_user_attr('per_rep_gof_first', agg['per_rep_first'])
+        trial.set_user_attr('per_rep_gof_total', agg['per_rep_gofs'])
 
     def _log_summary(self, agg, model_outs, sim_pars, trial_num):
         # Median IR per bin and median first-inf quartile across reps.
@@ -253,14 +283,17 @@ class MALEDCalibration:
             self.logger.info(f"  Immunity: sus_1={sim_pars['sus_after_1']:.3f}, "
                              f"sus_2={sim_pars['sus_after_2']:.3f}, "
                              f"sus_3+={sim_pars['sus_after_3plus']:.3f}")
-            self.logger.info(f"  Maternal: efficacy={sim_pars['maternal_immunity_efficacy']:.3f}, "
+            self.logger.info(f"  Maternal FAST: efficacy={sim_pars['maternal_immunity_efficacy']:.3f}, "
                              f"half_life={sim_pars['maternal_immunity_half_life_days']:.1f} days")
+            self.logger.info(f"  Maternal SLOW: efficacy={sim_pars['maternal_immunity_efficacy_slow']:.3f}, "
+                             f"half_life={sim_pars['maternal_immunity_half_life_slow_days']:.1f} days")
             self.logger.info(f"  Transmission: beta={sim_pars['base_beta']:.4f} "
                              f"(reporting fixed at {FIXED_REPORTING_RATE})")
 
             model_outs = self._run_replicates(sim_pars)
             agg = self._aggregate(model_outs)
             self._log_summary(agg, model_outs, sim_pars, trial.number)
+            self._store_per_rep(trial, agg, model_outs)
             self.logger.info(f"Trial {trial.number}: Median GOF = {agg['median_total']:.4f}")
             return agg['median_total']
         except Exception as e:
