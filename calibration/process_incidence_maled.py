@@ -215,7 +215,9 @@ def compute_model_first_inf_quartiles(events: pd.DataFrame,
 def process_model(dat: pd.DataFrame,
                   person_months_by_bin: dict[str, float],
                   symptom_model: str = 'age_and_infection_simple',
-                  beta0: float = 0.0, beta1: float = 0.0, beta2: float = 0.0,
+                  beta0: float = 0.0, beta1: float = 0.0, beta2: float = 0.0, beta3: float = 0.0,
+                  p_symp_1: float = 1.0, p_symp_2: float = 1.0, p_symp_3plus: float = 0.0,
+                  gamma_2: float = 0.0, gamma_3plus: float = 0.0,
                   reporting_rate: float | None = None,
                   censor_at_months: float = 36.0,
                   calibration_window: tuple[float, float] = (5.0, 10.0),
@@ -248,18 +250,36 @@ def process_model(dat: pd.DataFrame,
         df['age_months_est'] = df['Age'].map(FINE_BIN_MIDPOINT_MONTHS)
 
     # --- Classify each event as symptomatic ONCE (used by both filters below) ---
-    if symptom_model in ('age_and_infection', 'age_and_infection_simple', 'age_only'):
-        symp_probs = df.apply(
-            lambda row: calculate_symptom_probability(
-                age_months=row['age_months_est'],
-                n_infections=row['n_infections'],
-                symptom_model='age_only',
-                beta0=beta0, beta1=beta1, beta2=beta2, beta3=0,
-            ),
-            axis=1,
-        )
+    # Four symptom-probability families. The age families share the same logistic
+    # age predictor (centered at 12 mo, capped at 60 mo, matching Lewnard et al. and
+    # process_incidence_uk_age.calculate_symptom_probability); they differ only in
+    # how prior-infection count enters:
+    #   age_only / age_and_infection_simple : logit = age_poly                       (no infection term)
+    #   age_and_infection                    : logit = age_poly + beta3 * min(n, 5)   (Lewnard: single linear slope)
+    #   age_and_infection_offsets            : logit = age_poly + gamma_n             (categorical offsets; gamma_1 = 0)
+    #   infection_number                     : P = per-infection probs p_symp_1/2/3+  (no age term)
+    # age_only / age_and_infection (gamma=0) / age_and_infection_offsets all nest:
+    # age_only is the offsets model with gamma_2 = gamma_3plus = 0.
+    n_inf = df['n_infections'].values
+    if symptom_model in ('age_only', 'age_and_infection_simple',
+                         'age_and_infection', 'age_and_infection_offsets'):
+        age_capped = np.minimum(df['age_months_est'].values, 60.0)
+        ac = age_capped - 12.0
+        lp = beta0 + beta1 * ac + beta2 * ac ** 2
+        if symptom_model == 'age_and_infection':
+            lp = lp + beta3 * np.minimum(n_inf, 5)
+        elif symptom_model == 'age_and_infection_offsets':
+            lp = lp + np.where(n_inf == 1, 0.0,
+                               np.where(n_inf == 2, gamma_2, gamma_3plus))
+        symp_probs = pd.Series(1.0 / (1.0 + np.exp(-lp)), index=df.index)
     elif symptom_model == 'infection_number':
-        symp_probs = (df['n_infections'] <= 3).astype(float)
+        # Per-infection symptomatic probability (declining with successive infections),
+        # the classic Pitzer/Lewnard structure. p_symp_1/2/3plus are the probabilities
+        # that the 1st / 2nd / 3rd-or-later infection is symptomatic.
+        n = df['n_infections']
+        symp_probs = pd.Series(p_symp_3plus, index=df.index, dtype=float)
+        symp_probs[n == 1] = p_symp_1
+        symp_probs[n == 2] = p_symp_2
     else:
         raise ValueError(f"Unknown symptom_model: {symptom_model}")
 

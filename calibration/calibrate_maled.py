@@ -146,9 +146,12 @@ def _run_one_replicate(args):
         beta0=sim_pars.get('beta0', 0.0),
         beta1=sim_pars.get('beta1', 0.0),
         beta2=sim_pars.get('beta2', 0.0),
+        beta3=sim_pars.get('beta3', 0.0),
         p_symp_1=sim_pars.get('p_symp_1', 1.0),
         p_symp_2=sim_pars.get('p_symp_2', 1.0),
         p_symp_3plus=sim_pars.get('p_symp_3plus', 0.0),
+        gamma_2=sim_pars.get('gamma_2', 0.0),
+        gamma_3plus=sim_pars.get('gamma_3plus', 0.0),
         reporting_rate=sim_config['reporting_rate'],
         calibration_window=cal_window,
         censor_at_months=36.0,
@@ -189,34 +192,45 @@ class MALEDCalibration:
         sus_after_2     = trial.suggest_float('sus_after_2',     sus_after_3plus, 1.0)
         sus_after_1     = trial.suggest_float('sus_after_1',     sus_after_2, 1.0)
         maternal_immunity_efficacy = trial.suggest_float('maternal_immunity_efficacy', 0.5, 0.99)
+        # Maternal immunity is held to a COMMON structure across all symptom models
+        # being compared: Erlang(n_stages, set at config level) scaled by a fitted
+        # mean duration (1/omega; literature LMIC fits ~3-5 months). Fitting it
+        # separately per model -- but with identical structure -- keeps the formal
+        # symptom-model comparison clean (differences are due to symptoms, not maternal).
+        maternal_immunity_mean_duration_days = trial.suggest_float(
+            'maternal_immunity_mean_duration_days', 30.0, 300.0)
         pars = dict(
             base_beta=base_beta,
             sus_after_1=sus_after_1, sus_after_2=sus_after_2, sus_after_3plus=sus_after_3plus,
             maternal_immunity_efficacy=maternal_immunity_efficacy,
+            maternal_immunity_mean_duration_days=maternal_immunity_mean_duration_days,
         )
 
-        if self.symptom_model == 'infection_number':
-            # Per-infection symptomatic probabilities (Pitzer/Lewnard form),
-            # monotone decreasing so the 1st infection is most likely symptomatic.
+        sm = self.symptom_model
+        if sm == 'infection_number':
+            # Per-infection symptomatic probabilities, monotone decreasing.
             p_symp_1     = trial.suggest_float('p_symp_1',     0.0, 1.0)
             p_symp_2     = trial.suggest_float('p_symp_2',     0.0, p_symp_1)
             p_symp_3plus = trial.suggest_float('p_symp_3plus', 0.0, p_symp_2)
-            # Maternal immunity scale = MEAN DURATION (1/omega). Literature fits in
-            # LMIC settings are ~3-5 months; range spans short to longer-than-fitted.
-            # The Erlang shape (n_stages) is set at the config level, not fitted.
-            maternal_immunity_mean_duration_days = trial.suggest_float(
-                'maternal_immunity_mean_duration_days', 30.0, 300.0)
-            pars.update(p_symp_1=p_symp_1, p_symp_2=p_symp_2, p_symp_3plus=p_symp_3plus,
-                        maternal_immunity_mean_duration_days=maternal_immunity_mean_duration_days,
-                        beta0=0.0, beta1=0.0, beta2=0.0)
+            pars.update(p_symp_1=p_symp_1, p_symp_2=p_symp_2, p_symp_3plus=p_symp_3plus)
         else:
-            # Age-based symptom logistic + two-phase maternal immunity (exponential).
+            # Age logistic (centered at 12 mo). Shared by all age families.
             pars['beta0'] = trial.suggest_float('beta0', -5.0, 2.0)
             pars['beta1'] = trial.suggest_float('beta1', -1.0, 1.0)
             pars['beta2'] = trial.suggest_float('beta2', -0.5, 0.5)
-            pars['maternal_immunity_half_life_days']       = trial.suggest_float('maternal_immunity_half_life_days',      15.0, 90.0)
-            pars['maternal_immunity_efficacy_slow']        = trial.suggest_float('maternal_immunity_efficacy_slow',        0.0, 0.8)
-            pars['maternal_immunity_half_life_slow_days']  = trial.suggest_float('maternal_immunity_half_life_slow_days', 120.0, 540.0)
+            if sm == 'age_and_infection':
+                # Lewnard's single linear infection-number slope (expect negative:
+                # each successive infection less likely symptomatic). One parameter,
+                # so lower variance / less overfitting-prone.
+                pars['beta3'] = trial.suggest_float('beta3', -2.0, 0.5)
+            elif sm == 'age_and_infection_offsets':
+                # Categorical per-infection logit offsets (gamma_1 = 0), monotone
+                # non-increasing. More flexible; nests age_only (gammas = 0).
+                gamma_2     = trial.suggest_float('gamma_2',     -6.0, 0.0)
+                gamma_3plus = trial.suggest_float('gamma_3plus', -10.0, gamma_2)
+                pars['gamma_2'] = gamma_2
+                pars['gamma_3plus'] = gamma_3plus
+            # age_only / age_and_infection_simple: no extra symptom params.
         return pars
 
     def _run_replicates(self, sim_pars):
@@ -300,8 +314,14 @@ class MALEDCalibration:
                 self.logger.info(f"  Symptom (infection#): p1={sim_pars['p_symp_1']:.3f}, "
                                  f"p2={sim_pars['p_symp_2']:.3f}, p3+={sim_pars['p_symp_3plus']:.3f}")
             else:
-                self.logger.info(f"  Age params: beta0={sim_pars['beta0']:.4f}, "
-                                 f"beta1={sim_pars['beta1']:.4f}, beta2={sim_pars['beta2']:.4f}")
+                msg = (f"  Age params: beta0={sim_pars['beta0']:.4f}, "
+                       f"beta1={sim_pars['beta1']:.4f}, beta2={sim_pars['beta2']:.4f}")
+                if 'beta3' in sim_pars:
+                    msg += f", beta3={sim_pars['beta3']:.4f}"
+                if 'gamma_2' in sim_pars:
+                    msg += (f", gamma2={sim_pars['gamma_2']:.3f}, "
+                            f"gamma3+={sim_pars['gamma_3plus']:.3f}")
+                self.logger.info(msg)
             self.logger.info(f"  Immunity: sus_1={sim_pars['sus_after_1']:.3f}, "
                              f"sus_2={sim_pars['sus_after_2']:.3f}, "
                              f"sus_3+={sim_pars['sus_after_3plus']:.3f}")
@@ -386,11 +406,15 @@ def main():
                         help='Probability MAL-ED detects an asymptomatic infection '
                              'via monthly stool (default 0.4 = ~shedding/collection_interval).')
     parser.add_argument('--symptom-model', type=str, default='age_and_infection_simple',
-                        choices=['age_and_infection_simple', 'infection_number'],
-                        help='Symptom probability model. "age_and_infection_simple" = '
-                             'age logistic (beta0/1/2) + two-phase maternal; '
-                             '"infection_number" = per-infection symptomatic probabilities '
-                             '(p_symp_1/2/3plus) + single-phase maternal (Pitzer/Lewnard form).')
+                        choices=['age_and_infection_simple', 'age_only', 'infection_number',
+                                 'age_and_infection', 'age_and_infection_offsets'],
+                        help='Symptom probability model (all share the common Erlang maternal). '
+                             '"age_only"/"age_and_infection_simple" = age logistic only; '
+                             '"infection_number" = per-infection probs p_symp_1/2/3plus (no age); '
+                             '"age_and_infection" = age logistic + single linear infection slope '
+                             '(beta3; Lewnard form); '
+                             '"age_and_infection_offsets" = age logistic + categorical per-infection '
+                             'logit offsets (gamma_2/gamma_3plus; nests age_only).')
     parser.add_argument('--maternal-n-stages', type=int, default=1,
                         help='Erlang shape for maternal-immunity waning of the main '
                              'component. 1 = exponential (default); ~6 = Pitzer-like '
@@ -409,9 +433,12 @@ def main():
         args.db_path  = f'rota_maled_smoke_{args.site}.db'
 
     # Encode symptom-model, maternal shape, and fit-target in default names so
-    # different modes don't share a study. infection_number -> "_infnum";
-    # Erlang maternal (n>1) -> "_erlang{n}".
-    sm_tag = '_infnum' if args.symptom_model == 'infection_number' else ''
+    # different modes don't share a study.
+    sm_tag = {
+        'infection_number':          '_infnum',
+        'age_and_infection':         '_ageinf',
+        'age_and_infection_offsets': '_ageinfoff',
+    }.get(args.symptom_model, '')  # age_only / age_and_infection_simple -> '' (plain age)
     mat_tag = f'_erlang{args.maternal_n_stages}' if args.maternal_n_stages > 1 else ''
     ft_suffix = '' if args.fit_target == 'joint' else f'_{args.fit_target}'
     if args.db_path is None:
