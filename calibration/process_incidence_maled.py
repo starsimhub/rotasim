@@ -271,6 +271,11 @@ def process_model(dat: pd.DataFrame,
         elif symptom_model == 'age_and_infection_offsets':
             lp = lp + np.where(n_inf == 1, 0.0,
                                np.where(n_inf == 2, gamma_2, gamma_3plus))
+        # Clip the logit before the logistic: wide priors (e.g. beta2 * age^2 with
+        # age up to 60 mo) can send lp to +-1000s and overflow np.exp. The logistic
+        # is already saturated (~0/1) well before +-30, so this changes nothing but
+        # the numerics.
+        lp = np.clip(lp, -30.0, 30.0)
         symp_probs = pd.Series(1.0 / (1.0 + np.exp(-lp)), index=df.index)
     elif symptom_model == 'infection_number':
         # Per-infection symptomatic probability (declining with successive infections),
