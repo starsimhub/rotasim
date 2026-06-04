@@ -115,7 +115,14 @@ def _run_one_replicate(args):
     # Defaults to OFF (0.0 efficacy) if not in sim_pars -- lets us re-run old
     # trials that pre-date this parameter via evaluate_trial.py.
     ic.pars['maternal_immunity_efficacy']  = sim_pars.get('maternal_immunity_efficacy', 0.0)
-    ic.pars['maternal_immunity_half_life'] = ss.days(sim_pars.get('maternal_immunity_half_life_days', 90.0))
+    # Erlang shape for the main maternal component (1 = exponential, ~6 = sharp).
+    ic.pars['maternal_immunity_n_stages'] = sim_config.get('maternal_n_stages', 1)
+    # Scale: prefer an explicit mean duration (1/omega) if the trial fits one,
+    # else fall back to the half-life param (backward compat with age-model trials).
+    if 'maternal_immunity_mean_duration_days' in sim_pars:
+        ic.pars['maternal_immunity_mean_duration'] = ss.days(sim_pars['maternal_immunity_mean_duration_days'])
+    else:
+        ic.pars['maternal_immunity_half_life'] = ss.days(sim_pars.get('maternal_immunity_half_life_days', 90.0))
     # Slow (breastfeeding) maternal component; defaults to OFF for trials predating it.
     ic.pars['maternal_immunity_efficacy_slow']  = sim_pars.get('maternal_immunity_efficacy_slow', 0.0)
     ic.pars['maternal_immunity_half_life_slow'] = ss.days(sim_pars.get('maternal_immunity_half_life_slow_days', 270.0))
@@ -135,10 +142,13 @@ def _run_one_replicate(args):
     model_out = process_incidence_maled.process_model(
         df,
         person_months_by_bin=pt,
-        symptom_model='age_and_infection_simple',
-        beta0=sim_pars['beta0'],
-        beta1=sim_pars['beta1'],
-        beta2=sim_pars['beta2'],
+        symptom_model=sim_config.get('symptom_model', 'age_and_infection_simple'),
+        beta0=sim_pars.get('beta0', 0.0),
+        beta1=sim_pars.get('beta1', 0.0),
+        beta2=sim_pars.get('beta2', 0.0),
+        p_symp_1=sim_pars.get('p_symp_1', 1.0),
+        p_symp_2=sim_pars.get('p_symp_2', 1.0),
+        p_symp_3plus=sim_pars.get('p_symp_3plus', 0.0),
         reporting_rate=sim_config['reporting_rate'],
         calibration_window=cal_window,
         censor_at_months=36.0,
@@ -154,7 +164,9 @@ def _run_one_replicate(args):
 class MALEDCalibration:
     def __init__(self, sim_config, targets, cal_window, total_trials, n_reps,
                  n_jobs, n_cpus, w_inc, w_first, db_path, study_name, logger,
-                 fit_target='joint', p_asymp_detect=0.4):
+                 fit_target='joint', p_asymp_detect=0.4,
+                 symptom_model='age_and_infection_simple'):
+        self.symptom_model  = symptom_model
         self.sim_config     = sim_config
         self.targets        = targets
         self.cal_window     = cal_window
@@ -171,35 +183,41 @@ class MALEDCalibration:
         self.p_asymp_detect = p_asymp_detect
 
     def _trial_to_sim_pars(self, trial):
-        # 11-parameter space (reporting_rate fixed at 1.0; two-phase maternal immunity).
-        # Monotonicity: sus_after_3plus <= sus_after_2 <= sus_after_1.
+        # Shared params (all symptom models). Monotonicity: 3plus <= 2 <= 1.
         base_beta       = trial.suggest_float('base_beta',      0.05, 0.5,    log=True)
-        beta0           = trial.suggest_float('beta0',          -5.0, 2.0)
-        beta1           = trial.suggest_float('beta1',          -1.0, 1.0)
-        beta2           = trial.suggest_float('beta2',          -0.5, 0.5)
         sus_after_3plus = trial.suggest_float('sus_after_3plus', 0.1, 1.0)
         sus_after_2     = trial.suggest_float('sus_after_2',     sus_after_3plus, 1.0)
         sus_after_1     = trial.suggest_float('sus_after_1',     sus_after_2, 1.0)
-        # Two-phase maternal immunity:
-        #   FAST = transplacental IgG (high efficacy, short half-life ~weeks-2mo)
-        #   SLOW = breastfeeding IgA  (can be weaker, longer half-life ~4-18mo)
-        # Half-life ranges are disjoint (fast <= 90d < slow) so the two components
-        # can't swap roles, keeping the decomposition identifiable. Slow efficacy
-        # range starts at 0 so the optimizer can fall back to single-phase.
-        maternal_immunity_efficacy            = trial.suggest_float('maternal_immunity_efficacy',            0.5, 0.99)
-        maternal_immunity_half_life_days      = trial.suggest_float('maternal_immunity_half_life_days',     15.0, 90.0)
-        maternal_immunity_efficacy_slow       = trial.suggest_float('maternal_immunity_efficacy_slow',       0.0, 0.8)
-        maternal_immunity_half_life_slow_days = trial.suggest_float('maternal_immunity_half_life_slow_days', 120.0, 540.0)
-        return dict(
+        maternal_immunity_efficacy = trial.suggest_float('maternal_immunity_efficacy', 0.5, 0.99)
+        pars = dict(
             base_beta=base_beta,
-            beta0=beta0, beta1=beta1, beta2=beta2,
-            sus_after_1=sus_after_1, sus_after_2=sus_after_2,
-            sus_after_3plus=sus_after_3plus,
+            sus_after_1=sus_after_1, sus_after_2=sus_after_2, sus_after_3plus=sus_after_3plus,
             maternal_immunity_efficacy=maternal_immunity_efficacy,
-            maternal_immunity_half_life_days=maternal_immunity_half_life_days,
-            maternal_immunity_efficacy_slow=maternal_immunity_efficacy_slow,
-            maternal_immunity_half_life_slow_days=maternal_immunity_half_life_slow_days,
         )
+
+        if self.symptom_model == 'infection_number':
+            # Per-infection symptomatic probabilities (Pitzer/Lewnard form),
+            # monotone decreasing so the 1st infection is most likely symptomatic.
+            p_symp_1     = trial.suggest_float('p_symp_1',     0.0, 1.0)
+            p_symp_2     = trial.suggest_float('p_symp_2',     0.0, p_symp_1)
+            p_symp_3plus = trial.suggest_float('p_symp_3plus', 0.0, p_symp_2)
+            # Maternal immunity scale = MEAN DURATION (1/omega). Literature fits in
+            # LMIC settings are ~3-5 months; range spans short to longer-than-fitted.
+            # The Erlang shape (n_stages) is set at the config level, not fitted.
+            maternal_immunity_mean_duration_days = trial.suggest_float(
+                'maternal_immunity_mean_duration_days', 30.0, 300.0)
+            pars.update(p_symp_1=p_symp_1, p_symp_2=p_symp_2, p_symp_3plus=p_symp_3plus,
+                        maternal_immunity_mean_duration_days=maternal_immunity_mean_duration_days,
+                        beta0=0.0, beta1=0.0, beta2=0.0)
+        else:
+            # Age-based symptom logistic + two-phase maternal immunity (exponential).
+            pars['beta0'] = trial.suggest_float('beta0', -5.0, 2.0)
+            pars['beta1'] = trial.suggest_float('beta1', -1.0, 1.0)
+            pars['beta2'] = trial.suggest_float('beta2', -0.5, 0.5)
+            pars['maternal_immunity_half_life_days']       = trial.suggest_float('maternal_immunity_half_life_days',      15.0, 90.0)
+            pars['maternal_immunity_efficacy_slow']        = trial.suggest_float('maternal_immunity_efficacy_slow',        0.0, 0.8)
+            pars['maternal_immunity_half_life_slow_days']  = trial.suggest_float('maternal_immunity_half_life_slow_days', 120.0, 540.0)
+        return pars
 
     def _run_replicates(self, sim_pars):
         """Spawn n_reps workers; each builds and runs one sim; collect summaries."""
@@ -278,15 +296,26 @@ class MALEDCalibration:
         try:
             sim_pars = self._trial_to_sim_pars(trial)
             self.logger.info(f"\nTrial {trial.number}:")
-            self.logger.info(f"  Age params: beta0={sim_pars['beta0']:.4f}, "
-                             f"beta1={sim_pars['beta1']:.4f}, beta2={sim_pars['beta2']:.4f}")
+            if self.symptom_model == 'infection_number':
+                self.logger.info(f"  Symptom (infection#): p1={sim_pars['p_symp_1']:.3f}, "
+                                 f"p2={sim_pars['p_symp_2']:.3f}, p3+={sim_pars['p_symp_3plus']:.3f}")
+            else:
+                self.logger.info(f"  Age params: beta0={sim_pars['beta0']:.4f}, "
+                                 f"beta1={sim_pars['beta1']:.4f}, beta2={sim_pars['beta2']:.4f}")
             self.logger.info(f"  Immunity: sus_1={sim_pars['sus_after_1']:.3f}, "
                              f"sus_2={sim_pars['sus_after_2']:.3f}, "
                              f"sus_3+={sim_pars['sus_after_3plus']:.3f}")
-            self.logger.info(f"  Maternal FAST: efficacy={sim_pars['maternal_immunity_efficacy']:.3f}, "
-                             f"half_life={sim_pars['maternal_immunity_half_life_days']:.1f} days")
-            self.logger.info(f"  Maternal SLOW: efficacy={sim_pars['maternal_immunity_efficacy_slow']:.3f}, "
-                             f"half_life={sim_pars['maternal_immunity_half_life_slow_days']:.1f} days")
+            if 'maternal_immunity_mean_duration_days' in sim_pars:
+                n_stages = self.sim_config.get('maternal_n_stages', 1)
+                self.logger.info(f"  Maternal (Erlang n={n_stages}): "
+                                 f"efficacy={sim_pars['maternal_immunity_efficacy']:.3f}, "
+                                 f"mean_duration={sim_pars['maternal_immunity_mean_duration_days']:.1f} days")
+            else:
+                self.logger.info(f"  Maternal FAST: efficacy={sim_pars['maternal_immunity_efficacy']:.3f}, "
+                                 f"half_life={sim_pars['maternal_immunity_half_life_days']:.1f} days")
+            if 'maternal_immunity_efficacy_slow' in sim_pars:
+                self.logger.info(f"  Maternal SLOW: efficacy={sim_pars['maternal_immunity_efficacy_slow']:.3f}, "
+                                 f"half_life={sim_pars['maternal_immunity_half_life_slow_days']:.1f} days")
             self.logger.info(f"  Transmission: beta={sim_pars['base_beta']:.4f} "
                              f"(reporting fixed at {FIXED_REPORTING_RATE})")
 
@@ -356,6 +385,19 @@ def main():
     parser.add_argument('--p-asymp-detect', type=float, default=0.4,
                         help='Probability MAL-ED detects an asymptomatic infection '
                              'via monthly stool (default 0.4 = ~shedding/collection_interval).')
+    parser.add_argument('--symptom-model', type=str, default='age_and_infection_simple',
+                        choices=['age_and_infection_simple', 'infection_number'],
+                        help='Symptom probability model. "age_and_infection_simple" = '
+                             'age logistic (beta0/1/2) + two-phase maternal; '
+                             '"infection_number" = per-infection symptomatic probabilities '
+                             '(p_symp_1/2/3plus) + single-phase maternal (Pitzer/Lewnard form).')
+    parser.add_argument('--maternal-n-stages', type=int, default=1,
+                        help='Erlang shape for maternal-immunity waning of the main '
+                             'component. 1 = exponential (default); ~6 = Pitzer-like '
+                             'sharp "plateau then drop" that yields a dearth of cases '
+                             'in the first months of life. Applies to the infection_number '
+                             'model (which fits a mean duration); the age model keeps its '
+                             'exponential two-phase maternal.')
     parser.add_argument('--smoke', action='store_true',
                         help='Tiny end-to-end smoke test (5k agents, 5y sim, 1 trial, 1 rep).')
     args = parser.parse_args()
@@ -366,10 +408,14 @@ def main():
         args.n_jobs   = 1
         args.db_path  = f'rota_maled_smoke_{args.site}.db'
 
+    # Encode symptom-model, maternal shape, and fit-target in default names so
+    # different modes don't share a study. infection_number -> "_infnum";
+    # Erlang maternal (n>1) -> "_erlang{n}".
+    sm_tag = '_infnum' if args.symptom_model == 'infection_number' else ''
+    mat_tag = f'_erlang{args.maternal_n_stages}' if args.maternal_n_stages > 1 else ''
+    ft_suffix = '' if args.fit_target == 'joint' else f'_{args.fit_target}'
     if args.db_path is None:
-        # Encode fit-target in default DB name so different modes don't share a study.
-        suffix = '' if args.fit_target == 'joint' else f'_{args.fit_target}'
-        args.db_path = f'rota_maled_{args.site}{suffix}.db'
+        args.db_path = f'rota_maled_{args.site}{sm_tag}{mat_tag}{ft_suffix}.db'
     if args.worker_id is None:
         args.worker_id = os.environ.get('SLURM_ARRAY_TASK_ID',
                           os.environ.get('PBS_ARRAYID',
@@ -395,6 +441,9 @@ def main():
     logger.info(f"CPUs per trial: {args.n_cpus_per_trial or args.n_reps}")
     logger.info(f"GOF weights: w_inc={args.w_inc}, w_first={args.w_first}")
     logger.info(f"Fit target: {args.fit_target}")
+    logger.info(f"Symptom model: {args.symptom_model}")
+    logger.info(f"Maternal waning: Erlang n_stages={args.maternal_n_stages} "
+                f"({'exponential' if args.maternal_n_stages == 1 else 'sharpened'})")
     logger.info(f"P(asymp detect by MAL-ED): {args.p_asymp_detect:.2f}")
     logger.info(f"Database: {args.db_path}")
     logger.info("=" * 80)
@@ -443,10 +492,11 @@ def main():
         constant_severity=FIXED_CONSTANT_SEVERITY,
         reporting_rate=FIXED_REPORTING_RATE,
         age_data_path=str(thisdir / 'uk_age_data.csv'),
+        symptom_model=args.symptom_model,
+        maternal_n_stages=args.maternal_n_stages,
     )
 
-    suffix = '' if args.fit_target == 'joint' else f'_{args.fit_target}'
-    study_name = f'rota_maled_{args.site}{suffix}'
+    study_name = f'rota_maled_{args.site}{sm_tag}{mat_tag}{ft_suffix}'
     calib = MALEDCalibration(
         sim_config=sim_config,
         targets=targets,
@@ -462,6 +512,7 @@ def main():
         logger=logger,
         fit_target=args.fit_target,
         p_asymp_detect=args.p_asymp_detect,
+        symptom_model=args.symptom_model,
     )
     study = calib.calibrate()
 
@@ -502,11 +553,15 @@ def main():
     logger.info("\nTop 5 trials:")
     sorted_trials = sorted(completed, key=lambda t: t.value if t.value is not None else float('inf'))
     for t in sorted_trials[:5]:
-        logger.info(f"  #{t.number}: GOF={t.value:.4f}  "
-                    f"beta={t.params['base_beta']:.3f}  "
-                    f"age_symp=[{t.params['beta0']:.2f},{t.params['beta1']:.2f},{t.params['beta2']:.2f}]  "
-                    f"sus=[{t.params['sus_after_1']:.2f},{t.params['sus_after_2']:.2f},"
-                    f"{t.params['sus_after_3plus']:.2f}]")
+        p = t.params
+        if args.symptom_model == 'infection_number':
+            symp = (f"p_symp=[{p.get('p_symp_1', 0):.2f},{p.get('p_symp_2', 0):.2f},"
+                    f"{p.get('p_symp_3plus', 0):.2f}]")
+        else:
+            symp = (f"age_symp=[{p.get('beta0', 0):.2f},{p.get('beta1', 0):.2f},"
+                    f"{p.get('beta2', 0):.2f}]")
+        logger.info(f"  #{t.number}: GOF={t.value:.4f}  beta={p['base_beta']:.3f}  {symp}  "
+                    f"sus=[{p['sus_after_1']:.2f},{p['sus_after_2']:.2f},{p['sus_after_3plus']:.2f}]")
 
     logger.info("\n" + "=" * 80)
     logger.info(f"WORKER {args.worker_id} DONE ({args.site}, "
