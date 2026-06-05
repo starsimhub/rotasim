@@ -1,0 +1,250 @@
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":0,"gof_inc":37.9325104292,"gof_first":0.5186553959,"ir_6_11":3.102123425,"ir_24_35":0.0,"first_med":3.0246587992}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":1,"gof_inc":47.9294549057,"gof_first":0.4803807217,"ir_6_11":0.822702283,"ir_24_35":0.0,"first_med":3.189042449}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":2,"gof_inc":54.9190151547,"gof_first":0.7788812402,"ir_6_11":25.8319547058,"ir_24_35":50.8904250684,"first_med":1.8082197905}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":3,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":4,"gof_inc":21.4444909727,"gof_first":0.3977764096,"ir_6_11":0.9185771343,"ir_24_35":0.0,"first_med":9.4684975147}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":5,"gof_inc":40.654554098,"gof_first":0.5334756714,"ir_6_11":19.26530839,"ir_24_35":26.5891319071,"first_med":3.0904122591}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":6,"gof_inc":63.0389519445,"gof_first":0.9981089429,"ir_6_11":8.287190016,"ir_24_35":78.961115721,"first_med":0.7890412509}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":7,"gof_inc":69.8059942717,"gof_first":1.0547748638,"ir_6_11":43.2587333761,"ir_24_35":78.9236169675,"first_med":0.5917809159}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":8,"gof_inc":61.2557627612,"gof_first":0.742432763,"ir_6_11":21.6028741018,"ir_24_35":67.4168221135,"first_med":1.9068499804}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":9,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":10,"gof_inc":35.093523841,"gof_first":0.1203598946,"ir_6_11":6.3585016829,"ir_24_35":0.0,"first_med":9.8630182743}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":11,"gof_inc":35.0379200287,"gof_first":0.1338225322,"ir_6_11":5.6286322325,"ir_24_35":0.0,"first_med":9.8630182743}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":12,"gof_inc":34.4700009425,"gof_first":0.0325784928,"ir_6_11":14.7442192157,"ir_24_35":0.0,"first_med":7.6274006367}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":13,"gof_inc":33.216549747,"gof_first":0.1612520227,"ir_6_11":7.2082084013,"ir_24_35":0.0003875969,"first_med":5.8191808462}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":14,"gof_inc":33.2244991785,"gof_first":0.0958488347,"ir_6_11":5.083585135,"ir_24_35":1.0983827839,"first_med":8.4821956158}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":15,"gof_inc":35.3767861801,"gof_first":0.3459933698,"ir_6_11":7.5233759603,"ir_24_35":0.0,"first_med":4.142467618}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":17,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":22.8490905762}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":18,"gof_inc":20.6126421585,"gof_first":0.7961229148,"ir_6_11":37.1107525077,"ir_24_35":0.0015892044,"first_med":1.7424663305}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":19,"gof_inc":24.5717429098,"gof_first":1.0369927993,"ir_6_11":51.568240196,"ir_24_35":0.0,"first_med":0.7232878357}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":20,"gof_inc":39.6975815848,"gof_first":0.2317225522,"ir_6_11":1.613455017,"ir_24_35":0.0,"first_med":6.4438383579}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":21,"gof_inc":4.4306793394,"gof_first":0.2183401582,"ir_6_11":8.3674168079,"ir_24_35":0.0492515642,"first_med":4.9479475021}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":22,"gof_inc":7.3121078987,"gof_first":0.2133186433,"ir_6_11":15.5329566903,"ir_24_35":0.0351978548,"first_med":4.9150707722}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":23,"gof_inc":32.7836713752,"gof_first":0.4099987694,"ir_6_11":20.1050816316,"ir_24_35":18.0246066992,"first_med":3.6493166685}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":24,"gof_inc":24.1545761785,"gof_first":0.3055909693,"ir_6_11":10.0046439319,"ir_24_35":10.3918615787,"first_med":6.378084898}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":25,"gof_inc":14.9709416149,"gof_first":0.6114083103,"ir_6_11":5.9093603962,"ir_24_35":0.0,"first_med":10.6027446985}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":26,"gof_inc":12.7587239429,"gof_first":0.9946159078,"ir_6_11":4.4889233908,"ir_24_35":0.0,"first_med":11.6054849625}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":27,"gof_inc":34.0371184501,"gof_first":0.3231779218,"ir_6_11":6.6816227077,"ir_24_35":0.0,"first_med":10.109593749}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":28,"gof_inc":81.2468977484,"gof_first":50.8384001629,"ir_6_11":0.0601805416,"ir_24_35":0.0,"first_med":12.0986337662}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":29,"gof_inc":34.8829805155,"gof_first":0.2617010991,"ir_6_11":6.7533174487,"ir_24_35":0.0,"first_med":10.2575390339}
+{"label":"two-phase (symp_ir fit)","family":"two-phase","trial":30,"gof_inc":25.2502766236,"gof_first":0.1963615585,"ir_6_11":13.4309216284,"ir_24_35":0.0,"first_med":5.4082217216}
+{"label":"two-phase (first fit)","family":"two-phase","trial":0,"gof_inc":37.8970934216,"gof_first":0.5198676061,"ir_6_11":3.1147540504,"ir_24_35":0.0,"first_med":3.0082204342}
+{"label":"two-phase (first fit)","family":"two-phase","trial":1,"gof_inc":47.314773261,"gof_first":0.4764402708,"ir_6_11":0.8013406459,"ir_24_35":0.0,"first_med":3.221919179}
+{"label":"two-phase (first fit)","family":"two-phase","trial":2,"gof_inc":54.9456579645,"gof_first":0.7764911052,"ir_6_11":25.5894058492,"ir_24_35":51.0068530173,"first_med":1.8082197905}
+{"label":"two-phase (first fit)","family":"two-phase","trial":3,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"two-phase (first fit)","family":"two-phase","trial":4,"gof_inc":21.5889825083,"gof_first":0.4017495004,"ir_6_11":0.9256918345,"ir_24_35":0.0,"first_med":9.4767166972}
+{"label":"two-phase (first fit)","family":"two-phase","trial":5,"gof_inc":40.8969805729,"gof_first":0.534119043,"ir_6_11":19.6221656785,"ir_24_35":26.8952367907,"first_med":3.0575355291}
+{"label":"two-phase (first fit)","family":"two-phase","trial":6,"gof_inc":63.1127884104,"gof_first":0.9955663811,"ir_6_11":8.4882555475,"ir_24_35":79.6452188969,"first_med":0.8219179809}
+{"label":"two-phase (first fit)","family":"two-phase","trial":7,"gof_inc":69.6310463668,"gof_first":1.0536201905,"ir_6_11":43.6325840933,"ir_24_35":77.3616601471,"first_med":0.5917809159}
+{"label":"two-phase (first fit)","family":"two-phase","trial":8,"gof_inc":61.3914137372,"gof_first":0.740866766,"ir_6_11":21.9174555142,"ir_24_35":67.2468772869,"first_med":1.9068499804}
+{"label":"two-phase (first fit)","family":"two-phase","trial":9,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"two-phase (first fit)","family":"two-phase","trial":10,"gof_inc":35.1041375569,"gof_first":0.1211833606,"ir_6_11":6.4490497563,"ir_24_35":0.0,"first_med":9.8794566393}
+{"label":"two-phase (first fit)","family":"two-phase","trial":11,"gof_inc":35.0343316292,"gof_first":0.1360636795,"ir_6_11":5.7109324629,"ir_24_35":0.0,"first_med":9.8958950043}
+{"label":"two-phase (first fit)","family":"two-phase","trial":12,"gof_inc":36.2641925469,"gof_first":0.0549385658,"ir_6_11":9.3086504628,"ir_24_35":0.0,"first_med":7.2657566071}
+{"label":"two-phase (first fit)","family":"two-phase","trial":13,"gof_inc":36.5603688112,"gof_first":0.1876431481,"ir_6_11":9.7764723119,"ir_24_35":0.0,"first_med":5.4904135466}
+{"label":"two-phase (first fit)","family":"two-phase","trial":14,"gof_inc":36.5101535179,"gof_first":0.3222624929,"ir_6_11":10.5716368969,"ir_24_35":0.0,"first_med":4.2739745378}
+{"label":"two-phase (first fit)","family":"two-phase","trial":15,"gof_inc":36.3823851191,"gof_first":0.4189550693,"ir_6_11":2.6795450021,"ir_24_35":0.0,"first_med":11.5726082325}
+{"label":"two-phase (first fit)","family":"two-phase","trial":17,"gof_inc":34.9254665677,"gof_first":0.1582702449,"ir_6_11":4.7149834407,"ir_24_35":0.0,"first_med":9.5342509747}
+{"label":"two-phase (first fit)","family":"two-phase","trial":18,"gof_inc":38.1787649464,"gof_first":0.2825487851,"ir_6_11":11.3553491025,"ir_24_35":0.0,"first_med":4.5698651075}
+{"label":"two-phase (first fit)","family":"two-phase","trial":19,"gof_inc":11.0139987349,"gof_first":0.1402735745,"ir_6_11":22.4009421528,"ir_24_35":0.0,"first_med":5.7369890213}
+{"label":"two-phase (first fit)","family":"two-phase","trial":20,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"two-phase (first fit)","family":"two-phase","trial":21,"gof_inc":36.3359080294,"gof_first":0.4776105642,"ir_6_11":10.4161280688,"ir_24_35":0.0,"first_med":3.3369877338}
+{"label":"two-phase (first fit)","family":"two-phase","trial":22,"gof_inc":35.0492630493,"gof_first":0.1199899921,"ir_6_11":5.5276766884,"ir_24_35":0.0,"first_med":9.7315113544}
+{"label":"two-phase (first fit)","family":"two-phase","trial":23,"gof_inc":35.1307183236,"gof_first":0.5273814749,"ir_6_11":3.0431754875,"ir_24_35":0.0,"first_med":11.8356220722}
+{"label":"two-phase (first fit)","family":"two-phase","trial":24,"gof_inc":36.4809467342,"gof_first":0.1659434007,"ir_6_11":9.8734280453,"ir_24_35":0.0,"first_med":5.5232902765}
+{"label":"two-phase (first fit)","family":"two-phase","trial":25,"gof_inc":34.9824484086,"gof_first":1.0105085232,"ir_6_11":4.1969610947,"ir_24_35":0.0,"first_med":12.3369848728}
+{"label":"two-phase (first fit)","family":"two-phase","trial":26,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"two-phase (first fit)","family":"two-phase","trial":27,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":26.7202413082}
+{"label":"two-phase (first fit)","family":"two-phase","trial":28,"gof_inc":34.094318238,"gof_first":0.1115480303,"ir_6_11":3.3608283338,"ir_24_35":0.0,"first_med":7.282194972}
+{"label":"two-phase (first fit)","family":"two-phase","trial":29,"gof_inc":36.3380348236,"gof_first":0.2013822359,"ir_6_11":3.4754183934,"ir_24_35":0.0,"first_med":5.3260298967}
+{"label":"two-phase (first fit)","family":"two-phase","trial":30,"gof_inc":68.6065935444,"gof_first":0.3333004805,"ir_6_11":1.2858417019,"ir_24_35":61.4041541482,"first_med":4.6027418375}
+{"label":"infnum exp","family":"infnum","trial":2,"gof_inc":6.9654377766,"gof_first":0.7057383776,"ir_6_11":0.8930045178,"ir_24_35":0.5296111175,"first_med":10.3232924938}
+{"label":"infnum exp","family":"infnum","trial":3,"gof_inc":36.543402211,"gof_first":0.9507751753,"ir_6_11":17.3928320601,"ir_24_35":17.1991615942,"first_med":0.9863016307}
+{"label":"infnum exp","family":"infnum","trial":4,"gof_inc":16.5842759791,"gof_first":0.4779452231,"ir_6_11":5.7123683294,"ir_24_35":5.7250819508,"first_med":3.5178097486}
+{"label":"infnum exp","family":"infnum","trial":5,"gof_inc":30.9687232662,"gof_first":0.9282465793,"ir_6_11":13.3888399041,"ir_24_35":13.5584190373,"first_med":1.0849318206}
+{"label":"infnum exp","family":"infnum","trial":6,"gof_inc":23.4510710725,"gof_first":0.8652710657,"ir_6_11":7.7866694784,"ir_24_35":7.8019309739,"first_med":1.3150689304}
+{"label":"infnum exp","family":"infnum","trial":7,"gof_inc":37.7311136864,"gof_first":0.9250212066,"ir_6_11":19.1200171604,"ir_24_35":19.3714871744,"first_med":1.1506852806}
+{"label":"infnum exp","family":"infnum","trial":8,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"infnum exp","family":"infnum","trial":9,"gof_inc":5.3845077847,"gof_first":0.2526848537,"ir_6_11":1.5626712595,"ir_24_35":0.8162223453,"first_med":7.0027427673}
+{"label":"infnum exp","family":"infnum","trial":10,"gof_inc":9.6334680832,"gof_first":0.3716903303,"ir_6_11":1.8888949751,"ir_24_35":1.5032128701,"first_med":4.0109606981}
+{"label":"infnum exp","family":"infnum","trial":11,"gof_inc":9.5454819691,"gof_first":0.4187051181,"ir_6_11":2.6011495555,"ir_24_35":1.9345015081,"first_med":4.3068512678}
+{"label":"infnum exp","family":"infnum","trial":12,"gof_inc":53.9703135912,"gof_first":2.1256022802,"ir_6_11":0.0360282013,"ir_24_35":0.0242509372,"first_med":14.8602190018}
+{"label":"infnum exp","family":"infnum","trial":13,"gof_inc":43.3189136541,"gof_first":0.4810383003,"ir_6_11":0.0336110752,"ir_24_35":0.0315612986,"first_med":3.4849330187}
+{"label":"infnum exp","family":"infnum","trial":14,"gof_inc":30.077948103,"gof_first":0.7595524312,"ir_6_11":0.1142389406,"ir_24_35":0.0851127062,"first_med":10.5534296036}
+{"label":"infnum exp","family":"infnum","trial":15,"gof_inc":9.5915583719,"gof_first":0.3139306016,"ir_6_11":3.0589117323,"ir_24_35":1.9046310064,"first_med":5.2767148018}
+{"label":"infnum exp","family":"infnum","trial":16,"gof_inc":8.1341161759,"gof_first":0.2803641606,"ir_6_11":3.8109230221,"ir_24_35":1.6694083244,"first_med":6.9698660374}
+{"label":"infnum exp","family":"infnum","trial":17,"gof_inc":5.4109912488,"gof_first":0.6985990737,"ir_6_11":1.3492821371,"ir_24_35":0.6513071203,"first_med":10.2575390339}
+{"label":"infnum exp","family":"infnum","trial":18,"gof_inc":7.6751313752,"gof_first":0.3205059156,"ir_6_11":1.1770028451,"ir_24_35":1.1107198748,"first_med":5.1945229769}
+{"label":"infnum exp","family":"infnum","trial":19,"gof_inc":10.3444370188,"gof_first":0.7289868133,"ir_6_11":2.5448244214,"ir_24_35":2.550621643,"first_med":2.0383569002}
+{"label":"infnum exp","family":"infnum","trial":20,"gof_inc":13.622638309,"gof_first":0.6154434624,"ir_6_11":3.9920746525,"ir_24_35":3.9690981706,"first_med":2.5643845797}
+{"label":"infnum exp","family":"infnum","trial":21,"gof_inc":44.9944490633,"gof_first":0.8711364343,"ir_6_11":27.9493643836,"ir_24_35":27.5319438503,"first_med":1.2493154705}
+{"label":"infnum exp","family":"infnum","trial":22,"gof_inc":28.4121269711,"gof_first":0.5364454671,"ir_6_11":12.8686839401,"ir_24_35":11.1673608574,"first_med":2.8273984194}
+{"label":"infnum exp","family":"infnum","trial":23,"gof_inc":11.7660632063,"gof_first":0.4600284511,"ir_6_11":3.1462677001,"ir_24_35":2.8044061598,"first_med":3.7808235884}
+{"label":"infnum exp","family":"infnum","trial":24,"gof_inc":6.6406238575,"gof_first":0.753309906,"ir_6_11":0.9289735908,"ir_24_35":0.4920959881,"first_med":10.5698679686}
+{"label":"infnum exp","family":"infnum","trial":25,"gof_inc":7.4048400835,"gof_first":0.4127686122,"ir_6_11":0.8019631059,"ir_24_35":0.5690271106,"first_med":8.0547981262}
+{"label":"infnum exp","family":"infnum","trial":26,"gof_inc":6.9437655029,"gof_first":0.3466281259,"ir_6_11":0.9315756896,"ir_24_35":0.638012005,"first_med":7.7260308266}
+{"label":"infnum exp","family":"infnum","trial":27,"gof_inc":10.4744797323,"gof_first":0.3332763556,"ir_6_11":0.457614639,"ir_24_35":0.3098942942,"first_med":7.5452088118}
+{"label":"infnum exp","family":"infnum","trial":28,"gof_inc":11.5961334475,"gof_first":0.2902770578,"ir_6_11":0.3903196733,"ir_24_35":0.2888124452,"first_med":6.7232905626}
+{"label":"infnum exp","family":"infnum","trial":29,"gof_inc":6.5457023151,"gof_first":0.260751201,"ir_6_11":1.913546049,"ir_24_35":0.8843564367,"first_med":5.5232902765}
+{"label":"infnum exp","family":"infnum","trial":30,"gof_inc":10.4495088038,"gof_first":0.4773935763,"ir_6_11":2.2810949685,"ir_24_35":2.2578372435,"first_med":3.3205493689}
+{"label":"infnum exp","family":"infnum","trial":31,"gof_inc":6.2175405171,"gof_first":0.2194932677,"ir_6_11":2.0842860893,"ir_24_35":0.8894283953,"first_med":5.7534273863}
+{"label":"infnum exp","family":"infnum","trial":32,"gof_inc":7.6133360794,"gof_first":0.3442990091,"ir_6_11":1.1172047737,"ir_24_35":0.8777773016,"first_med":5.2767148018}
+{"label":"infnum exp","family":"infnum","trial":33,"gof_inc":6.9763481279,"gof_first":0.2122595825,"ir_6_11":4.3241411932,"ir_24_35":1.4587613812,"first_med":7.4301402569}
+{"label":"infnum exp","family":"infnum","trial":34,"gof_inc":5.4097154499,"gof_first":1.815586347,"ir_6_11":1.6383916661,"ir_24_35":0.9202561517,"first_med":14.1040706635}
+{"label":"infnum exp","family":"infnum","trial":35,"gof_inc":5.2939843438,"gof_first":0.2320572347,"ir_6_11":2.7132289214,"ir_24_35":0.9541208229,"first_med":7.1671264172}
+{"label":"infnum exp","family":"infnum","trial":36,"gof_inc":4.9714055311,"gof_first":0.214657727,"ir_6_11":2.8579088797,"ir_24_35":0.9366980064,"first_med":7.4383594394}
+{"label":"infnum exp","family":"infnum","trial":37,"gof_inc":4.4302564158,"gof_first":0.5516762917,"ir_6_11":2.4360230571,"ir_24_35":0.8975975488,"first_med":9.9945251942}
+{"label":"infnum exp","family":"infnum","trial":38,"gof_inc":5.642336332,"gof_first":0.1839867174,"ir_6_11":4.1096457405,"ir_24_35":1.1622867959,"first_med":8.0876748562}
+{"label":"infnum exp","family":"infnum","trial":39,"gof_inc":5.2177799441,"gof_first":0.922278065,"ir_6_11":2.6947988527,"ir_24_35":1.1591740442,"first_med":11.5890465975}
+{"label":"infnum exp","family":"infnum","trial":40,"gof_inc":4.508973344,"gof_first":0.4871365285,"ir_6_11":2.6128850288,"ir_24_35":0.9350685207,"first_med":9.8137031794}
+{"label":"infnum exp","family":"infnum","trial":41,"gof_inc":5.7143883481,"gof_first":0.9322728669,"ir_6_11":2.1664568285,"ir_24_35":0.9635464596,"first_med":11.3095943928}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":0,"gof_inc":20.7232843763,"gof_first":0.8301529917,"ir_6_11":6.5638806919,"ir_24_35":6.4443255102,"first_med":1.4794525802}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":1,"gof_inc":12.0629970805,"gof_first":0.4805304087,"ir_6_11":3.1752618223,"ir_24_35":3.1976648663,"first_med":3.3534260988}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":2,"gof_inc":44.5029015541,"gof_first":0.983050551,"ir_6_11":27.4928679665,"ir_24_35":27.2387263545,"first_med":0.8876714408}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":3,"gof_inc":29.4748449762,"gof_first":0.7836001696,"ir_6_11":12.0503532767,"ir_24_35":11.8242632756,"first_med":1.6438361406}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":4,"gof_inc":10.7661212722,"gof_first":0.1048805355,"ir_6_11":7.4228610822,"ir_24_35":2.605857321,"first_med":7.1671264172}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":5,"gof_inc":13.0002701417,"gof_first":1.1505409548,"ir_6_11":0.5906948286,"ir_24_35":0.1252255255,"first_med":12.8219060898}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":6,"gof_inc":7.4951513116,"gof_first":0.7453868761,"ir_6_11":6.4999239568,"ir_24_35":2.0318706717,"first_med":11.9178138971}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":7,"gof_inc":40.8813061462,"gof_first":0.4495064256,"ir_6_11":24.0615564448,"ir_24_35":24.5616705845,"first_med":3.205480814}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":8,"gof_inc":19.1750836246,"gof_first":0.549442587,"ir_6_11":5.6424404312,"ir_24_35":5.4947794054,"first_med":2.6630147696}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":9,"gof_inc":29.1426545381,"gof_first":0.4541498241,"ir_6_11":0.0800812423,"ir_24_35":0.0795586719,"first_med":3.6493166685}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":10,"gof_inc":29.0100897868,"gof_first":0.8219974677,"ir_6_11":12.0671764087,"ir_24_35":11.780677352,"first_med":1.5452059507}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":11,"gof_inc":5.6486226508,"gof_first":1.8432713374,"ir_6_11":2.1349926995,"ir_24_35":1.2338478071,"first_med":14.6629629135}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":12,"gof_inc":19.9931450161,"gof_first":0.6620526879,"ir_6_11":9.1412595947,"ir_24_35":8.7257408604,"first_med":11.6712384224}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":13,"gof_inc":5.8340161115,"gof_first":0.6008274557,"ir_6_11":3.4589701563,"ir_24_35":1.4889199052,"first_med":10.9479503632}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":14,"gof_inc":5.7703428055,"gof_first":0.474567736,"ir_6_11":3.564128385,"ir_24_35":1.4517768268,"first_med":10.2246623039}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":15,"gof_inc":8.4375170509,"gof_first":0.2434592635,"ir_6_11":3.6613905825,"ir_24_35":2.1581224574,"first_med":7.4630169868}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":16,"gof_inc":8.2670290789,"gof_first":0.2483112409,"ir_6_11":3.3340971547,"ir_24_35":2.2385243151,"first_med":7.4794553518}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":17,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":18,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":19,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":20,"gof_inc":23.2571899933,"gof_first":0.5972863688,"ir_6_11":8.7660498781,"ir_24_35":8.8179987705,"first_med":2.7287682295}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":21,"gof_inc":7.8526014422,"gof_first":0.352741863,"ir_6_11":0.8583986683,"ir_24_35":0.8278523383,"first_med":4.6520569324}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":22,"gof_inc":8.3542170074,"gof_first":0.3752680309,"ir_6_11":4.6226596598,"ir_24_35":2.4335049157,"first_med":9.8630182743}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":23,"gof_inc":8.2909278592,"gof_first":3.4741497674,"ir_6_11":1.1771029512,"ir_24_35":1.0826893825,"first_med":17.8190603256}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":24,"gof_inc":8.4160664505,"gof_first":3.6659078481,"ir_6_11":0.9948036458,"ir_24_35":0.9379242008,"first_med":18.0985064507}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":25,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":26,"gof_inc":7.0789282264,"gof_first":2.495016,"ir_6_11":1.1548545409,"ir_24_35":0.8582959292,"first_med":15.8793754578}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":27,"gof_inc":31.8811365395,"gof_first":0.8532963126,"ir_6_11":14.460636275,"ir_24_35":14.5028826783,"first_med":1.4301374853}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":28,"gof_inc":37.4719949139,"gof_first":0.9422637465,"ir_6_11":19.8365579605,"ir_24_35":19.5814635415,"first_med":1.0520550907}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":29,"gof_inc":6.4395953078,"gof_first":0.3283941049,"ir_6_11":1.0229895233,"ir_24_35":0.6311149882,"first_med":8.1534283161}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":30,"gof_inc":8.3620735229,"gof_first":0.4084243627,"ir_6_11":4.1348726168,"ir_24_35":2.4666873472,"first_med":9.8958950043}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":31,"gof_inc":7.0497950522,"gof_first":0.1724920698,"ir_6_11":3.7398864189,"ir_24_35":1.7122887268,"first_med":7.0520578623}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":32,"gof_inc":7.5215117002,"gof_first":0.3419609876,"ir_6_11":0.8389085614,"ir_24_35":0.3647343356,"first_med":7.9232912064}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":33,"gof_inc":6.8095153007,"gof_first":0.3303848799,"ir_6_11":0.9692898609,"ir_24_35":0.3804504796,"first_med":8.1205515862}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":34,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":35,"gof_inc":7.2529459603,"gof_first":0.3000935395,"ir_6_11":0.92668867,"ir_24_35":0.893172124,"first_med":5.6219204664}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":36,"gof_inc":10.3585039921,"gof_first":0.520260886,"ir_6_11":2.0638762787,"ir_24_35":1.9778809213,"first_med":3.189042449}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":37,"gof_inc":4.9245002045,"gof_first":1.8601279661,"ir_6_11":1.8946608009,"ir_24_35":0.8957196137,"first_med":14.49858284}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":38,"gof_inc":11.1792028911,"gof_first":0.2907334126,"ir_6_11":4.1691903246,"ir_24_35":2.5044720505,"first_med":5.063016057}
+{"label":"infnum erlang6","family":"infnum-erlang","trial":39,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":0,"gof_inc":29.7171679472,"gof_first":0.2335798836,"ir_6_11":0.5978264544,"ir_24_35":0.0,"first_med":5.063016057}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":1,"gof_inc":48.8959968831,"gof_first":0.4495814865,"ir_6_11":0.3576002617,"ir_24_35":0.0,"first_med":3.5835632086}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":2,"gof_inc":63.6208801645,"gof_first":0.878537757,"ir_6_11":1.2416338991,"ir_24_35":84.3660338637,"first_med":1.3479456604}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":3,"gof_inc":52.6852588452,"gof_first":0.2023826196,"ir_6_11":0.3382887635,"ir_24_35":0.0,"first_med":5.983564496}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":4,"gof_inc":31.2507357095,"gof_first":0.7040154222,"ir_6_11":1.2713647956,"ir_24_35":31.8893322368,"first_med":10.9150736332}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":5,"gof_inc":66.3657903974,"gof_first":0.8251230169,"ir_6_11":30.2993981178,"ir_24_35":78.0239540313,"first_med":1.4794525802}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":6,"gof_inc":60.1984322611,"gof_first":0.6021641598,"ir_6_11":0.0750214216,"ir_24_35":0.0,"first_med":2.6630147696}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":7,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":18.3286385536}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":8,"gof_inc":63.9453247852,"gof_first":1.0425087513,"ir_6_11":12.1157932011,"ir_24_35":77.8292376571,"first_med":0.6575343758}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":9,"gof_inc":36.5846031622,"gof_first":0.3721752696,"ir_6_11":5.8846703539,"ir_24_35":24.9665511442,"first_med":4.3068512678}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":10,"gof_inc":104.1566601594,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":11,"gof_inc":18.5905528915,"gof_first":0.6118556514,"ir_6_11":1.9223899127,"ir_24_35":0.0,"first_med":2.5150694847}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":12,"gof_inc":40.5415106182,"gof_first":0.1425402698,"ir_6_11":0.6573169898,"ir_24_35":0.0,"first_med":8.3178119659}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":13,"gof_inc":14.3724078943,"gof_first":0.3019925768,"ir_6_11":1.6479217408,"ir_24_35":0.0,"first_med":4.2739745378}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":16,"gof_inc":25.6390034659,"gof_first":0.1677343938,"ir_6_11":1.3713746784,"ir_24_35":0.0,"first_med":6.7397289276}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":17,"gof_inc":44.6108896438,"gof_first":0.5114622672,"ir_6_11":15.4918584289,"ir_24_35":39.6115042485,"first_med":2.9917820692}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":18,"gof_inc":60.9945195915,"gof_first":0.8616797361,"ir_6_11":34.6669220174,"ir_24_35":70.8842513842,"first_med":1.3479456604}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":19,"gof_inc":38.7624136718,"gof_first":0.4719971394,"ir_6_11":1.0380937999,"ir_24_35":0.0,"first_med":3.3534260988}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":20,"gof_inc":45.514346894,"gof_first":0.3047855715,"ir_6_11":0.5841779378,"ir_24_35":0.0,"first_med":4.6027418375}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":21,"gof_inc":40.6942746544,"gof_first":0.91805365,"ir_6_11":1.198984419,"ir_24_35":0.0,"first_med":11.8191837072}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":22,"gof_inc":19.4079769215,"gof_first":0.8046905185,"ir_6_11":1.0183770888,"ir_24_35":0.0008082998,"first_med":1.6109594107}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":23,"gof_inc":70.3248282373,"gof_first":0.2605797835,"ir_6_11":0.1343035914,"ir_24_35":36.2160647392,"first_med":8.0219213963}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":24,"gof_inc":25.0487357109,"gof_first":0.7874581466,"ir_6_11":1.1520405484,"ir_24_35":0.0,"first_med":1.7095896006}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":25,"gof_inc":20.129821626,"gof_first":0.8595627345,"ir_6_11":1.9971340798,"ir_24_35":0.0,"first_med":1.4465758502}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":26,"gof_inc":48.7664396842,"gof_first":0.9084256019,"ir_6_11":2.6660012206,"ir_24_35":65.0523601122,"first_med":1.1506852806}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":27,"gof_inc":49.3192043523,"gof_first":0.9347608383,"ir_6_11":1.8974543456,"ir_24_35":65.0243684359,"first_med":1.0191783607}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":28,"gof_inc":44.6313948699,"gof_first":0.2608748523,"ir_6_11":0.7427919983,"ir_24_35":0.0,"first_med":5.1945229769}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":29,"gof_inc":35.0116414129,"gof_first":0.2949237248,"ir_6_11":1.1406675037,"ir_24_35":0.0,"first_med":4.7342487574}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":30,"gof_inc":53.6862992939,"gof_first":0.4729000901,"ir_6_11":9.012808253,"ir_24_35":59.7466097082,"first_med":3.189042449}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":31,"gof_inc":46.1343089373,"gof_first":0.4587817431,"ir_6_11":10.4978757397,"ir_24_35":40.6203895569,"first_med":3.156165719}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":32,"gof_inc":59.2399124826,"gof_first":0.2107056449,"ir_6_11":0.2416806377,"ir_24_35":0.0,"first_med":5.2273997068}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":33,"gof_inc":49.0689591406,"gof_first":0.3296061713,"ir_6_11":0.5516542195,"ir_24_35":0.0,"first_med":4.1917827129}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":34,"gof_inc":16.6734014639,"gof_first":0.8110629969,"ir_6_11":1.4897956116,"ir_24_35":0.0,"first_med":1.6438361406}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":35,"gof_inc":13.544832444,"gof_first":0.2961687517,"ir_6_11":1.3314613221,"ir_24_35":0.0,"first_med":4.4712349176}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":36,"gof_inc":18.8955679162,"gof_first":0.3076051847,"ir_6_11":1.2663154534,"ir_24_35":0.0,"first_med":4.5041116476}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":37,"gof_inc":18.0925089395,"gof_first":0.3801773133,"ir_6_11":1.3939015688,"ir_24_35":0.0,"first_med":3.8465770483}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":38,"gof_inc":27.4644411706,"gof_first":0.3970065801,"ir_6_11":1.0713886661,"ir_24_35":0.0,"first_med":3.7808235884}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":39,"gof_inc":26.6546238687,"gof_first":0.3938173536,"ir_6_11":1.1244565558,"ir_24_35":0.0,"first_med":3.8137003183}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":40,"gof_inc":55.3364266099,"gof_first":0.8757323696,"ir_6_11":18.1558683102,"ir_24_35":63.502276935,"first_med":1.2821922004}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":41,"gof_inc":58.2261706389,"gof_first":1.0051724885,"ir_6_11":6.6048266436,"ir_24_35":81.8544857003,"first_med":0.756164521}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":42,"gof_inc":46.2243581605,"gof_first":1.0285561179,"ir_6_11":0.4327870229,"ir_24_35":48.5053184248,"first_med":0.7232878357}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":43,"gof_inc":30.7858039144,"gof_first":0.7263807682,"ir_6_11":0.4433749545,"ir_24_35":10.7806986081,"first_med":3.0904122591}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":44,"gof_inc":17.7446204527,"gof_first":0.5206902159,"ir_6_11":2.04314796,"ir_24_35":0.0,"first_med":2.9260286093}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":45,"gof_inc":18.4431163571,"gof_first":0.5417093673,"ir_6_11":2.4643925328,"ir_24_35":0.0,"first_med":2.8931518793}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":46,"gof_inc":18.4801433099,"gof_first":0.7170009736,"ir_6_11":1.9699640729,"ir_24_35":0.0,"first_med":2.0712336302}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":47,"gof_inc":75.4996979437,"gof_first":0.2612141227,"ir_6_11":0.0970611679,"ir_24_35":0.0,"first_med":6.9041125774}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":48,"gof_inc":44.664224001,"gof_first":0.3333305172,"ir_6_11":0.633734472,"ir_24_35":0.0,"first_med":4.2410978079}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":49,"gof_inc":17.4708459851,"gof_first":0.2588033031,"ir_6_11":1.2063124499,"ir_24_35":0.0,"first_med":4.6684952974}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":50,"gof_inc":58.0674337335,"gof_first":0.2382883399,"ir_6_11":0.1230042032,"ir_24_35":0.0,"first_med":5.9506877661}
+{"label":"offsets erlang6","family":"offsets-erlang","trial":51,"gof_inc":23.9483448239,"gof_first":0.1556559836,"ir_6_11":1.110313675,"ir_24_35":0.0,"first_med":6.345208168}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":0,"gof_inc":37.7576,"gof_first":0.5608,"ir_6_11":3.089,"ir_24_35":0.0,"first_med":2.84}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":1,"gof_inc":35.8055,"gof_first":0.1888,"ir_6_11":3.699,"ir_24_35":0.0,"first_med":5.46}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":2,"gof_inc":76.0472,"gof_first":1.0132,"ir_6_11":67.932,"ir_24_35":91.646,"first_med":0.72}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":3,"gof_inc":36.7218,"gof_first":0.4254,"ir_6_11":18.828,"ir_24_35":0.0,"first_med":3.62}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":4,"gof_inc":58.5376,"gof_first":1.0482,"ir_6_11":1.887,"ir_24_35":62.138,"first_med":0.72}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":5,"gof_inc":58.2471,"gof_first":52.67,"ir_6_11":0.556,"ir_24_35":1.494,"first_med":null}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":6,"gof_inc":43.4873,"gof_first":0.4242,"ir_6_11":0.523,"ir_24_35":0.0,"first_med":3.78}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":7,"gof_inc":36.6385,"gof_first":0.3184,"ir_6_11":7.515,"ir_24_35":26.515,"first_med":5.65}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":8,"gof_inc":34.8432,"gof_first":0.2956,"ir_6_11":4.35,"ir_24_35":0.0,"first_med":10.32}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":9,"gof_inc":40.9697,"gof_first":0.3195,"ir_6_11":0.497,"ir_24_35":0.0,"first_med":4.54}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":10,"gof_inc":104.1567,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":11,"gof_inc":104.1567,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":12,"gof_inc":35.7075,"gof_first":0.054,"ir_6_11":12.172,"ir_24_35":0.0,"first_med":7.5}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":13,"gof_inc":29.4332,"gof_first":0.1076,"ir_6_11":20.971,"ir_24_35":0.0,"first_med":6.23}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":14,"gof_inc":10.0905,"gof_first":0.7639,"ir_6_11":3.198,"ir_24_35":0.0,"first_med":10.55}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":15,"gof_inc":13.0027,"gof_first":3.4171,"ir_6_11":1.083,"ir_24_35":1.016,"first_med":16.31}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":16,"gof_inc":13.5935,"gof_first":1.551,"ir_6_11":3.259,"ir_24_35":4.852,"first_med":11.84}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":17,"gof_inc":32.318,"gof_first":0.4415,"ir_6_11":16.591,"ir_24_35":21.395,"first_med":3.95}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":18,"gof_inc":81.2974,"gof_first":52.0279,"ir_6_11":0.066,"ir_24_35":0.0,"first_med":null}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":19,"gof_inc":4.381,"gof_first":0.2146,"ir_6_11":8.234,"ir_24_35":0.049,"first_med":5.0}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":20,"gof_inc":9.1827,"gof_first":0.1416,"ir_6_11":5.452,"ir_24_35":0.008,"first_med":6.95}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":21,"gof_inc":6.2358,"gof_first":0.163,"ir_6_11":6.682,"ir_24_35":0.017,"first_med":6.36}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":22,"gof_inc":34.9734,"gof_first":0.1704,"ir_6_11":3.745,"ir_24_35":0.0,"first_med":6.54}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":23,"gof_inc":34.5425,"gof_first":0.0966,"ir_6_11":8.829,"ir_24_35":9.478,"first_med":7.21}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":24,"gof_inc":46.1453,"gof_first":0.6916,"ir_6_11":10.528,"ir_24_35":38.472,"first_med":2.33}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":25,"gof_inc":30.1735,"gof_first":0.3152,"ir_6_11":8.727,"ir_24_35":0.0,"first_med":4.49}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":26,"gof_inc":42.8982,"gof_first":0.5921,"ir_6_11":20.105,"ir_24_35":27.976,"first_med":2.63}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":27,"gof_inc":37.0581,"gof_first":0.6416,"ir_6_11":19.013,"ir_24_35":24.563,"first_med":2.5}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":28,"gof_inc":57.8042,"gof_first":0.9046,"ir_6_11":34.034,"ir_24_35":53.156,"first_med":1.18}
+{"label":"single-phase (symp_ir fit)","family":"single-phase","trial":29,"gof_inc":40.4741,"gof_first":0.5883,"ir_6_11":0.718,"ir_24_35":0.0,"first_med":2.76}
+{"label":"single-phase (first fit)","family":"single-phase","trial":0,"gof_inc":37.8141,"gof_first":0.5655,"ir_6_11":3.123,"ir_24_35":0.0,"first_med":2.79}
+{"label":"single-phase (first fit)","family":"single-phase","trial":1,"gof_inc":35.8526,"gof_first":0.1889,"ir_6_11":3.671,"ir_24_35":0.0,"first_med":5.46}
+{"label":"single-phase (first fit)","family":"single-phase","trial":2,"gof_inc":76.0168,"gof_first":1.0127,"ir_6_11":67.86,"ir_24_35":91.445,"first_med":0.72}
+{"label":"single-phase (first fit)","family":"single-phase","trial":3,"gof_inc":36.7024,"gof_first":0.4232,"ir_6_11":18.706,"ir_24_35":0.0,"first_med":3.62}
+{"label":"single-phase (first fit)","family":"single-phase","trial":4,"gof_inc":58.633,"gof_first":1.0465,"ir_6_11":1.885,"ir_24_35":62.303,"first_med":0.72}
+{"label":"single-phase (first fit)","family":"single-phase","trial":5,"gof_inc":12.3184,"gof_first":5.0913,"ir_6_11":1.202,"ir_24_35":3.154,"first_med":null}
+{"label":"single-phase (first fit)","family":"single-phase","trial":6,"gof_inc":43.6769,"gof_first":0.4266,"ir_6_11":0.524,"ir_24_35":0.0,"first_med":3.78}
+{"label":"single-phase (first fit)","family":"single-phase","trial":7,"gof_inc":36.7338,"gof_first":0.3195,"ir_6_11":7.534,"ir_24_35":26.235,"first_med":5.62}
+{"label":"single-phase (first fit)","family":"single-phase","trial":8,"gof_inc":34.84,"gof_first":0.279,"ir_6_11":4.379,"ir_24_35":0.0,"first_med":10.29}
+{"label":"single-phase (first fit)","family":"single-phase","trial":9,"gof_inc":41.0094,"gof_first":0.3186,"ir_6_11":0.496,"ir_24_35":0.0,"first_med":4.5}
+{"label":"single-phase (first fit)","family":"single-phase","trial":10,"gof_inc":104.1567,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"single-phase (first fit)","family":"single-phase","trial":11,"gof_inc":36.3995,"gof_first":0.3398,"ir_6_11":5.316,"ir_24_35":0.0,"first_med":9.85}
+{"label":"single-phase (first fit)","family":"single-phase","trial":12,"gof_inc":35.6594,"gof_first":0.0571,"ir_6_11":12.055,"ir_24_35":0.0,"first_med":9.24}
+{"label":"single-phase (first fit)","family":"single-phase","trial":13,"gof_inc":36.0364,"gof_first":0.1046,"ir_6_11":14.522,"ir_24_35":0.0,"first_med":5.98}
+{"label":"single-phase (first fit)","family":"single-phase","trial":14,"gof_inc":27.0957,"gof_first":0.3247,"ir_6_11":45.909,"ir_24_35":0.0,"first_med":4.08}
+{"label":"single-phase (first fit)","family":"single-phase","trial":15,"gof_inc":50.1598,"gof_first":0.9877,"ir_6_11":35.377,"ir_24_35":34.932,"first_med":0.82}
+{"label":"single-phase (first fit)","family":"single-phase","trial":16,"gof_inc":36.0163,"gof_first":0.2874,"ir_6_11":7.496,"ir_24_35":0.0,"first_med":4.73}
+{"label":"single-phase (first fit)","family":"single-phase","trial":17,"gof_inc":9.0983,"gof_first":0.0079,"ir_6_11":16.283,"ir_24_35":0.0,"first_med":7.99}
+{"label":"single-phase (first fit)","family":"single-phase","trial":18,"gof_inc":8.4436,"gof_first":0.014,"ir_6_11":14.992,"ir_24_35":0.0,"first_med":7.76}
+{"label":"single-phase (first fit)","family":"single-phase","trial":19,"gof_inc":2.2403,"gof_first":0.4733,"ir_6_11":7.31,"ir_24_35":0.139,"first_med":11.44}
+{"label":"single-phase (first fit)","family":"single-phase","trial":20,"gof_inc":57.0987,"gof_first":0.7762,"ir_6_11":34.276,"ir_24_35":53.286,"first_med":1.73}
+{"label":"single-phase (first fit)","family":"single-phase","trial":21,"gof_inc":36.9158,"gof_first":3.0799,"ir_6_11":1.178,"ir_24_35":0.0,"first_med":null}
+{"label":"single-phase (first fit)","family":"single-phase","trial":22,"gof_inc":16.8376,"gof_first":0.2956,"ir_6_11":14.095,"ir_24_35":0.0,"first_med":4.21}
+{"label":"single-phase (first fit)","family":"single-phase","trial":23,"gof_inc":104.1567,"gof_first":100.0,"ir_6_11":0.0,"ir_24_35":0.0,"first_med":null}
+{"label":"single-phase (first fit)","family":"single-phase","trial":24,"gof_inc":46.496,"gof_first":0.2032,"ir_6_11":28.529,"ir_24_35":36.761,"first_med":5.01}
+{"label":"single-phase (first fit)","family":"single-phase","trial":25,"gof_inc":17.3096,"gof_first":0.3498,"ir_6_11":39.47,"ir_24_35":0.0,"first_med":3.81}
+{"label":"single-phase (first fit)","family":"single-phase","trial":26,"gof_inc":22.6558,"gof_first":0.2639,"ir_6_11":11.801,"ir_24_35":0.0,"first_med":10.09}
+{"label":"single-phase (first fit)","family":"single-phase","trial":27,"gof_inc":39.589,"gof_first":2.1842,"ir_6_11":1.238,"ir_24_35":0.0,"first_med":14.78}
+{"label":"single-phase (first fit)","family":"single-phase","trial":28,"gof_inc":55.9331,"gof_first":0.9134,"ir_6_11":11.075,"ir_24_35":55.558,"first_med":1.22}
+{"label":"single-phase (first fit)","family":"single-phase","trial":29,"gof_inc":21.4969,"gof_first":0.1108,"ir_6_11":13.705,"ir_24_35":0.0,"first_med":6.21}

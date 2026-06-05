@@ -14,6 +14,33 @@ import starsim as ss
 from .rotavirus import Rotavirus
 
 
+def erlang_survival(t_years, n_stages, mean_duration_years):
+    """Survival function of an Erlang(n, rate=n/mean) distribution -- the fraction
+    of agents still maternally protected at age t (years).
+
+    This is the multi-compartment maternal-waning shape used in the rotavirus
+    transmission literature (e.g. Pitzer et al. split the maternal class into
+    several sub-compartments). ``n_stages=1`` reduces to ordinary exponential
+    decay with the given mean; larger ``n`` gives an increasingly sharp
+    "plateau then drop" (n -> inf approaches a step function at t = mean),
+    which reproduces a relative dearth of cases in the first few months of life.
+
+    For integer n the survival is the closed-form Erlang tail
+        S(t) = exp(-x) * sum_{k=0}^{n-1} x^k / k!,   x = (n / mean) * t
+    Fully vectorized over ``t_years``; no SciPy dependency.
+    """
+    n = max(1, int(n_stages))
+    mean = max(float(mean_duration_years), 1e-9)
+    lam = n / mean
+    x = lam * np.asarray(t_years, dtype=float)
+    s = np.ones_like(x)      # k = 0 term
+    term = np.ones_like(x)
+    for k in range(1, n):
+        term = term * x / k  # x^k / k!
+        s += term
+    return np.exp(-x) * s
+
+
 class PathogenMatch:
     """Define whether pathogens are completely heterotypic, partially heterotypic, or homotypic"""
 
@@ -58,11 +85,22 @@ class RotaImmunityConnector(ss.Connector):
             naive_immunity_efficacy=0.0,  # Baseline immunity for naive individuals (0.0 = fully susceptible)
             # immunity_waning_delay=ss.days(14),  # Time delay before immunity decay starts (90 days = ~3 months)
             # Maternal immunity parameters (passive immunity from mother).
-            # Default efficacy=0.0 means maternal immunity is OFF; set >0 to enable.
-            # Protection at age a (years): efficacy * exp(-ln(2) * a / half_life_years).
-            # Combined with acquired immunity via element-wise max in rel_sus calc.
-            maternal_immunity_efficacy=0.0,
+            # Two-phase model: a FAST component (transplacental IgG, high efficacy,
+            # short half-life) plus a SLOW component (breastfeeding IgA, longer
+            # half-life). Each is efficacy * exp(-ln(2) * a / half_life_years); the
+            # two are combined as independent protections 1-(1-p_fast)(1-p_slow),
+            # then combined with acquired immunity via element-wise max in rel_sus.
+            # Default efficacies=0.0 mean maternal immunity is OFF. Setting only the
+            # fast component reproduces the original single-exponential behaviour.
+            maternal_immunity_efficacy=0.0,         # fast / transplacental (main)
             maternal_immunity_half_life=ss.days(90),
+            # Main component supports Erlang(n) waning (1=exponential, ~6=Pitzer-like
+            # sharp drop -> dearth of cases at 0-5 months). Scale is the mean duration
+            # (1/omega); if None, falls back to half_life (mean = half_life/ln2).
+            maternal_immunity_n_stages=1,
+            maternal_immunity_mean_duration=None,
+            maternal_immunity_efficacy_slow=0.0,    # slow / breastfeeding
+            maternal_immunity_half_life_slow=ss.days(270),
             # Age-dependent baseline immunity parameters
             # adult_baseline_immunity=0.0,  # Baseline immunity for adults (e.g., from childhood exposure history). Calibration parameter.
             # adult_age_threshold=5.0,  # Age threshold (in years) for applying adult baseline immunity (default 5 years)
@@ -374,15 +412,31 @@ class RotaImmunityConnector(ss.Connector):
             # Acquired immunity from prior infections (strain-match-weighted).
             acquired_protection = combined_immunity_factor * strain_match_immunity_efficacy
 
-            # Maternal immunity: protection = efficacy * exp(-ln(2) * age_years / half_life_years).
-            # Applied to all agents but only meaningful for infants -- decays to ~0 by age ~1y
-            # with default 90-day half-life. Combined with acquired via element-wise max.
+            # Maternal immunity: two-phase passive protection that decays with age.
+            #   p_fast = eff_fast * exp(-ln2 * age / hl_fast)   (transplacental IgG)
+            #   p_slow = eff_slow * exp(-ln2 * age / hl_slow)   (breastfeeding IgA)
+            # Combined as independent protections (stays in [0,1]):
+            #   maternal_protection = 1 - (1 - p_fast)(1 - p_slow)
+            # then combined with acquired immunity via element-wise max.
             mat_eff = float(self.pars.maternal_immunity_efficacy)
-            if mat_eff > 0:
-                mat_hl_years = self.pars.maternal_immunity_half_life.years
+            mat_eff_slow = float(self.pars.maternal_immunity_efficacy_slow)
+            if mat_eff > 0 or mat_eff_slow > 0:
                 agent_ages_years = self.sim.people.age.values
-                maternal_decay = np.exp(-np.log(2) * agent_ages_years / mat_hl_years)
-                maternal_protection = mat_eff * maternal_decay
+                # Main component: Erlang(n) waning (n=1 -> exponential). Mean duration
+                # from the explicit param if set, else the exponential-equivalent of
+                # the half-life (mean = half_life / ln2) for backward compatibility.
+                if self.pars.maternal_immunity_mean_duration is not None:
+                    mean_dur_years = self.pars.maternal_immunity_mean_duration.years
+                else:
+                    mean_dur_years = self.pars.maternal_immunity_half_life.years / np.log(2)
+                p_main = mat_eff * erlang_survival(
+                    agent_ages_years, self.pars.maternal_immunity_n_stages, mean_dur_years)
+                if mat_eff_slow > 0:
+                    p_slow = mat_eff_slow * np.exp(
+                        -np.log(2) * agent_ages_years / self.pars.maternal_immunity_half_life_slow.years)
+                    maternal_protection = 1.0 - (1.0 - p_main) * (1.0 - p_slow)
+                else:
+                    maternal_protection = p_main
                 total_protection = np.maximum(acquired_protection, maternal_protection)
             else:
                 total_protection = acquired_protection

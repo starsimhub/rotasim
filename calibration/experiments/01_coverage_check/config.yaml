@@ -1,0 +1,11 @@
+# Exp 01 — prior-predictive coverage check settings.
+# Prior ranges live in coverage_check_maled.sample_prior (match calibrate_maled);
+# targets come from process_incidence_maled.load_targets(site).
+site: bangladesh
+symptom_model: age_and_infection_offsets   # most flexible; nests age_only
+maternal_n_stages: 6                        # Erlang (sharp) maternal waning
+n_draws: 50                                 # independent prior draws (NOT Optuna)
+n_reps_per_draw: 1                          # binary "can it reach the data" question
+n_agents: 100000
+n_workers: 40                               # shared no-swap VM: cap < memory ceiling
+seed: 20260604                              # fixed -> draws are deterministic (resumable)

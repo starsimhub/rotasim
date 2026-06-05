@@ -1,0 +1,16 @@
+# Exp 06 — infection-number-only symptoms, matched to exp 05 (homogeneous mixing,
+# strong Erlang maternal). Comparison feasibility: can infection-number make the peak?
+site: bangladesh
+n_agents: 20000
+seed: 20260605
+base_beta_sweep: [0.20, 0.30]
+maternal_immunity_efficacy: 0.95
+maternal_mean_duration_days: 200.0
+maternal_n_stages: 6
+sus_after_1: 0.60
+sus_after_2: 0.40
+sus_after_3plus: 0.25
+# per-infection symptomatic probabilities [p_symp_1, p_symp_2, p_symp_3plus]
+p_symp_sets:
+  first_only: [0.80, 0.10, 0.02]   # first infection mostly symptomatic, rest rare
+  graded:     [0.60, 0.30, 0.10]   # graded decline
