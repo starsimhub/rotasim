@@ -59,7 +59,7 @@ BINS_M = {'<6 m': (0, 6), '6-11 m': (6, 12), '12-23 m': (12, 24), '24-35 m': (24
 class MALEDCohort(ss.Analyzer):
     """Emulate a MAL-ED birth cohort with surveillance detection + censoring."""
 
-    def __init__(self, beta0, beta1, beta2, enroll_window=ENROLL_WINDOW,
+    def __init__(self, beta0, beta1, beta2, censoring_ages, enroll_window=ENROLL_WINDOW,
                  followup_months=FOLLOWUP_M, capture=CAPTURE,
                  eia_sensitivity=EIA_SENSITIVITY, shed_days=SHED_DAYS, seed=0, **kw):
         super().__init__(**kw)
@@ -69,9 +69,13 @@ class MALEDCohort(ss.Analyzer):
         self.capture = capture
         self.eia = eia_sensitivity
         self.shed = shed_days
+        # Empirical per-child exit-age distribution (months), from the data's
+        # observed censoring ages -> individual-level dropout (non-informative).
+        self.censoring_ages = np.asarray(censoring_ages, dtype=float)
         self.rng = np.random.default_rng(seed)
         # per-enrolled-child state (parallel arrays; uid->index map)
         self.uid2idx = {}
+        self.exit_age_m = []     # individual study-exit (dropout/administrative) age
         self.last_age_m = []     # max observed age (months) while alive & in follow-up
         self.true_first_m = []   # age at first infection (any), regardless of detection
         self.det_first_m = []    # age at first DETECTED infection
@@ -103,6 +107,8 @@ class MALEDCohort(ss.Analyzer):
 
     def _enroll(self, uid):
         self.uid2idx[uid] = len(self.last_age_m)
+        # Draw this child's study-exit age from the data's censoring distribution.
+        self.exit_age_m.append(float(self.rng.choice(self.censoring_ages)))
         self.last_age_m.append(0.0)
         self.true_first_m.append(np.nan)
         self.det_first_m.append(np.nan)
@@ -131,7 +137,8 @@ class MALEDCohort(ss.Analyzer):
         eu_idx = np.fromiter(self.uid2idx.values(), dtype=np.int64)
         eu_age_m = np.asarray(sim.people.age[ss.uids(eu)]) * 12.0
         eu_alive = np.asarray(sim.people.alive[ss.uids(eu)])
-        in_fu = eu_alive & (eu_age_m <= self.fu)
+        eu_exit = np.array(self.exit_age_m)[eu_idx]   # individual study-exit age
+        in_fu = eu_alive & (eu_age_m <= eu_exit)
         # person-time by bin
         for b, (lo, hi) in BINS_M.items():
             self.person_years[b] += int((in_fu & (eu_age_m >= lo) & (eu_age_m < hi)).sum()) * self._dty
@@ -151,7 +158,7 @@ class MALEDCohort(ss.Analyzer):
                 if idx is None:
                     continue
                 a = float(sim.people.age[ss.uids(np.array([ui]))][0]) * 12.0
-                if a > self.fu:
+                if a > self.exit_age_m[idx]:   # past this child's study exit -> unobserved
                     continue
                 if np.isnan(self.true_first_m[idx]):
                     self.true_first_m[idx] = a
@@ -175,11 +182,13 @@ class MALEDCohort(ss.Analyzer):
         n = len(self.last_age_m)
         det = np.array(self.det_first_m)
         last = np.array(self.last_age_m)
+        exitage = np.array(self.exit_age_m)
         true_first = np.array(self.true_first_m)
         ndet = np.array(self.n_det)
-        # KM survival data: (time, event_observed); censor at min(last_age, 24)
+        # KM survival data: (time, event_observed). Censored at the child's study
+        # exit (or earlier death, captured by last_age) when undetected.
         observed = ~np.isnan(det)
-        time = np.where(observed, det, np.minimum(last, self.fu))
+        time = np.where(observed, det, np.minimum(last, exitage))
         pm = {b: self.person_years[b] * 12.0 for b in LABELS}
         ir_all = {b: (self.cases_all[b] / pm[b] * 100.0 if pm[b] > 0 else 0.0) for b in LABELS}
         ir_symp = {b: (self.cases_symp[b] / pm[b] * 100.0 if pm[b] > 0 else 0.0) for b in LABELS}
@@ -208,9 +217,10 @@ def draw_prior(rng):
 
 
 def _run_one(args):
-    draw_id, params, n_agents, seed = args
+    draw_id, params, n_agents, seed, censoring_ages = args
     try:
-        cohort = MALEDCohort(beta0=params['beta0'], beta1=params['beta1'], beta2=params['beta2'], seed=seed)
+        cohort = MALEDCohort(beta0=params['beta0'], beta1=params['beta1'], beta2=params['beta2'],
+                             censoring_ages=censoring_ages, seed=seed)
         ic = rs.RotaImmunityConnector(use_fixed_susceptibility=False)
         people = ss.People(n_agents=n_agents, age_data=str(AGE_DATA))
         sim = rs.Sim(n_agents=n_agents, start='2003-01-01', stop='2013-01-01', dt=ss.days(1),
@@ -263,9 +273,17 @@ def main():
         args.n_draws, args.n_agents = 4, 8_000
         args.out = str(OUTDIR / 'results_smoke.jsonl')
 
+    # Data-driven dropout: per-child exit ages drawn from the data's censoring ages.
+    import pandas as pd
+    fi = pd.read_csv(REPO / 'calibration' / 'maled_data' / 'first_infection_bangladesh.csv')
+    censoring_ages = fi.loc[fi['event_observed'] == 0, 'age_event_months'].dropna().values
+    censoring_ages = censoring_ages[censoring_ages > 0]
+    print(f'Dropout model: {len(censoring_ages)} empirical exit ages '
+          f'(median {np.median(censoring_ages):.1f}mo, {(censoring_ages<20).mean()*100:.0f}% <20mo)', flush=True)
+
     rng = np.random.default_rng(args.seed)
     draws = [draw_prior(rng) for _ in range(args.n_draws)]
-    tasks = [(i, p, args.n_agents, args.seed + i) for i, p in enumerate(draws)]
+    tasks = [(i, p, args.n_agents, args.seed + i, censoring_ages) for i, p in enumerate(draws)]
     n_workers = args.n_workers or os.cpu_count()
     print(f'MAL-ED cohort emulation: {args.n_draws} draws, {args.n_agents} agents, {n_workers} workers', flush=True)
 
