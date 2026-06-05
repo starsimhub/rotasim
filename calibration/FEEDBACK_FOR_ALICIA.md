@@ -66,7 +66,32 @@ exp 02 "0/250" (that was the infection-number model).
 
 ## C. Still open — and a structural change that "changes the game"
 
-### C1. Recreate the MAL-ED study structure (in progress, our exp 04)
+### C0. Exp 04 result — transmission is too high, and we converge with your mixing diagnosis
+
+The cohort emulation (C1 below) is done (`experiments/04_maled_cohort_emulation/`).
+Headline: **the prior overwhelmingly over-infects, and the binding constraint is the
+repeat-infection fraction.** As `base_beta` falls from 0.5→0.05, *everything* moves
+toward MAL-ED together — fraction detected (0.91→0.52 vs 0.63), repeat fraction
+(0.91→0.36 vs **0.10**), and median age-at-first-detection (1.2→6.1mo vs ~8mo). So
+the dominant problem is simply **transmission too high** (anything above β≈0.1 is too
+hot). A modest residual survives: at the β that matches first-infection *timing*
+(~0.15), repeats are still ~2.7× high (0.27 vs 0.10) — that smaller gap is where a
+durable-immunity argument lives, but it's secondary to the β level.
+
+**This is the same diagnosis as your exp 04**, from the other direction: your 2-group
+MixingPools failed because *infants got toddler-level FOI and infected too early*, and
+you fixed it structurally by giving infants **low exposure** to the high-mixing
+toddler reservoir. That's exactly "infant transmission is too high." Your low-infant-
+exposure pool is a structural lever for the over-infection we see with homogeneous
+mixing.
+
+**Action for the calibration:** add the **repeat-infection fraction (~10%)** as an
+explicit target alongside IR-by-age — it alone rules out the hyperendemic regime that
+IR-shape fitting (and Optuna) will happily wander into. Our next experiment combines
+your low-infant-exposure mixing + our cohort/surveillance/repeat-target on a bigger
+population.
+
+### C1. Recreate the MAL-ED study structure (done — our exp 04)
 
 This is the big one. The current target pipeline diverges from MAL-ED's actual
 design in ways that bias exactly the things we're fitting:
@@ -88,10 +113,13 @@ design in ways that bias exactly the things we're fitting:
   Kaplan-Meier (handles dropout), or better, forward-model the dropout times so the
   observation process matches end-to-end.
 
-`experiments/04_maled_cohort_emulation/` builds this. Early signal: the
-**repeat-infection fraction** is a brutally discriminating check — MAL-ED saw
-repeats in only ~10% of children, while over-infecting draws force >90%. That
-single number rules out the hyperendemic regime our prior is full of.
+`experiments/04_maled_cohort_emulation/` implements all four (cohort, schedule-
+based detection, 24mo follow-up, individual data-driven dropout). The repeat-
+infection fraction proved the most discriminating check — see C0 for the result.
+Methods note: with dropout simulated individually from the data's own censoring
+ages, the censoring is matched on both sides, so age-at-first-detection can be
+compared observed-to-observed; Kaplan-Meier is kept only as a descriptive curve,
+not a bias correction.
 
 ### C2. The prior over-infects
 
