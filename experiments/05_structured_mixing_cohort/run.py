@@ -186,12 +186,14 @@ def make_matrix(infant_exposure, young_reservoir, cross):
 
 
 def draw_prior(rng):
-    base_beta = float(np.exp(rng.uniform(np.log(0.05), np.log(0.6))))   # pool scale (~Alicia 0.25)
-    young_reservoir = float(rng.uniform(10.0, 40.0))
-    infant_exposure = float(rng.uniform(0.5, 12.0))                     # key low lever
+    # Ranges re-centered from the range-check pilot: beta<0.08 -> extinction,
+    # >~0.2 -> saturated; infant_exposure must stay low for the right age structure.
+    base_beta = float(np.exp(rng.uniform(np.log(0.08), np.log(0.18))))  # persistent, not saturated
+    young_reservoir = float(rng.uniform(18.0, 35.0))
+    infant_exposure = float(rng.uniform(0.3, 4.0))                      # key low lever
     s3 = float(rng.uniform(0.1, 1.0)); s2 = float(rng.uniform(s3, 1.0)); s1 = float(rng.uniform(s2, 1.0))
     mat_eff = float(rng.uniform(0.5, 0.99))
-    mat_dur = float(rng.uniform(120.0, 300.0))                          # days; sets drop/peak age
+    mat_dur = float(rng.uniform(110.0, 260.0))                          # days; shorter -> earlier peak
     # infection-number symptom severity, monotone decreasing
     p1 = float(rng.uniform(0.4, 1.0)); p2 = float(rng.uniform(0.05, p1)); p3 = float(rng.uniform(0.0, p2))
     return dict(base_beta=base_beta, young_reservoir=young_reservoir, infant_exposure=infant_exposure,
