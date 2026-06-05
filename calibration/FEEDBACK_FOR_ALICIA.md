@@ -1,125 +1,101 @@
-# Feedback for Alicia — MAL-ED Calibration Review (Dan, 2026-06-05)
+# Notes for Alicia — MAL-ED Calibration Review (Dan, updated 2026-06-05)
 
-Reviewed the MAL-ED calibration on `dec_calibration_akraay`. Overall the
-structure is solid. Below are findings from a set of quick diagnostic
-experiments (in `experiments/`), ordered by how much they affect the fit.
+Merged your `dec_calibration_akraay` into a working branch and reviewed it
+alongside a set of diagnostic experiments (top-level `experiments/`). Your branch
+is scientifically ahead in several places; ours adds a couple of fixes that matter
+for correctness and for being able to run at scale. This note focuses on (A) what
+we added that you'll want, (B) reconciliation where our findings meet yours, and
+(C) what's still open.
 
----
-
-## 1. HIGH PRIORITY — Person-time denominators are biased 10–23% too high
-
-**Where:** `process_incidence_maled.py :: compute_person_months_steady_state`
-
-**The bug.** Person-months per age bin is computed as:
-
-```python
-count_in_bin_at_sim_end × calibration_window_months
-```
-
-i.e. it snapshots the population age distribution **once at the end of the
-sim** and assumes that headcount held constant across the whole 5-year
-window. But the population is *growing* (births > deaths: Bangladesh
-19/6, Pakistan 27/7 per 1000/yr). The end-of-sim headcount is therefore
-**larger** than the time-averaged headcount over the window.
-
-**Impact.** Measured directly (snapshot-PT vs. true accumulated-PT,
-`experiments/01_demographics_check/validate_fix.py`):
-
-| Site       | <6m  | 6-11m | 12-23m | 24-35m |
-|------------|------|-------|--------|--------|
-| Bangladesh | 0.99 | 1.00  | 1.05   | 1.16   |
-| Pakistan   | 0.99 | 1.04  | 1.08   | 1.16   |
-
-(ratio of snapshot-PT to true accumulated-PT — i.e. how much the
-denominators are inflated)
-
-The bias is **age-dependent**: negligible for the youngest bins, growing to
-~16% in the 24-35m bin (those cohorts were born earlier, when the population
-was smaller, so the end-of-sim snapshot most overstates them). Because
-IR = cases / PT, **inflated denominators make the modelled IR look
-artificially low** — and because the distortion is concentrated in the older
-infant bins, it doesn't just shift `base_beta`, it **flattens the modelled
-age-incidence gradient**, biasing the fitted immunity ladder (`sus_after_3plus`
-in particular). It's a *systematic* error, not noise.
-
-**The fix.** Accumulate person-time *during* the science window instead of
-assuming. At each timestep, add `count_in_bin × dt` to a running total.
-That's the literal definition of person-time and it's exact regardless of
-population growth. The `AgeStats` analyzer already records per-bin counts
-every step, so the time series exists — we just need to integrate it over
-the calibration window rather than reading the final frame.
-
-A drop-in `PersonTimeByAge` analyzer + `compute_person_months_accumulated()`
-is in this branch (`dec_calibration_akraay_dk`); see
-`experiments/01_demographics_check/validate_fix.py` for the validation
-showing it recovers the unbiased denominators. Happy to PR it.
+Where you're already ahead (no action needed — just noting so we don't duplicate):
+age-structured contacts / MixingPools (your exp 04), Bangladesh age pyramid
+instead of UK, the Erlang / two-phase maternal-immunity model, and the headline
+exp 05/06 result that **age-based symptom severity is required** (infection-number-
+only can't make the 6–11mo peak). Our coverage check independently agrees with
+this — see (B).
 
 ---
 
-## 2. The science window (60 months) doesn't match MAL-ED follow-up (~24 months)
+## A. Two fixes from our side worth pulling into the calibration
 
-MAL-ED followed each child from birth for about 24 months (Bangladesh avg
-23.1mo, Pakistan 25.2mo, max ~30mo). The calibration computes model IR over
-a **5-year (60-month) window** of an endemic population. These aren't the
-same exposure: a birth cohort followed 0–24mo vs. a steady-state slice
-0–60mo. For the infant bins it's probably close, but worth confirming.
+### A1. Memory-bounded reporter: `rs.MALEDTargets` (replaces InfectedStrainStats + process_model)
 
-**Pin for later:** consider recreating the study directly — a within-sim
-"mini MAL-ED": enroll a birth cohort, follow each enrolled child for 24
-months, and compute IR-by-age and first-infection on that cohort exactly
-as the study did. Removes the cohort-vs-cross-section assumption entirely.
+`calibrate_maled.py` logs every infection event via `InfectedStrainStats` and
+post-processes with `process_model`. The event log is O(infections), so at high
+prevalence it balloons — and across many parallel workers it OOMs (we hit this
+hard: 64 workers drove a 314 GB machine to the wall).
 
----
+`rs.MALEDTargets` (now in `rotasim/analyzers.py`) folds the detection + age-binning
+into the analyzer's `step()` and keeps only per-bin case counters, per-bin person-
+time, and one first-detected age per agent → **O(agents), flat in prevalence and
+duration.** It is **validated to reproduce `process_model` exactly** under
+deterministic detection and within Poisson noise under stochastic detection
+(`experiments/03_coverage_check/validate_analyzer.py`). Recommend wiring the
+calibration workers to it; removes the memory ceiling entirely.
 
-## 3. HIGH PRIORITY — First-infection target ignores censoring (44% / 64%!)
+### A2. Person-time denominator fix: `rs.PersonTimeByAge`
 
-**Where:** `process_incidence_maled.py :: load_first_infection_quartiles`
-
-The target quartiles are computed from `event_observed == 1` only —
-children who actually had an observed first infection. But **44% of
-Bangladesh and 64% of Pakistan children were censored** (never had an
-observed first infection during follow-up). Dropping them conditions on
-"was infected," which biases the target median toward *earlier* ages.
-
-The model side (`compute_model_first_inf_quartiles`) includes every
-simulated agent infected by 36 months — no equivalent selection. So the
-model and data quartiles aren't measuring the same thing.
-
-This is likely a big part of why **Pakistan** (64% censored, flat incidence)
-is hard to fit. The fix is a Kaplan-Meier estimate of the age-at-first-
-infection distribution that properly accounts for censoring, then compare
-model to the KM quartiles. (exp 05, in progress.)
+`process_incidence_maled.compute_person_months_steady_state` uses
+`final_headcount × window_months` — a single end-of-sim snapshot × window length.
+Because the population grows (births > deaths), that overstates the time-averaged
+headcount. `rs.PersonTimeByAge` accumulates `count × dt` over the window (exact
+regardless of growth). Two correctness fixes came with it and apply to both
+analyzers: window membership uses calendar time (relvec, matching infection
+`CollectionTime`), and person-time counts only living agents.
 
 ---
 
-## 4. Initial age distribution is UK, not South Asian — but it self-corrects fast
+## B. Reconciliation — our denominator finding vs your exp 03
 
-The sim initializes agents from `uk_age_data.csv` (~94% aged 5+), then
-applies site birth/death rates. Exp 01 shows the population re-equilibrates
-to the correct infant fraction within ~1 year (well inside the 5-year
-burn-in), and the equilibrium <6m fraction matches theory (~0.95% BD,
-~1.35% PK). So this is **not** causing a problem for the infant bins —
-but it's worth swapping in a site-appropriate age file for cleanliness,
-and it *would* matter for any older-child targets (the <36m fraction is
-still slowly drifting up at year 10).
+Both are correct; they cover different bins. **My exp 01** measured the snapshot
+denominator bias as **age-dependent**: ~0% in `<6m`/`6-11m`, growing to **~16% in
+`24-35m`** (older cohorts were born when the population was smaller, so the end-of-
+sim snapshot most overstates them). **Your exp 03** found the denominator makes
+~no difference to the `<6m` overshoot — consistent, because the bias is ~0 in that
+bin. Net: the denominator fix matters for the **age gradient / older bins** (and so
+for the immunity ladder `sus_after_3plus`), not for the `<6m` story. Worth stating
+both scopes so we don't ship two contradictory one-liners.
 
----
-
-## 5. Network is RandomNet — no age structure
-
-`ss.RandomNet(n_contacts=7)` mixes all ages uniformly. For rotavirus,
-infant exposure is dominated by household/caregiver contact, not random
-mixing with the whole population. An age-structured network (MixingPools
-with infant-protective mixing) may change the infant IR meaningfully —
-testing in exp 04. (There's already `AGE_ASSORTATIVE_NETWORK_FINDINGS.md`
-from earlier work — worth revisiting.)
+Also: our exp 03 prior-predictive coverage **agrees with your exp 05/06**. With a
+peaked (quadratic) age-symptom curve in the prior, a single draw (#314) reproduces
+the Bangladesh IR shape — peak at 6–11mo, right magnitudes — at a realistic ~3.6%
+prevalence. So the shape is reachable via age severity; no contradiction with your
+exp 02 "0/250" (that was the infection-number model).
 
 ---
 
-## Summary of priorities
+## C. Still open — and a structural change that "changes the game"
 
-1. **Fix the person-time denominators** (systematic beta bias) — fix ready.
-2. **Fix the censoring in the first-infection target** (KM) — esp. Pakistan.
-3. Match / recreate the MAL-ED follow-up window (24mo cohort).
-4. Try an age-structured network.
-5. Site-appropriate initial age distribution (low priority — self-corrects).
+### C1. Recreate the MAL-ED study structure (in progress, our exp 04)
+
+This is the big one. The current target pipeline diverges from MAL-ED's actual
+design in ways that bias exactly the things we're fitting:
+
+- **Cross-section vs birth cohort.** We score a steady-state slice; MAL-ED follows
+  children 0–24mo from birth. → emulate a birth cohort (enroll at birth, follow to
+  24mo, cohort-based person-time).
+- **Constant `p_asymp_detect=0.4` hides an age effect.** MAL-ED collects
+  asymptomatic surveillance stool **monthly to 12mo, then only quarterly
+  (15/18/21/24mo)**. With ~13-day shedding that's ~13/30 ≈ 0.43 under 12mo but
+  ~13/91 ≈ **0.14 after** — detection drops ~3× at one year. The constant 0.4
+  overestimates detection in the 12–24mo range, biasing the older-age IR and the
+  first-infection tail. → schedule-based detection.
+- **Follow-up is 24mo, not 36** (we censor at 36).
+- **Censoring + dropout.** The first-infection target drops the 44% censored
+  children (events-only quartiles), biasing the median young. And the data has real
+  early dropout (36% of censored kids leave before 20mo; 21 in the first 6mo), so
+  the censoring isn't purely administrative. → compare age-at-first-**detection** by
+  Kaplan-Meier (handles dropout), or better, forward-model the dropout times so the
+  observation process matches end-to-end.
+
+`experiments/04_maled_cohort_emulation/` builds this. Early signal: the
+**repeat-infection fraction** is a brutally discriminating check — MAL-ED saw
+repeats in only ~10% of children, while over-infecting draws force >90%. That
+single number rules out the hyperendemic regime our prior is full of.
+
+### C2. The prior over-infects
+
+Exp 03: median endemic prevalence 0.23, 57% of draws >0.2 — vs a few % in reality.
+Worth tightening `base_beta`'s upper bound (and/or the immunity floor) so calibration
+doesn't spend its budget in the hyperendemic region. The ~10% repeat-infection
+constraint (C1) is the cheapest way to enforce this.
