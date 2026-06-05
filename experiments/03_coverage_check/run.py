@@ -1,0 +1,218 @@
+"""
+Exp 03 — Prior Predictive / Coverage Check (parallel, VM-ready).
+
+Draws parameter sets from the MAL-ED calibration prior, runs the full ABM under
+each site's demographics, and records the model's endemic prevalence + IR-by-age
++ first-infection quartiles. Compares the observed MAL-ED targets to the
+simulated ensemble (does the data fall inside what the model can produce?).
+
+Uses the SAME detection pipeline as the calibration (process_incidence_maled)
+and the CORRECTED person-time denominators (rs.PersonTimeByAge, exp 01).
+
+Writes incrementally to outputs/results.jsonl (resumable / extendable).
+
+Usage:
+  uv run python experiments/03_coverage_check/run.py                  # full run
+  uv run python experiments/03_coverage_check/run.py --smoke          # 3 draws, 5k agents, 1 site
+  uv run python experiments/03_coverage_check/run.py --n-draws 500 --n-agents 100000 --n-workers 160
+"""
+import sys
+import os
+import json
+import argparse
+from pathlib import Path
+from multiprocessing import get_context
+
+import numpy as np
+import sciris as sc
+import starsim as ss
+import rotasim as rs
+
+HERE = Path(__file__).resolve().parent
+OUTDIR = HERE / 'outputs'
+FIGDIR = HERE / 'figures'
+OUTDIR.mkdir(exist_ok=True)
+FIGDIR.mkdir(exist_ok=True)
+
+REPO = HERE.parent.parent
+CALIB_DIR = REPO / 'calibration'
+AGE_DATA = CALIB_DIR / 'uk_age_data.csv'
+
+# Import the calibration's detection/processing pipeline (same as calibrate_maled).
+if str(CALIB_DIR) not in sys.path:
+    sys.path.insert(0, str(CALIB_DIR))
+process_incidence_maled = sc.importbypath(CALIB_DIR / 'process_incidence_maled.py')
+
+CAL_WINDOW = (5.0, 10.0)  # years from start
+SITE_DEMOGRAPHICS = {
+    'bangladesh': dict(birth_rate=19, death_rate=6),
+    'pakistan':   dict(birth_rate=27, death_rate=7),
+}
+P_ASYMP_DETECT = 0.4
+MALED_BINS = {'<6 m': (0, 6), '6-11 m': (6, 12), '12-23 m': (12, 24), '24-35 m': (24, 36)}
+
+
+class PrevTracker(ss.Analyzer):
+    """Record overall prevalence each step within the calibration window."""
+    def __init__(self, window, **kw):
+        super().__init__(**kw)
+        self.window = window
+        self.prev = []
+
+    def init_pre(self, sim, force=False):
+        super().init_pre(sim, force)
+        self._dty = self.dt.years
+
+    def step(self):
+        yr = self.ti * self._dty
+        if not (self.window[0] <= yr < self.window[1]):
+            return
+        alive = self.sim.people.alive.values
+        n = int(alive.sum())
+        if n == 0:
+            return
+        inf = np.zeros(len(alive), dtype=bool)
+        for d in self.sim.diseases.values():
+            inf |= d.infected.values
+        self.prev.append(float((inf & alive).sum() / n))
+
+
+def draw_prior(rng):
+    """One draw from the 9-parameter MAL-ED calibration prior (matches
+    calibrate_maled._trial_to_sim_pars ranges; sus ladder is monotone)."""
+    base_beta = float(np.exp(rng.uniform(np.log(0.05), np.log(0.5))))  # log-uniform
+    beta0 = float(rng.uniform(-5.0, 2.0))
+    beta1 = float(rng.uniform(-1.0, 1.0))
+    beta2 = float(rng.uniform(-0.5, 0.5))
+    sus_after_3plus = float(rng.uniform(0.1, 1.0))
+    sus_after_2     = float(rng.uniform(sus_after_3plus, 1.0))
+    sus_after_1     = float(rng.uniform(sus_after_2, 1.0))
+    maternal_immunity_efficacy       = float(rng.uniform(0.5, 0.99))
+    maternal_immunity_half_life_days = float(rng.uniform(30.0, 365.0))
+    return dict(base_beta=base_beta, beta0=beta0, beta1=beta1, beta2=beta2,
+                sus_after_1=sus_after_1, sus_after_2=sus_after_2,
+                sus_after_3plus=sus_after_3plus,
+                maternal_immunity_efficacy=maternal_immunity_efficacy,
+                maternal_immunity_half_life_days=maternal_immunity_half_life_days)
+
+
+def _run_one(args):
+    """Worker: build + run one sim for one (draw, site); return a small dict.
+    Self-sufficient for spawn."""
+    draw_id, params, site, n_agents, seed = args
+    demo = SITE_DEMOGRAPHICS[site]
+    try:
+        analyzer = rs.InfectedStrainStats(use_infection_based_severity=False, constant_severity=1.0)
+        pt = rs.PersonTimeByAge(calibration_window=CAL_WINDOW)
+        prev = PrevTracker(window=CAL_WINDOW)
+        immunity_connector = rs.RotaImmunityConnector(use_fixed_susceptibility=False)
+        people = ss.People(n_agents=n_agents, age_data=str(AGE_DATA))
+        sim = rs.Sim(
+            n_agents=n_agents, start='2003-01-01', stop='2013-01-01', dt=ss.days(1),
+            verbose=False, scenario='single', people=people,
+            analyzers=[analyzer, pt, prev],
+            networks=ss.RandomNet(n_contacts=7),
+            demographics=[ss.Births(birth_rate=ss.peryear(demo['birth_rate'])),
+                          ss.Deaths(death_rate=ss.peryear(demo['death_rate']))],
+            connectors=[immunity_connector], rand_seed=seed,
+        )
+        sim.pars.base_beta = params['base_beta']
+        for disease in sim.pars.diseases:
+            if isinstance(disease, rs.Rotavirus):
+                disease.pars.beta = ss.perday(sim.pars.base_beta * disease.pars.fitness)
+        sim.init()
+        ic = sim.connectors.rotaimmunityconnector
+        ic.pars['use_fixed_susceptibility'] = True
+        ic.pars['sus_after_1']     = params['sus_after_1']
+        ic.pars['sus_after_2']     = params['sus_after_2']
+        ic.pars['sus_after_3plus'] = params['sus_after_3plus']
+        ic.pars['maternal_immunity_efficacy']  = params['maternal_immunity_efficacy']
+        ic.pars['maternal_immunity_half_life'] = ss.days(params['maternal_immunity_half_life_days'])
+        ic.initialize_immunity(min_age=18, max_age=125, min_exposures=5, max_exposures=15)
+        sim.run()
+
+        # Process with corrected person-time denominators.
+        df = sim.analyzers['infectedstrainstats'].to_df()
+        person_months = sim.analyzers['persontimebyage'].person_months
+        model_out = process_incidence_maled.process_model(
+            df, person_months_by_bin=person_months,
+            symptom_model='age_and_infection_simple',
+            beta0=params['beta0'], beta1=params['beta1'], beta2=params['beta2'],
+            reporting_rate=1.0, calibration_window=CAL_WINDOW,
+            censor_at_months=36.0, p_asymp_detect=P_ASYMP_DETECT,
+        )
+        prev_series = sim.analyzers['prevtracker'].prev
+        prev_mean = float(np.mean(prev_series)) if prev_series else float('nan')
+        half = len(prev_series) // 2
+        prev_drift = (float(np.mean(prev_series[half:])) - float(np.mean(prev_series[:half]))) \
+            if half > 0 else float('nan')
+
+        rec = dict(draw_id=draw_id, site=site, seed=seed, ok=True,
+                   prev_mean=round(prev_mean, 5), prev_drift=round(prev_drift, 5),
+                   **{f'par_{k}': round(v, 5) for k, v in params.items()})
+        for b in MALED_BINS:
+            rec[f'ir_{b}'] = round(float(model_out['ir_by_age'].loc[b, 'IR']), 5)
+        fi = model_out['first_infection']
+        rec['fi_q25']    = round(float(fi['q25']), 4)
+        rec['fi_median'] = round(float(fi['median']), 4)
+        rec['fi_q75']    = round(float(fi['q75']), 4)
+        return rec
+    except Exception as e:
+        return dict(draw_id=draw_id, site=site, seed=seed, ok=False, error=repr(e),
+                    **{f'par_{k}': round(v, 5) for k, v in params.items()})
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--n-draws', type=int, default=500)
+    ap.add_argument('--n-agents', type=int, default=100_000)
+    ap.add_argument('--n-workers', type=int, default=None)
+    ap.add_argument('--sites', nargs='+', default=['bangladesh', 'pakistan'])
+    ap.add_argument('--seed', type=int, default=20260605)
+    ap.add_argument('--smoke', action='store_true')
+    ap.add_argument('--out', default=str(OUTDIR / 'results.jsonl'))
+    args = ap.parse_args()
+
+    if args.smoke:
+        args.n_draws, args.n_agents, args.sites = 3, 5_000, ['bangladesh']
+        args.out = str(OUTDIR / 'results_smoke.jsonl')
+
+    rng = np.random.default_rng(args.seed)
+    draws = [draw_prior(rng) for _ in range(args.n_draws)]
+
+    # Build the task list: each draw run under each requested site.
+    tasks = []
+    for i, p in enumerate(draws):
+        for site in args.sites:
+            tasks.append((i, p, site, args.n_agents, args.seed + i))
+
+    n_workers = args.n_workers or os.cpu_count()
+    print(f'Coverage check: {args.n_draws} draws x {len(args.sites)} site(s) = {len(tasks)} sims, '
+          f'{args.n_agents} agents, {n_workers} workers')
+
+    outpath = Path(args.out)
+    if outpath.exists():
+        outpath.unlink()  # fresh run
+
+    t0 = sc.tic()
+    ctx = get_context('spawn')
+    done = 0
+    n_fail = 0
+    with ctx.Pool(processes=n_workers) as pool:
+        # imap_unordered so we can write each result as it lands (resumable).
+        for rec in pool.imap_unordered(_run_one, tasks):
+            with outpath.open('a') as f:
+                f.write(json.dumps(rec) + '\n')
+            done += 1
+            if not rec.get('ok'):
+                n_fail += 1
+            if done % 50 == 0 or done == len(tasks):
+                print(f'  {done}/{len(tasks)} done ({n_fail} failed), '
+                      f'{sc.toc(t0, output=True):.0f}s elapsed', flush=True)
+
+    print(f'\nDone: {done} sims, {n_fail} failed, {sc.toc(t0, output=True):.0f}s total')
+    print(f'Results: {outpath}')
+
+
+if __name__ == '__main__':
+    main()
