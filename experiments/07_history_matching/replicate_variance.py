@@ -45,17 +45,24 @@ def main():
     ok = [r for r in recs if r['ok']]
     print(f'{len(ok)}/{len(recs)} ok in {sc.toc(t0, output=True):.0f}s\n')
 
+    # Extinctions (ever-infected ~0) are treated as model FAILURES (NaN in HM),
+    # so the relevant variance is conditional on persistence.
+    ever = np.array([r['frac_ever_infected'] for r in ok])
+    persist = ever > 0.05
+    print(f'EXTINCTION: {(~persist).sum()}/{len(ok)} seeds extinct ({100*(~persist).mean():.0f}%); '
+          f'{persist.sum()} persisted\n')
     cols = ['ir_symp_<6 m', 'ir_symp_6-11 m', 'ir_symp_12-23 m',
             'repeat_detected_frac', 'frac_ever_detected', 'true_first_median']
-    print(f'{"observable":>20} {"mean":>8} {"SD":>8} {"CV":>6}  {"target":>8}')
+    print(f'{"observable":>20} | {"ALL mean":>8} {"CV":>5} | {"PERSIST mean":>12} {"SD":>7} {"CV":>5} | {"target":>7}')
     out = {}
     for c in cols:
         v = np.array([r[c] for r in ok], float)
-        v = v[~np.isnan(v)]
-        m, sd = float(v.mean()), float(v.std(ddof=1))
-        cv = sd / m if m else float('nan')
-        out[c] = dict(mean=round(m, 4), sd=round(sd, 4), cv=round(cv, 3))
-        print(f'{c:>20} {m:>8.3f} {sd:>8.3f} {cv:>6.2f}  {TARGET.get(c, float("nan")):>8.3f}')
+        vp = v[persist]; vp = vp[~np.isnan(vp)]
+        ma, cva = float(np.nanmean(v)), float(np.nanstd(v, ddof=1) / max(np.nanmean(v), 1e-9))
+        mp, sdp = float(vp.mean()), float(vp.std(ddof=1))
+        cvp = sdp / mp if mp else float('nan')
+        out[c] = dict(persist_mean=round(mp, 4), persist_sd=round(sdp, 4), persist_cv=round(cvp, 3))
+        print(f'{c:>20} | {ma:>8.3f} {cva:>5.2f} | {mp:>12.3f} {sdp:>7.3f} {cvp:>5.2f} | {TARGET.get(c, float("nan")):>7.3f}')
     (HERE / 'outputs').mkdir(exist_ok=True)
     json.dump(out, open(HERE / 'outputs' / 'replicate_variance.json', 'w'), indent=2)
     print('\nReproducibility: the IR-by-age should sit near target with SD << the data signal.')
