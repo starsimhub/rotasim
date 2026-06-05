@@ -20,6 +20,7 @@ dependencies = [
     "matplotlib",
     "pandas",
     "starsim>=3.0.2",
+    "lifelines",
 ]
 
 [dependency-groups]
