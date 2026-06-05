@@ -1075,15 +1075,18 @@ class PersonTimeByAge(ss.Analyzer):
         if not hasattr(self.sim, "people") or not hasattr(self.sim.people, "age"):
             return
         dt_years = self.dt.years
-        year_from_start = self.ti * dt_years
+        # Window membership uses calendar time (relvec), matching the convention
+        # used for infection CollectionTime, so denominators and case windows align.
+        year_from_start = self.sim.t.relvec[self.sim.ti].years
         if self.calibration_window is not None:
             lo, hi = self.calibration_window
             if not (lo <= year_from_start < hi):
                 return
         ages = self.sim.people.age.values  # years
+        alive = self.sim.people.alive.values  # dead agents contribute no observation time
         for label, (lo_m, hi_m) in self.bins_months.items():
             lo_y, hi_y = lo_m / 12.0, hi_m / 12.0
-            count = int(((ages >= lo_y) & (ages < hi_y)).sum())
+            count = int(((ages >= lo_y) & (ages < hi_y) & alive).sum())
             self.person_years_acc[label] += count * dt_years
 
     @property
@@ -1092,5 +1095,142 @@ class PersonTimeByAge(ss.Analyzer):
         return {label: py * 12.0 for label, py in self.person_years_acc.items()}
 
 
+class MALEDTargets(ss.Analyzer):
+    """Compute MAL-ED calibration targets in-step, emitting only tiny summaries.
+
+    A memory-bounded alternative to logging every infection event with
+    ``InfectedStrainStats`` and post-processing into targets. The full event log
+    is O(infections), which blows up at high prevalence and over long runs (and
+    multiplies across parallel workers). This analyzer folds the detection and
+    age-binning into the ``step`` loop and retains only:
+
+      - one integer case counter per MAL-ED age bin (symptomatic events <=36m),
+      - accumulated person-time per bin (the IR denominator),
+      - one first-detected infection age per agent,
+      - an in-window prevalence series,
+
+    so memory is O(agents), independent of prevalence and duration.
+
+    It reproduces ``process_incidence_maled.process_model`` exactly (validated):
+      - symptomatic prob = logistic(beta0 + beta1*(a-12) + beta2*(a-12)^2), age a
+        in months capped at 60 (the 'age_only' symptom model);
+      - optional reporting filter reporting_rate*severity (no-op at 1.0*1.0);
+      - symptomatic IR per bin = symptomatic events <=36m / person-months * 100;
+      - first-DETECTED age per agent: detected = symptomatic OR (asymptomatic AND
+        uniform < p_asymp_detect), earliest per agent, <=36m.
+
+    Window membership and infection time use calendar time (relvec), matching the
+    convention used for infection CollectionTime.
+
+    Args:
+        calibration_window: (start_year, stop_year) in years from sim start.
+        beta0, beta1, beta2: age-symptom logistic parameters.
+        reporting_rate, constant_severity: reporting filter (1.0/1.0 = no-op).
+        p_asymp_detect: detection prob for asymptomatic infections.
+        censor_at_months: drop infections above this age (MAL-ED follow-up).
+        seed: RNG seed for the symptomatic/detection draws.
+
+    Example:
+        a = MALEDTargets(calibration_window=(5,10), beta0=-1, beta1=-0.1, beta2=-0.05)
+        sim = ss.Sim(..., analyzers=[a]); sim.run()
+        out = sim.analyzers['maledtargets'].results_dict()  # ir, first_infection, prev
+    """
+
+    LABELS = ['<6 m', '6-11 m', '12-23 m', '24-35 m']
+    EDGES_M = np.array([0.0, 6.0, 12.0, 24.0, 36.0])
+    BINS_M = {'<6 m': (0, 6), '6-11 m': (6, 12), '12-23 m': (12, 24), '24-35 m': (24, 36)}
+
+    def __init__(self, calibration_window, beta0, beta1, beta2,
+                 reporting_rate=1.0, constant_severity=1.0,
+                 p_asymp_detect=0.4, censor_at_months=36.0, seed=0, **kwargs):
+        super().__init__(**kwargs)
+        self.window = calibration_window
+        self.beta0, self.beta1, self.beta2 = beta0, beta1, beta2
+        self.reporting_rate = reporting_rate
+        self.constant_severity = constant_severity
+        self.p_asymp = p_asymp_detect
+        self.censor = censor_at_months
+        self.rng = np.random.default_rng(seed)
+        self.cases = {b: 0 for b in self.LABELS}
+        self.person_years = {b: 0.0 for b in self.LABELS}
+        self.first_detected = {}     # uid -> age_months (first detected <=36m)
+        self.prev = []               # in-window prevalence series
+
+    def init_pre(self, sim, force=False):
+        super().init_pre(sim, force)
+        self._dty = self.dt.years
+
+    def init_results(self):
+        super().init_results()
+        self._diseases = [d for d in self.sim.diseases.values() if hasattr(d, 'G')]
+        self._prev_infected = {d.name: d.infected.uids for d in self._diseases}
+
+    def _symp_prob(self, age_m):
+        ac = np.minimum(age_m, 60.0) - 12.0
+        lp = self.beta0 + self.beta1 * ac + self.beta2 * ac * ac
+        return 1.0 / (1.0 + np.exp(-lp))
+
+    def step(self):
+        sim = self.sim
+        yr = sim.t.relvec[sim.ti].years
+        in_window = (self.window[0] <= yr < self.window[1])
+        ages_y = sim.people.age.values
+        alive = sim.people.alive.values
+
+        if in_window:
+            for b, (lo_m, hi_m) in self.BINS_M.items():
+                lo, hi = lo_m / 12.0, hi_m / 12.0
+                self.person_years[b] += int(((ages_y >= lo) & (ages_y < hi) & alive).sum()) * self._dty
+            inf = np.zeros(len(ages_y), dtype=bool)
+            for d in self._diseases:
+                inf |= d.infected.values
+            n = int(alive.sum())
+            if n > 0:
+                self.prev.append(float((inf & alive).sum() / n))
+
+        for d in self._diseases:
+            cur = d.infected.uids
+            if in_window:
+                new = cur - self._prev_infected[d.name]
+                if len(new):
+                    new_arr = np.asarray(new)
+                    age_m = np.asarray(sim.people.age[new]) * 12.0
+                    m36 = age_m <= self.censor
+                    if m36.any():
+                        am = age_m[m36]
+                        uu = new_arr[m36]
+                        is_symp = self.rng.random(len(am)) < self._symp_prob(am)
+                        if self.reporting_rate is not None:
+                            rep_keep = self.rng.random(len(am)) < (self.reporting_rate * self.constant_severity)
+                            is_symp = is_symp & rep_keep
+                        if is_symp.any():
+                            idx = np.digitize(am[is_symp], self.EDGES_M) - 1
+                            for k in range(4):
+                                self.cases[self.LABELS[k]] += int((idx == k).sum())
+                        is_det = is_symp | (~is_symp & (self.rng.random(len(am)) < self.p_asymp))
+                        for u, a, det in zip(uu, am, is_det):
+                            if det and int(u) not in self.first_detected:
+                                self.first_detected[int(u)] = float(a)
+            self._prev_infected[d.name] = cur
+
+    def results_dict(self):
+        """Tiny summary: IR by age bin, first-infection quartiles, prevalence."""
+        person_months = {b: self.person_years[b] * 12.0 for b in self.LABELS}
+        ir = {b: (self.cases[b] / person_months[b] * 100.0 if person_months[b] > 0 else 0.0)
+              for b in self.LABELS}
+        ages = np.array(list(self.first_detected.values()), dtype=float)
+        ages = ages[ages <= self.censor]
+        if len(ages):
+            q25, med, q75 = (float(x) for x in np.quantile(ages, [0.25, 0.5, 0.75]))
+        else:
+            q25 = med = q75 = float('nan')
+        prev_mean = float(np.mean(self.prev)) if self.prev else float('nan')
+        half = len(self.prev) // 2
+        prev_drift = (float(np.mean(self.prev[half:])) - float(np.mean(self.prev[:half]))) if half else float('nan')
+        return dict(ir=ir, cases=dict(self.cases), person_months=person_months,
+                    fi_q25=q25, fi_median=med, fi_q75=q75, fi_n=int(len(ages)),
+                    prev_mean=prev_mean, prev_drift=prev_drift)
+
+
 # Make importable from package root
-__all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats", "InfectedStrainStats", "UidTracker", "PersonTimeByAge"]
+__all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats", "InfectedStrainStats", "UidTracker", "PersonTimeByAge", "MALEDTargets"]
