@@ -1,0 +1,6 @@
+{"beta_set": "lewnard_broad", "base_beta": 0.1, "symp_ir": [0.0, 0.0, 0.0, 0.0], "first_med": NaN}
+{"beta_set": "lewnard_broad", "base_beta": 0.2, "symp_ir": [7.922824302134647, 12.82472613458529, 10.362490149724191, 4.128401360544218], "first_med": 5.7534273862838745}
+{"beta_set": "moderate_peak", "base_beta": 0.1, "symp_ir": [0.0, 0.0, 0.0, 0.0], "first_med": NaN}
+{"beta_set": "moderate_peak", "base_beta": 0.2, "symp_ir": [4.485407066052227, 10.752923976608187, 8.117505995203837, 0.9164818920916482], "first_med": 5.950687766075134}
+{"beta_set": "sharp_peak_9mo", "base_beta": 0.1, "symp_ir": [0.0, 0.0, 0.0, 0.0], "first_med": NaN}
+{"beta_set": "sharp_peak_9mo", "base_beta": 0.2, "symp_ir": [6.3006230529595015, 11.18731563421829, 5.56547619047619, 0.3954081632653061], "first_med": 5.852057576179504}
