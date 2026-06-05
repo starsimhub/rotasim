@@ -509,6 +509,13 @@ def main():
                 f"constant_severity={FIXED_CONSTANT_SEVERITY}")
 
     # Picklable sim configuration that workers reconstruct from
+    # Use the site-specific population age pyramid if available (e.g.
+    # bangladesh_age_data.csv), else fall back to the UK pyramid.
+    age_file = thisdir / f'{args.site}_age_data.csv'
+    if not age_file.exists():
+        logger.warning(f"No {args.site}_age_data.csv -- falling back to UK age pyramid")
+        age_file = thisdir / 'uk_age_data.csv'
+    logger.info(f"Population age pyramid: {age_file.name}")
     sim_config = dict(
         n_agents=n_agents,
         start=sim_start,
@@ -518,7 +525,7 @@ def main():
         death_rate=demo['death_rate'],
         constant_severity=FIXED_CONSTANT_SEVERITY,
         reporting_rate=FIXED_REPORTING_RATE,
-        age_data_path=str(thisdir / 'uk_age_data.csv'),
+        age_data_path=str(age_file),
         symptom_model=args.symptom_model,
         maternal_n_stages=args.maternal_n_stages,
     )
