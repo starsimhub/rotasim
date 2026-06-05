@@ -1028,5 +1028,69 @@ class UidTracker(ss.Analyzer):
         return fig, ax
 
 
+class PersonTimeByAge(ss.Analyzer):
+    """Accumulate true person-time per age bin within a calibration window.
+
+    Incidence rate denominators must be person-time *integrated over the
+    observation window* -- the sum over timesteps of (headcount in bin) x dt.
+    A common shortcut snapshots the population once (e.g. at sim end) and
+    multiplies the headcount by the window length. That is only correct for a
+    stationary population; when births != deaths the population size drifts and
+    the snapshot systematically mis-states the denominator (a growing
+    population inflates an end-of-sim snapshot, biasing IR low).
+
+    This analyzer does it exactly: at every step whose simulation time falls
+    inside ``calibration_window`` (years from sim start), it adds
+    ``count_in_bin * dt_years`` to a running per-bin total. The result is the
+    unbiased person-time regardless of demographic change.
+
+    Args:
+        bins_months: dict of ``label -> (low_month, high_month)``, half-open
+            ``[low, high)``. Defaults to the MAL-ED age bins.
+        calibration_window: ``(start_year, stop_year)`` measured in years from
+            sim start; only steps within this window are accumulated. ``None``
+            accumulates over the whole run.
+
+    Example:
+        pt = PersonTimeByAge(calibration_window=(5.0, 10.0))
+        sim = ss.Sim(..., analyzers=[pt]); sim.run()
+        pm = sim.analyzers['persontimebyage'].person_months  # {bin: person-months}
+    """
+
+    DEFAULT_BINS_MONTHS = {
+        '<6 m':    (0.0, 6.0),
+        '6-11 m':  (6.0, 12.0),
+        '12-23 m': (12.0, 24.0),
+        '24-35 m': (24.0, 36.0),
+    }
+
+    def __init__(self, bins_months=None, calibration_window=None, **kwargs):
+        super().__init__(**kwargs)
+        self.bins_months = dict(bins_months) if bins_months is not None else dict(self.DEFAULT_BINS_MONTHS)
+        self.calibration_window = calibration_window
+        # Accumulated person-YEARS per bin (converted to months on read).
+        self.person_years_acc = {label: 0.0 for label in self.bins_months}
+
+    def step(self):
+        if not hasattr(self.sim, "people") or not hasattr(self.sim.people, "age"):
+            return
+        dt_years = self.dt.years
+        year_from_start = self.ti * dt_years
+        if self.calibration_window is not None:
+            lo, hi = self.calibration_window
+            if not (lo <= year_from_start < hi):
+                return
+        ages = self.sim.people.age.values  # years
+        for label, (lo_m, hi_m) in self.bins_months.items():
+            lo_y, hi_y = lo_m / 12.0, hi_m / 12.0
+            count = int(((ages >= lo_y) & (ages < hi_y)).sum())
+            self.person_years_acc[label] += count * dt_years
+
+    @property
+    def person_months(self):
+        """Accumulated person-MONTHS per age bin (the IR denominator)."""
+        return {label: py * 12.0 for label, py in self.person_years_acc.items()}
+
+
 # Make importable from package root
-__all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats", "InfectedStrainStats", "UidTracker"]
+__all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats", "InfectedStrainStats", "UidTracker", "PersonTimeByAge"]
