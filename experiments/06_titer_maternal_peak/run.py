@@ -28,15 +28,26 @@ AGE_DATA = REPO / 'calibration' / 'uk_age_data.csv'
 # Reuse the validated cohort analyzer + matrix builder from exp 05.
 exp05 = sc.importbypath(HERE.parent / '05_structured_mixing_cohort' / 'run.py')
 MALEDCohort = exp05.MALEDCohort
-make_matrix = exp05.make_matrix
 DEMO = dict(birth_rate=19, death_rate=6)
 LABELS = exp05.LABELS
+
+
+def make_matrix(infant_exposure, young_reservoir, cross, adult_contacts):
+    """3x3 contact matrix, groups [inf, young, rest], rows=src cols=dst.
+    young->young = young_reservoir; young->inf = infant_exposure (low);
+    rest->rest = adult_contacts (a large, permanent reservoir for persistence,
+    decoupled from the child targets); everything else = cross background."""
+    c = cross
+    return np.array([[c, c, c],
+                     [infant_exposure, young_reservoir, c],
+                     [c, c, adult_contacts]], dtype=float)
 
 
 def draw_prior(rng):
     base_beta = float(np.exp(rng.uniform(np.log(0.10), np.log(0.6))))   # higher: low reservoir needs more beta
     young_reservoir = float(rng.uniform(1.0, 15.0))                     # THE focus: swept low
     infant_exposure = float(rng.uniform(0.3, 4.0))
+    adult_contacts = float(rng.uniform(0.5, 2.5))                       # adult reservoir for persistence (decoupled from targets)
     s3 = float(rng.uniform(0.1, 1.0)); s2 = float(rng.uniform(s3, 1.0)); s1 = float(rng.uniform(s2, 1.0))
     # titer-based maternal: median+half_life -> drop age; gsd+hill_slope -> sharpness
     mat_eff = float(rng.uniform(0.7, 0.99))
@@ -46,6 +57,7 @@ def draw_prior(rng):
     hill_slope = float(rng.uniform(1.5, 8.0))
     p1 = float(rng.uniform(0.4, 1.0)); p2 = float(rng.uniform(0.05, p1)); p3 = float(rng.uniform(0.0, p2))
     return dict(base_beta=base_beta, young_reservoir=young_reservoir, infant_exposure=infant_exposure,
+                adult_contacts=adult_contacts,
                 sus_after_1=s1, sus_after_2=s2, sus_after_3plus=s3,
                 maternal_efficacy=mat_eff, titer_median=titer_median, titer_gsd=titer_gsd,
                 titer_half_life_days=titer_half_life_days, hill_slope=hill_slope,
@@ -60,7 +72,7 @@ def _run_one(args):
         ic = rs.RotaImmunityConnector(use_fixed_susceptibility=False)
         people = ss.People(n_agents=n_agents, age_data=str(AGE_DATA))
         ag = {'inf': ss.AgeGroup(0, 1), 'young': ss.AgeGroup(1, 5), 'rest': ss.AgeGroup(5, None)}
-        matrix = make_matrix(params['infant_exposure'], params['young_reservoir'], cross)
+        matrix = make_matrix(params['infant_exposure'], params['young_reservoir'], cross, params['adult_contacts'])
         net = ss.MixingPools(diseases='G1P8', beta=1.0, src=ag, dst=ag, n_contacts=matrix)
         sim = rs.Sim(n_agents=n_agents, start='2003-01-01', stop='2013-01-01', dt=ss.days(1),
                      verbose=False, scenario='single', people=people, analyzers=[cohort], networks=net,
