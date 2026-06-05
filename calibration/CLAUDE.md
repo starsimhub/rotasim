@@ -49,3 +49,11 @@ for the sparse age bins instead of squared-log-IR + LOG_EPS. (3) all-infection
 IR-by-age remains an option if more reinfection-by-age constraint is needed, but
 weigh its reporting-rate cost against the age-at-first-infection target it largely
 duplicates.
+
+## Deferred / backlog
+- **Age-specific (under-5) mortality** — currently demographics use a uniform
+  scalar death rate (Bangladesh 6/1000/y) and no emigration. If we add age-specific
+  mortality later: Bangladesh **U5MR ≈ 44.4 per 1000 live births (2012)**. Deferred
+  pending exp 03 (model verification) — early results suggest the demographic
+  representation is not what is breaking the age-incidence fit, so this is low
+  priority unless verification implicates it.
