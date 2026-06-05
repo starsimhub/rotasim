@@ -149,3 +149,5 @@ calibration/calibration/
 
 # Excel lock files
 ~$*.xlsx
+# Track the Python pin for reproducible uv envs (numba/llvmlite lack 3.14 wheels)
+!.python-version
