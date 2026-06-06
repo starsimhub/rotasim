@@ -1,0 +1,4 @@
+# Heavy HM binaries / large pairplots — regenerable, too big for git
+outputs/hm/**/*.pkl
+outputs/hm/**/pairplot.png
+outputs/hm/**/diagnostics_*.png
