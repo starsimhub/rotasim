@@ -158,16 +158,15 @@ def _run_swimmer(idx, params, seed, cens, n_sample=28, rng_seed=0):
         ev_by_uid.setdefault(e['uid'], []).append(e)
     uids = np.array(list(cohort.uid2idx.keys()))
     exit_m = {u: cohort.exit_age_m[cohort.uid2idx[u]] for u in uids}
-    titer0 = {int(u): float(ic.maternal_titer0[ss.uids(np.array([int(u)]))][0]) for u in uids}
-    # sample: prefer enrollees with >=6mo follow-up so lanes are informative; keep some short ones
+    # REPRESENTATIVE random sample of the WHOLE enrolled cohort (incl. early dropouts -- no
+    # follow-up filter, which would bias out the early-dropout structure MAL-ED actually has).
     rng = np.random.default_rng(rng_seed)
-    longfu = [u for u in uids if exit_m[u] >= 6.0]
-    pick = rng.choice(longfu, size=min(n_sample, len(longfu)), replace=False)
-    pick = sorted(pick, key=lambda u: exit_m[u])    # order lanes by follow-up length
-    cohort_sample = [dict(uid=int(u), exit_m=float(exit_m[u]), titer0=titer0[int(u)],
+    pick = rng.choice(uids, size=min(n_sample, len(uids)), replace=False)
+    pick = sorted(pick, key=lambda u: exit_m[u])    # lane ORDER only (cosmetic); sample is unbiased
+    cohort_sample = [dict(uid=int(u), exit_m=float(exit_m[u]),
                           events=sorted(ev_by_uid.get(int(u), []), key=lambda e: e['age_m'])) for u in pick]
     obs = _obs_from(sim); sim.shrink(die=False)
-    return dict(idx=idx, seed=seed, obs=obs, mat_pars=mat_pars, cohort=cohort_sample)
+    return dict(idx=idx, seed=seed, obs=obs, mat_pars=mat_pars, n_enrolled=int(len(uids)), cohort=cohort_sample)
 
 
 def _logL(r, phi=2.0, rho=0.05):
@@ -204,6 +203,7 @@ def main():
     ap.add_argument('--k', type=int, default=3, help='number of top-weight trajectories to re-run')
     ap.add_argument('--verify', action='store_true', help='run top idx 3 ways: stored / ref(cohort-only) / rec(+observer)')
     ap.add_argument('--swimmer', type=int, default=0, metavar='N', help='re-run top trajectory, save N enrollees life courses')
+    ap.add_argument('--swimmer-out', default='swimmer.json', help='output filename for --swimmer')
     args = ap.parse_args()
     recs, w, cens, nroy = _load()
     print(f'starsim {ss.__version__}, rotasim {getattr(rs, "__version__", "?")}, numpy {np.__version__}')
@@ -232,9 +232,10 @@ def main():
         print(f'Swimmer: re-running top trajectory idx {idx} with {args.swimmer} enrollee life courses')
         out = _run_swimmer(idx, _exact_params(nroy, idx), 20260605 + idx, cens, n_sample=args.swimmer)
         r = recs[i]; match = all(abs(out['obs'][f'ir_symp_{b}'] - r[f'ir_symp_{b}']) < 1e-4 for b, _, _ in IR)
-        print(f'  reproduction vs stored: {"MATCH" if match else "differ"}; {len(out["cohort"])} enrollees sampled')
-        sc.savejson(HERE / 'outputs' / 'swimmer.json', out)
-        print('saved -> outputs/swimmer.json')
+        print(f'  reproduction vs stored: {"MATCH" if match else "differ"}; '
+              f'{out["n_enrolled"]} enrolled, {len(out["cohort"])} sampled')
+        sc.savejson(HERE / 'outputs' / args.swimmer_out, out)
+        print(f'saved -> outputs/{args.swimmer_out}')
         return
 
     topidx = np.argsort(w)[::-1][:args.k]
