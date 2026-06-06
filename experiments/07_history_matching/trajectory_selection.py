@@ -101,7 +101,10 @@ def _sir_one(args):
     return out
 
 
-def draw_nroy(n, seed=20260605):
+def draw_nroy(n, seed=20260605, cache=None):
+    # Cache the NROY draw so a resumed run uses the SAME fixed sample set (resume by idx).
+    if cache is not None and Path(cache).exists():
+        return pd.read_csv(cache)
     import historymatching as hm
     ckpt = HERE / 'outputs' / 'hm' / 'maled_bd' / 'checkpoint.pkl'
     # load_checkpoint is a classmethod needing the strategy objects; build a throwaway
@@ -128,21 +131,30 @@ def main():
     else:
         N_AGENTS = args.n_agents
 
-    print(f'Drawing {args.n} NROY samples (lhs) from checkpoint...', flush=True)
-    nroy = draw_nroy(args.n)
-    print(f'  got {len(nroy)} NROY samples; columns: {list(nroy.columns)}', flush=True)
-    tasks = [(i, rw._untransform(row), 20260605 + i) for i, (_, row) in enumerate(nroy.iterrows())]
+    cache = HERE / 'outputs' / ('nroy_draw_smoke.csv' if args.smoke else 'nroy_draw.csv')
+    print(f'Drawing {args.n} NROY samples (lhs) from checkpoint (cache={cache.name})...', flush=True)
+    nroy = draw_nroy(args.n, cache=cache)
+    if not cache.exists():
+        nroy.to_csv(cache, index=False)
+    print(f'  {len(nroy)} NROY samples; columns: {list(nroy.columns)}', flush=True)
 
     outp = Path(args.out)
-    if outp.exists(): outp.unlink()
-    t0 = sc.tic(); done = 0
-    with get_context('spawn').Pool(processes=min(args.n_workers, len(tasks))) as pool:
-        for out in pool.imap_unordered(_sir_one, tasks):
-            with outp.open('a') as f: f.write(json.dumps(out) + '\n')
-            done += 1
-            if done % 200 == 0 or done == len(tasks):
-                print(f'  {done}/{len(tasks)} simulated, {sc.toc(t0, output=True):.0f}s', flush=True)
-    print(f'\nSimulated {done} in {sc.toc(t0, output=True):.0f}s -> {outp}', flush=True)
+    done_idx = set()
+    if outp.exists():
+        done_idx = {json.loads(l)['idx'] for l in open(outp)}
+        print(f'  resuming: {len(done_idx)} already simulated', flush=True)
+    tasks = [(i, rw._untransform(row), 20260605 + i)
+             for i, (_, row) in enumerate(nroy.iterrows()) if i not in done_idx]
+
+    t0 = sc.tic(); done = len(done_idx)
+    if tasks:
+        with get_context('spawn').Pool(processes=min(args.n_workers, len(tasks))) as pool:
+            for out in pool.imap_unordered(_sir_one, tasks):
+                with outp.open('a') as f: f.write(json.dumps(out) + '\n')
+                done += 1
+                if done % 200 == 0 or done == args.n:
+                    print(f'  {done}/{args.n} simulated, {sc.toc(t0, output=True):.0f}s', flush=True)
+    print(f'\nSimulated total {done} -> {outp}', flush=True)
 
     # --- importance resample ---
     recs = [json.loads(l) for l in open(outp)]
