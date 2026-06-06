@@ -172,6 +172,37 @@ actually matters more than the marginals:
 
 ![kept trajectories](07_history_matching/figures/fig_trajectories.png)
 
+### Inside the model — the mechanism, and what the trial looks like
+
+We re-ran the top posterior trajectories with a read-only observer (reproducing each one
+*exactly* — see the reproducibility note below) to see the mechanism directly.
+
+**Why the peak is at 6–11 months.** Maternal protection is high at birth and wanes by ~6mo,
+opening a **susceptibility window** before acquired immunity builds; infection prevalence
+peaks right in that window, then the acquired-immunity ladder closes it. The shape is
+consistent across the posterior — it is the model's *explanation*, not a single-fit artifact.
+
+![inside the model](07_history_matching/figures/fig_inside.png)
+
+**What the MAL-ED trial looks like in the model.** A swimmer plot of a representative sample
+of the cohort (90 of the **2,048** the model enrolls), each lane an infant followed from birth.
+Red stars are detected symptomatic infections (what MAL-ED counts as cases), blue dots are
+surveillance-detected silent infections, grey ×'s are infections the model has but the trial
+**misses**, and lanes end at dropout. The detected cases cluster in the 6–11mo susceptibility
+window; the per-infant maternal-protected windows (blue bars) vary with each infant's antibody
+titer. This is the observation process — partial detection, schedule, dropout — made visible.
+
+![what the trial looks like](07_history_matching/figures/fig_swimmer2.png)
+
+**A reproducibility lesson worth sharing.** Re-running a stored trajectory first appeared to
+fail across machines — which looked like a platform/numerical bug. It was not: the model is
+deterministic and cross-platform stable. The real cause was that we reconstructed parameters
+from values **rounded to 6 decimals**, and near the persistence knife-edge a 4×10⁻⁷ parameter
+nudge flips a trajectory from a good fit to extinction. Using full-precision parameters
+reproduces every trajectory exactly. (Two small model-side fixes fell out of this: store
+full-precision parameters, and persist the per-infant maternal titer — currently redrawn each
+step, which doesn't affect population means but means individual infants have no coherent titer.)
+
 ---
 
 ## Challenges worth airing with Alicia
