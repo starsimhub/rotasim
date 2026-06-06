@@ -122,19 +122,16 @@ def draw_nroy(n, seed=20260605, cache=None):
                              feature_selection=hm.AutoFeatureSelection(method='mean_sq_z', max_features=1, cooldown_period=2),
                              output_dir=str(HERE / 'outputs' / 'hm'), run_name='maled_bd', random_seed=seed)
     engine = hm.HistoryMatching.load_checkpoint(ckpt, tmp.sampling_strategy, tmp.feature_selection, tmp.emulator_factory)
-    # Record NROY draw statistics ourselves (historymatching#251: get_nroy_samples
-    # doesn't expose them) — box-LHS acceptance rate against the trained emulators.
+    # Record NROY draw statistics (historymatching#251: get_nroy_samples doesn't
+    # return them) from the engine's tracked results: NROY fraction = box acceptance rate.
     try:
-        rngb = np.random.default_rng(1); nt = 100_000
-        box = pd.DataFrame({k: rngb.uniform(lo, hi, nt) for k, (lo, hi) in rw.BOUNDS.items()})
-        impl = np.asarray(engine.emulator_bank.calculate_implausibility(box))
-        ruled = (impl > engine.implausibility_threshold)
-        ruled = ruled.any(axis=1) if ruled.ndim > 1 else ruled
-        acc = float((~ruled).mean())
-        stats = dict(n_test=nt, n_accepted=int((~ruled).sum()), acceptance_rate=acc,
-                     implausibility_threshold=float(engine.implausibility_threshold), n_drawn=int(n))
+        res = engine.get_all_results()
+        nf = float(res[-1].nroy_fraction) if res else None
+        stats = dict(nroy_fraction=nf, n_drawn=int(n),
+                     est_box_candidates=int(n / nf) if nf else None,
+                     status_summary=engine.get_status_summary())
         json.dump(stats, open(HERE / 'outputs' / 'nroy_stats.json', 'w'), indent=2)
-        print(f'NROY acceptance rate: {acc:.4f} ({stats["n_accepted"]}/{nt}); est candidates for {n} draws ~{int(n/max(acc,1e-9)):,} -> nroy_stats.json', flush=True)
+        print(f'NROY fraction {nf:.4f}; ~{int(n/nf):,} box candidates for {n} draws -> nroy_stats.json', flush=True)
     except Exception as e:
         print(f'NROY stats recording failed (non-fatal): {e!r}', flush=True)
     return engine.get_nroy_samples(n, method='lhs')
