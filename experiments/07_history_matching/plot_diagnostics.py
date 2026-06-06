@@ -96,27 +96,43 @@ def main():
             j += 1
         dataS.append(surv)
     dataS = np.array(dataS)
-    order = usable[np.argsort(wn)]                               # low weight first (drawn under)
-    for k in order:
+    # Most kept trajectories have tiny weight (ESS~70 of 1821); plotting them all swamps
+    # the figure. Show the full kept set as a soft 5-95% envelope (context), then overplot
+    # only the HIGH-weight trajectories (those carrying ~90% of posterior mass) in a hot
+    # colormap with weight-scaled thickness, so the ones that matter stand out.
+    sortw = usable[np.argsort(w[usable])[::-1]]
+    cw = np.cumsum(w[sortw]); top = sortw[:max(np.searchsorted(cw, 0.90) + 1, 40)]
+    cmap = plt.cm.autumn_r
+    wtop = w[top]; tnorm = Normalize(wtop.min(), wtop.max())
+
+    def km_curve(k):
         ks = recs[k].get('km_surv')
-        if ks and len(ks) == len(GRID):
-            a1.plot(GRID, 1 - np.array(ks), color=plt.cm.viridis(w[k] / w[usable].max()),
-                    alpha=0.15 + 0.7 * (w[k] / w[usable].max()), lw=0.6)
-    a1.plot(GRID, 1 - dataS, color='crimson', lw=3, label='MAL-ED (KM)', zorder=10)
+        return 1 - np.array(ks) if (ks and len(ks) == len(GRID)) else None
+
+    allc = np.array([c for c in (km_curve(k) for k in usable) if c is not None])
+    env = np.percentile(allc, [5, 95], axis=0)
+    a1.fill_between(GRID, env[0], env[1], color='0.88', label='persisting, unweighted (5-95%)')
+    for k in top[::-1]:                                           # highest weight drawn last/on top
+        c = km_curve(k)
+        if c is not None:
+            a1.plot(GRID, c, color=cmap(tnorm(w[k])), alpha=0.55, lw=0.6 + 2.4 * tnorm(w[k]))
+    a1.plot(GRID, 1 - dataS, color='navy', lw=3, label='MAL-ED (KM)', zorder=10)
     a1.set_xlim(0, 24); a1.set_xlabel('age (months)'); a1.set_ylabel('fraction first-detected')
-    a1.set_title('kept first-detection trajectories (color = weight)'); a1.legend()
+    a1.set_title(f'kept first-detection trajectories (top {len(top)} by weight)'); a1.legend()
     # IR-by-age profiles
-    for k in order:
+    allp = np.array([[recs[k][f'ir_symp_{b}'] for b, _, _ in IR] for k in usable])
+    penv = np.percentile(allp, [5, 95], axis=0)
+    a2.fill_between(AGE_MID, penv[0], penv[1], color='0.88', label='persisting, unweighted (5-95%)')
+    for k in top[::-1]:
         prof = [recs[k][f'ir_symp_{b}'] for b, _, _ in IR]
-        a2.plot(AGE_MID, prof, color=plt.cm.viridis(w[k] / w[usable].max()),
-                alpha=0.12 + 0.7 * (w[k] / w[usable].max()), lw=0.6)
+        a2.plot(AGE_MID, prof, color=cmap(tnorm(w[k])), alpha=0.55, lw=0.6 + 2.4 * tnorm(w[k]))
     a2.errorbar(AGE_MID, [TARGET[b] for b, _, _ in IR], yerr=[1.96 * TARGET_SE[b] for b, _, _ in IR],
-                fmt='o-', color='crimson', lw=3, capsize=4, label='MAL-ED (95% CI)', zorder=10)
+                fmt='o-', color='navy', lw=3, capsize=4, label='MAL-ED (95% CI)', zorder=10)
     a2.set_xticks(AGE_MID); a2.set_xticklabels(['<6 m', '6-11 m', '12-23 m'])
     a2.set_ylabel('symptomatic IR (/100 PY)'); a2.set_ylim(0, 8)
-    a2.set_title('kept IR-by-age profiles (color = weight)'); a2.legend()
-    sm = ScalarMappable(cmap='viridis', norm=Normalize(0, 1)); sm.set_array([])
-    fig.colorbar(sm, ax=a2, label='relative posterior weight')
+    a2.set_title(f'kept IR-by-age profiles (top {len(top)} by weight)')
+    sm = ScalarMappable(cmap=cmap, norm=tnorm); sm.set_array([])
+    fig.colorbar(sm, ax=a2, label='posterior weight (top set)')
     fig.suptitle(f'Latent trajectories kept — {sub}'); fig.tight_layout(rect=[0, 0, 1, 0.96])
     fig.savefig(FIGDIR / 'fig_trajectories.png', dpi=120); plt.close(fig)
 
