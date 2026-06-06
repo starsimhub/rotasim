@@ -98,7 +98,8 @@ def _run_one(args):
         icc.initialize_immunity(min_age=18, max_age=125, min_exposures=5, max_exposures=15)
         sim.run()
         out = sim.analyzers['maledcohort'].results_dict()
-        sim.shrink()  # release leaked sim refs (starsim#1343) — results already extracted
+        sim.shrink(die=False)  # release leaked sim refs (starsim#1343); die=False: MixingPools
+        #                        won't shrink below size_limit -> warn instead of raise. Results extracted.
         rec = dict(draw_id=draw_id, seed=seed, ok=True, n_enrolled=out['n_enrolled'],
                    frac_ever_detected=round(out['frac_ever_detected'], 4),
                    frac_ever_infected=round(out['frac_ever_infected'], 4),
