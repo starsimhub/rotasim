@@ -24,6 +24,11 @@ REPEAT_OBS, REPEAT_N = 58, 136
 EVER_OBS, EVER_N = 136, 213
 TARGET = {'ir_symp_<6 m': 1.91, 'ir_symp_6-11 m': 5.37, 'ir_symp_12-23 m': 2.35,
           'repeat_detected_frac': 0.43, 'frac_ever_detected': 0.638}
+# Data sampling SE for each target (1.96*SE -> 95% band):
+#   IR rates: Poisson count -> SE_rate = sqrt(cases)/PT*100;  fractions: Binomial SE.
+TARGET_SE = {f'ir_symp_{b}': np.sqrt(c) / PT * 100 for b, c, PT in IR}
+TARGET_SE['repeat_detected_frac'] = np.sqrt((REPEAT_OBS / REPEAT_N) * (1 - REPEAT_OBS / REPEAT_N) / REPEAT_N)
+TARGET_SE['frac_ever_detected'] = np.sqrt((EVER_OBS / EVER_N) * (1 - EVER_OBS / EVER_N) / EVER_N)
 GRID = np.arange(0, 37)
 
 
@@ -37,6 +42,20 @@ def km_survival(times, observed, grid):
             i += 1
         S.append(surv)
     return np.array(S)
+
+
+def km_survival_se(times, observed, grid):
+    """KM survival S(t) plus Greenwood SE: Var(S) = S^2 * sum d_i/(n_i(n_i-d_i))."""
+    times = np.asarray(times, float); observed = np.asarray(observed, bool)
+    et = np.unique(times[observed]); surv = 1.0; gsum = 0.0; S = []; SE = []; i = 0
+    for g in grid:
+        while i < len(et) and et[i] <= g:
+            t = et[i]; d = int(np.sum((times == t) & observed)); risk = int(np.sum(times >= t))
+            if risk > 0 and risk - d > 0:
+                surv *= (1 - d / risk); gsum += d / (risk * (risk - d))
+            i += 1
+        S.append(surv); SE.append(surv * np.sqrt(gsum))
+    return np.array(S), np.array(SE)
 
 
 def nb_logpmf(y, mu, phi):
@@ -92,6 +111,8 @@ def main():
         bins = np.linspace(lo, hi, 40)
         ax.hist(prior, bins=bins, density=True, color='0.8', label='prior (NROY)')
         ax.hist(post, bins=bins, density=True, color='steelblue', alpha=0.75, label='posterior')
+        ax.axvspan(TARGET[o] - 1.96 * TARGET_SE[o], TARGET[o] + 1.96 * TARGET_SE[o],
+                   color='crimson', alpha=0.15, label='target 95% CI')
         ax.axvline(TARGET[o], color='crimson', lw=2, label='target')
         ax.axvline(np.median(post), color='navy', ls='--', lw=1.2, label='post. median')
         ax.set_title(title, fontsize=10); ax.set_yticks([])
@@ -100,7 +121,7 @@ def main():
     # first-infection cumulative-detected curve: data KM vs posterior band
     ax = axs.flat[5]
     fi = pd.read_csv(REPO / 'calibration' / 'maled_data' / 'first_infection_bangladesh.csv')
-    dataS = km_survival(fi['age_event_months'].values, fi['event_observed'].values == 1, GRID)
+    dataS, dataSE = km_survival_se(fi['age_event_months'].values, fi['event_observed'].values == 1, GRID)
     curves = np.array([recs[i]['km_surv'] for i in idx
                        if recs[i].get('km_surv') is not None and len(recs[i]['km_surv']) == len(GRID)])
     if len(curves):
@@ -108,6 +129,8 @@ def main():
         q = np.percentile(cum, [2.5, 50, 97.5], axis=0)
         ax.fill_between(GRID, q[0], q[2], color='steelblue', alpha=0.3, label='posterior 95%')
         ax.plot(GRID, q[1], color='navy', lw=1.5, label='posterior median')
+    ax.fill_between(GRID, 1 - dataS - 1.96 * dataSE, 1 - dataS + 1.96 * dataSE,
+                    color='crimson', alpha=0.15, label='MAL-ED 95% (Greenwood)')
     ax.plot(GRID, 1 - dataS, color='crimson', lw=2, label='MAL-ED (KM)')
     ax.set_xlabel('age (months)'); ax.set_ylabel('fraction first-detected')
     ax.set_title('age at first detection', fontsize=10); ax.set_xlim(0, 24); ax.legend(fontsize=7)
