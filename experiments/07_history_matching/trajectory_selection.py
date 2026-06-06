@@ -103,10 +103,14 @@ def _sir_one(args):
 
 def draw_nroy(n, seed=20260605):
     import historymatching as hm
-    engine = hm.HistoryMatching(function=rw.simulate, bounds=rw.BOUNDS, observations=rw.OBSERVATIONS,
-                                emulator_type='bayes_linear',
-                                output_dir=str(HERE / 'outputs' / 'hm'), run_name='maled_bd', random_seed=seed)
-    engine.load_checkpoint()
+    ckpt = HERE / 'outputs' / 'hm' / 'maled_bd' / 'checkpoint.pkl'
+    # load_checkpoint is a classmethod needing the strategy objects; build a throwaway
+    # engine with the same config to obtain them, then restore the checkpointed engine.
+    tmp = hm.HistoryMatching(function=rw.simulate, bounds=rw.BOUNDS, observations=rw.OBSERVATIONS,
+                             emulator_type='bayes_linear', sampling_strategy='lhs',
+                             feature_selection=hm.AutoFeatureSelection(method='mean_sq_z', max_features=1, cooldown_period=2),
+                             output_dir=str(HERE / 'outputs' / 'hm'), run_name='maled_bd', random_seed=seed)
+    engine = hm.HistoryMatching.load_checkpoint(ckpt, tmp.sampling_strategy, tmp.feature_selection, tmp.emulator_factory)
     return engine.get_nroy_samples(n, method='lhs')
 
 
