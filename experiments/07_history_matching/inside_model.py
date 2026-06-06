@@ -89,10 +89,12 @@ class InsideModel(ss.Analyzer):
         return out
 
 
-def _build_sim(params, seed, cens, observer):
-    """Identical to exp06._run_one; optionally append the read-only observer analyzer."""
+def _build_sim(params, seed, cens, observer, log_events=False):
+    """Identical to exp06._run_one; optionally append the read-only observer analyzer.
+    log_events: opt-in per-infection event log on the cohort (no RNG change) for swimmer plots."""
     cohort = exp06.MALEDCohort(p_symp_1=params['p_symp_1'], p_symp_2=params['p_symp_2'],
-                               p_symp_3plus=params['p_symp_3plus'], censoring_ages=cens, seed=seed)
+                               p_symp_3plus=params['p_symp_3plus'], censoring_ages=cens, seed=seed,
+                               log_events=log_events)
     analyzers = [cohort] + ([InsideModel()] if observer else [])
     ic = rs.RotaImmunityConnector(use_fixed_susceptibility=False)
     people = ss.People(n_agents=N_AGENTS, age_data=str(AGE_DATA))
@@ -140,6 +142,34 @@ def _run_inside(args):
     return out
 
 
+def _run_swimmer(idx, params, seed, cens, n_sample=28, rng_seed=0):
+    """Re-run ONE trajectory with cohort event logging; extract a sample of enrollees'
+    life courses (events + dropout age + maternal titer) for a swimmer plot."""
+    sim = _build_sim(params, seed, cens, observer=False, log_events=True)
+    sim.run()
+    cohort = sim.analyzers['maledcohort']
+    ic = sim.connectors.rotaimmunityconnector
+    mat_pars = dict(eff=float(ic.pars.maternal_immunity_efficacy),
+                    hl_years=float(ic.pars.maternal_titer_half_life.years),
+                    slope=float(ic.pars.maternal_hill_slope))
+    # per-enrollee event lists
+    ev_by_uid = {}
+    for e in cohort.events:
+        ev_by_uid.setdefault(e['uid'], []).append(e)
+    uids = np.array(list(cohort.uid2idx.keys()))
+    exit_m = {u: cohort.exit_age_m[cohort.uid2idx[u]] for u in uids}
+    titer0 = {int(u): float(ic.maternal_titer0[ss.uids(np.array([int(u)]))][0]) for u in uids}
+    # sample: prefer enrollees with >=6mo follow-up so lanes are informative; keep some short ones
+    rng = np.random.default_rng(rng_seed)
+    longfu = [u for u in uids if exit_m[u] >= 6.0]
+    pick = rng.choice(longfu, size=min(n_sample, len(longfu)), replace=False)
+    pick = sorted(pick, key=lambda u: exit_m[u])    # order lanes by follow-up length
+    cohort_sample = [dict(uid=int(u), exit_m=float(exit_m[u]), titer0=titer0[int(u)],
+                          events=sorted(ev_by_uid.get(int(u), []), key=lambda e: e['age_m'])) for u in pick]
+    obs = _obs_from(sim); sim.shrink(die=False)
+    return dict(idx=idx, seed=seed, obs=obs, mat_pars=mat_pars, cohort=cohort_sample)
+
+
 def _logL(r, phi=2.0, rho=0.05):
     if (not r.get('ok')) or (r.get('frac_ever_detected') or 0) < 0.05: return -np.inf
     ll = 0.0
@@ -173,6 +203,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--k', type=int, default=3, help='number of top-weight trajectories to re-run')
     ap.add_argument('--verify', action='store_true', help='run top idx 3 ways: stored / ref(cohort-only) / rec(+observer)')
+    ap.add_argument('--swimmer', type=int, default=0, metavar='N', help='re-run top trajectory, save N enrollees life courses')
     args = ap.parse_args()
     recs, w, cens, nroy = _load()
     print(f'starsim {ss.__version__}, rotasim {getattr(rs, "__version__", "?")}, numpy {np.__version__}')
@@ -194,6 +225,16 @@ def main():
         print(f'  ref == stored (platform-stable)?   {ref_eq_stored}')
         print('  => ' + ('observer is faithful; ' if ref_eq_rec else 'OBSERVER PERTURBS RNG; ')
               + ('local reproduces capy.' if ref_eq_stored else 'platform/env changes the trajectory -> run on capy for exact match.'))
+        return
+
+    if args.swimmer:
+        i = int(np.argmax(w)); idx = recs[i]['idx']
+        print(f'Swimmer: re-running top trajectory idx {idx} with {args.swimmer} enrollee life courses')
+        out = _run_swimmer(idx, _exact_params(nroy, idx), 20260605 + idx, cens, n_sample=args.swimmer)
+        r = recs[i]; match = all(abs(out['obs'][f'ir_symp_{b}'] - r[f'ir_symp_{b}']) < 1e-4 for b, _, _ in IR)
+        print(f'  reproduction vs stored: {"MATCH" if match else "differ"}; {len(out["cohort"])} enrollees sampled')
+        sc.savejson(HERE / 'outputs' / 'swimmer.json', out)
+        print('saved -> outputs/swimmer.json')
         return
 
     topidx = np.argsort(w)[::-1][:args.k]

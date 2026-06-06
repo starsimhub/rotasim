@@ -57,7 +57,7 @@ class MALEDCohort(ss.Analyzer):
 
     def __init__(self, p_symp_1, p_symp_2, p_symp_3plus, censoring_ages,
                  enroll_window=ENROLL_WINDOW, capture=CAPTURE,
-                 eia_sensitivity=EIA_SENSITIVITY, shed_days=SHED_DAYS, seed=0, **kw):
+                 eia_sensitivity=EIA_SENSITIVITY, shed_days=SHED_DAYS, seed=0, log_events=False, **kw):
         super().__init__(**kw)
         self.p_symp = [p_symp_1, p_symp_2, p_symp_3plus]  # by infection order (1,2,3+)
         self.enroll = enroll_window
@@ -66,6 +66,8 @@ class MALEDCohort(ss.Analyzer):
         self.shed = shed_days
         self.censoring_ages = np.asarray(censoring_ages, float)
         self.rng = np.random.default_rng(seed)
+        self.log_events = log_events     # opt-in per-infection event log (for swimmer plots); no RNG change
+        self.events = []                 # list of dict(uid, age_m, order, symp, detected) when log_events
         self.uid2idx = {}
         self.exit_age_m = []
         self.last_age_m = []
@@ -146,6 +148,9 @@ class MALEDCohort(ss.Analyzer):
                     detected = self.rng.random() < (self.capture * self.eia)
                 else:
                     detected = self.rng.random() < (self._p_surv(a) * self.eia)
+                if self.log_events:
+                    self.events.append(dict(uid=int(u), age_m=float(a), order=int(order),
+                                            symp=bool(symp), detected=bool(detected)))
                 if detected:
                     self.n_det[idx] += 1
                     k = int(np.digitize(a, EDGES_M) - 1)
