@@ -93,9 +93,17 @@ def _sir_one(args):
     idx, params, seed = args
     rec = exp06._run_one((idx, params, N_AGENTS, seed, CENS, CROSS))
     ll, comp = _composite_logL(rec)
+    # Store the model's first-detection KM survival on a monthly grid (0..36) so a
+    # FINER age-at-first-infection likelihood can be re-scored offline (not just the
+    # single 24mo point in frac_ever_detected), without re-simulating.
+    km_surv = None
+    if rec.get('ok') and 'km_time' in rec:
+        km_surv = [round(float(x), 5)
+                   for x in _km_survival(np.asarray(rec['km_time']), np.asarray(rec['km_observed']) == 1, GRID)]
     out = dict(idx=idx, seed=seed, ok=bool(rec.get('ok')), logL=ll,
                frac_ever_detected=rec.get('frac_ever_detected'),
                repeat_detected_frac=rec.get('repeat_detected_frac'),
+               km_surv=km_surv,   # model S(age) at months 0..36; 1-S(a) = fraction detected by age a
                **{f'ir_symp_{b}': rec.get(f'ir_symp_{b}') for b in ['<6 m', '6-11 m', '12-23 m']},
                **{f'par_{k}': round(v, 6) for k, v in params.items()})
     return out
