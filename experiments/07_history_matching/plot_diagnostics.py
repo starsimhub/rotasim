@@ -169,12 +169,12 @@ def main():
     fig, axs = plt.subplots(1, 3, figsize=(15, 4.6))
     def sc(ax, xo, yo, xt, yt, xse, yse, xl, yl):
         # background CI bands + target box (under the samples), then gray context, then high-weight points
-        ax.axvspan(xt - 1.96 * xse, xt + 1.96 * xse, color='navy', alpha=0.08, zorder=0)
-        ax.axhspan(yt - 1.96 * yse, yt + 1.96 * yse, color='navy', alpha=0.08, zorder=0)
+        ax.axvspan(xt - 1.96 * xse, xt + 1.96 * xse, color='navy', alpha=0.04, zorder=0)
+        ax.axhspan(yt - 1.96 * yse, yt + 1.96 * yse, color='navy', alpha=0.04, zorder=0)
         ax.add_patch(Rectangle((xt - 1.96 * xse, yt - 1.96 * yse), 2 * 1.96 * xse, 2 * 1.96 * yse,
                                fill=False, edgecolor='navy', lw=1.8, zorder=1))   # under the samples
         ax.scatter([recs[k][xo] for k in usable], [recs[k][yo] for k in usable],
-                   s=6, color='0.8', alpha=0.25, zorder=2, rasterized=True)
+                   s=7, color='0.55', alpha=0.4, zorder=2, rasterized=True)
         ax.scatter([recs[k][xo] for k in top], [recs[k][yo] for k in top], c=wtop, cmap=cmap,
                    s=12 + 80 * tnorm(wtop), alpha=0.85, edgecolor='k', linewidth=0.2, zorder=5)
         ax.set_xlabel(xl); ax.set_ylabel(yl)
