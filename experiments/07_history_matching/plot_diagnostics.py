@@ -22,6 +22,7 @@ import matplotlib; matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
+from matplotlib.patches import Rectangle
 from scipy.stats import nbinom, betabinom, spearmanr
 
 HERE = Path(__file__).resolve().parent
@@ -167,11 +168,15 @@ def main():
     # ---------- fig_observable_space: trade-offs + where posterior lives ----------
     fig, axs = plt.subplots(1, 3, figsize=(15, 4.6))
     def sc(ax, xo, yo, xt, yt, xse, yse, xl, yl):
-        x = np.array([recs[k][xo] for k in usable]); y = np.array([recs[k][yo] for k in usable])
-        ax.scatter(x, y, s=8, c=wn, cmap='viridis', alpha=0.6)
-        ax.axvspan(xt - 1.96 * xse, xt + 1.96 * xse, color='crimson', alpha=0.12)
-        ax.axhspan(yt - 1.96 * yse, yt + 1.96 * yse, color='crimson', alpha=0.12)
-        ax.plot(xt, yt, 'X', color='crimson', ms=12, zorder=10)
+        # background CI bands + target box (under the samples), then gray context, then high-weight points
+        ax.axvspan(xt - 1.96 * xse, xt + 1.96 * xse, color='navy', alpha=0.08, zorder=0)
+        ax.axhspan(yt - 1.96 * yse, yt + 1.96 * yse, color='navy', alpha=0.08, zorder=0)
+        ax.add_patch(Rectangle((xt - 1.96 * xse, yt - 1.96 * yse), 2 * 1.96 * xse, 2 * 1.96 * yse,
+                               fill=False, edgecolor='navy', lw=1.8, zorder=1))   # under the samples
+        ax.scatter([recs[k][xo] for k in usable], [recs[k][yo] for k in usable],
+                   s=6, color='0.8', alpha=0.25, zorder=2, rasterized=True)
+        ax.scatter([recs[k][xo] for k in top], [recs[k][yo] for k in top], c=wtop, cmap=cmap,
+                   s=12 + 80 * tnorm(wtop), alpha=0.85, edgecolor='k', linewidth=0.2, zorder=5)
         ax.set_xlabel(xl); ax.set_ylabel(yl)
     sc(axs[0], 'ir_symp_<6 m', 'ir_symp_6-11 m', 1.91, 5.37, TARGET_SE['<6 m'], TARGET_SE['6-11 m'],
        'IR <6 m', 'IR 6-11 m'); axs[0].set_title('peak vs early IR')
@@ -182,9 +187,9 @@ def main():
     ese = np.sqrt((EVER_OBS / EVER_N) * (1 - EVER_OBS / EVER_N) / EVER_N)
     sc(axs[2], 'repeat_detected_frac', 'frac_ever_detected', 0.43, 0.638, rse, ese,
        'repeat fraction', 'ever-detected'); axs[2].set_title('repeat vs ever-detected')
-    sm = ScalarMappable(cmap='viridis', norm=Normalize(0, 1)); sm.set_array([])
-    fig.colorbar(sm, ax=axs, label='relative posterior weight', shrink=0.8)
-    fig.suptitle(f'Observable space (X = target, band = 95% CI) — {sub}', fontsize=11)
+    sm = ScalarMappable(cmap=cmap, norm=tnorm); sm.set_array([])
+    fig.colorbar(sm, ax=axs, label='posterior weight (top set)', shrink=0.8)
+    fig.suptitle(f'Observable space (gray=persisting, colored=top-weight; box=target 95% CI) — {sub}', fontsize=11)
     fig.savefig(FIGDIR / 'fig_observable_space.png', dpi=120, bbox_inches='tight'); plt.close(fig)
 
     # ---------- fig_sensitivity: Spearman(param, observable) over persisting sims ----------
