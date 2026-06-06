@@ -29,6 +29,7 @@ from scipy.stats import nbinom, betabinom
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 FIGDIR = HERE / 'figures'; FIGDIR.mkdir(exist_ok=True)
+rw = sc.importbypath(HERE / 'run_wave.py')        # _untransform: NROY row -> exact params
 exp06 = sc.importbypath(REPO / 'experiments' / '06_titer_maternal_peak' / 'run.py')
 AGE_DATA = REPO / 'calibration' / 'uk_age_data.csv'
 N_AGENTS, CROSS = 40_000, 0.5
@@ -158,7 +159,14 @@ def _load():
     w = np.zeros(len(recs)); w[fin] = np.exp(L[fin] - L[fin].max()); w /= w.sum()
     fi = pd.read_csv(REPO / 'calibration' / 'maled_data' / 'first_infection_bangladesh.csv')
     cens = fi.loc[fi.event_observed == 0, 'age_event_months'].dropna().values; cens = cens[cens > 0]
-    return recs, w, cens
+    # EXACT params per idx from the cached NROY draw (the stored par_* are rounded to 6dp,
+    # insufficient to reconstruct knife-edge trajectories -- see repro_check.py).
+    nroy = pd.read_csv(HERE / 'outputs' / 'nroy_draw.csv')
+    return recs, w, cens, nroy
+
+
+def _exact_params(nroy, idx):
+    return rw._untransform(nroy.iloc[idx])
 
 
 def main():
@@ -166,12 +174,12 @@ def main():
     ap.add_argument('--k', type=int, default=3, help='number of top-weight trajectories to re-run')
     ap.add_argument('--verify', action='store_true', help='run top idx 3 ways: stored / ref(cohort-only) / rec(+observer)')
     args = ap.parse_args()
-    recs, w, cens = _load()
+    recs, w, cens, nroy = _load()
     print(f'starsim {ss.__version__}, rotasim {getattr(rs, "__version__", "?")}, numpy {np.__version__}')
 
     if args.verify:
         i = int(np.argmax(w)); r = recs[i]; idx = r['idx']
-        params = {k[4:]: r[k] for k in r if k.startswith('par_')}; seed = 20260605 + idx
+        params = _exact_params(nroy, idx); seed = 20260605 + idx
         cols = [f'ir_symp_{b}' for b, _, _ in IR] + ['frac_ever_detected', 'repeat_detected_frac']
         print(f'\nVERIFY idx {idx}, seed {seed} (top weight {w[i]:.3f}):')
         ref = _obs_from(_build_sim(params, seed, cens, observer=False).run())       # local, cohort only
@@ -190,7 +198,7 @@ def main():
 
     topidx = np.argsort(w)[::-1][:args.k]
     print(f'Re-running top {args.k} by weight: idx={[recs[i]["idx"] for i in topidx]}')
-    tasks = [(recs[i]['idx'], {k[4:]: recs[i][k] for k in recs[i] if k.startswith('par_')}, 20260605 + recs[i]['idx'], cens)
+    tasks = [(recs[i]['idx'], _exact_params(nroy, recs[i]['idx']), 20260605 + recs[i]['idx'], cens)
              for i in topidx]
     t0 = sc.tic()
     with get_context('spawn').Pool(processes=min(args.k, 4), maxtasksperchild=1) as pool:
