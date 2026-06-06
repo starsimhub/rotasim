@@ -127,3 +127,32 @@ Exp 03: median endemic prevalence 0.23, 57% of draws >0.2 — vs a few % in real
 Worth tightening `base_beta`'s upper bound (and/or the immunity floor) so calibration
 doesn't spend its budget in the hyperendemic region. The ~10% repeat-infection
 constraint (C1) is the cheapest way to enforce this.
+
+---
+
+## D. HEADS-UP: starsim memory leak will OOM your parallel sweeps (starsim#1343)
+
+Your `calibrate_maled.py` uses a spawn `Pool` where each worker runs many sims
+sequentially — that hits a **starsim reference leak** ([starsim#1343](https://github.com/starsimhub/starsim/issues/1343),
+**still OPEN**): each `ss.Sim`'s `start_step`/`finish_step` bound methods are registered
+into a **module-level list and never removed**, so every sim a worker builds stays
+pinned in RAM (with its ~41 MB network/state). Workers don't recycle → memory climbs
+monotonically → OOM. It bit us hard: an HM/SIR sweep on the NROY (where every sim
+*persists*, so the pinned objects are big) wedged a **449 GB** VM — SSH-unresponsive,
+needed a reboot. Your driver is exposed to the same thing, and it's worse the more your
+sims persist.
+
+**The fix is not released.** The patch (`4885b189`, 2026-06-02, "Fix for memory leak in
+calibration") is only on the unmerged `calibration-updates` branch; latest release 3.3.4
+predates it, and we run 3.0.2. So don't count on a `pip upgrade`.
+
+**Two version-neutral mitigations (use both):**
+1. `sim.shrink()` in the worker **right after** you extract results (drops the big
+   network/state so even a pinned sim is tiny). See [starsim#1346](https://github.com/starsimhub/starsim/issues/1346).
+2. `multiprocessing.Pool(..., maxtasksperchild=4)` — recycles each worker process every
+   few tasks, discarding the process-global leaked list.
+
+We applied both in `experiments/07_history_matching/` (`trajectory_selection.py` pool +
+`sim.shrink()` in the exp-06 `_run_one`); copy the pattern into `calibrate_maled.py`.
+Also watch worker count × per-sim RAM: persisting 40k-agent sims are ~3.8 GB *each* when
+leaked, so without the fix even ~118 workers blow past 449 GB.
