@@ -121,7 +121,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--n', type=int, default=10000)
     ap.add_argument('--n-agents', type=int, default=40_000)
-    ap.add_argument('--n-workers', type=int, default=118)
+    ap.add_argument('--n-workers', type=int, default=80)  # trimmed for headroom vs the starsim leak
     ap.add_argument('--smoke', action='store_true')
     ap.add_argument('--out', default=str(HERE / 'outputs' / 'sir_results.jsonl'))
     args = ap.parse_args()
@@ -148,7 +148,11 @@ def main():
 
     t0 = sc.tic(); done = len(done_idx)
     if tasks:
-        with get_context('spawn').Pool(processes=min(args.n_workers, len(tasks))) as pool:
+        # maxtasksperchild recycles each worker after a few sims, releasing memory
+        # leaked across sequential starsim runs (starsim sequential-leak bug) -- without
+        # it, 118 workers x ~85 sequential persisting sims accumulate until OOM.
+        with get_context('spawn').Pool(processes=min(args.n_workers, len(tasks)),
+                                       maxtasksperchild=4) as pool:
             for out in pool.imap_unordered(_sir_one, tasks):
                 with outp.open('a') as f: f.write(json.dumps(out) + '\n')
                 done += 1
