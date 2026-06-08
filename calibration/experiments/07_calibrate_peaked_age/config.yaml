@@ -1,0 +1,27 @@
+# Exp 07 — calibrate the peaked age-symptom model to MAL-ED Bangladesh (joint fit).
+# Driver: calibrate_maled.py (parent calibration/ dir). This config records the run
+# settings; run.py here only analyzes the resulting study.
+site: bangladesh
+symptom_model: age_only          # quadratic age logistic on P(symptomatic), no infection term
+maternal_n_stages: 6             # Erlang-6 (sharpened) maternal waning
+fit_target: joint                # squared-log IR over 4 age bins + normalized first-inf quartiles
+n_trials: 40
+n_reps: 20
+n_jobs: 1
+n_agents: 100000
+demographics: bangladesh         # birth 19 / death 6 per 1000; pyramid [2.5, 2.5, 7.5, 87.5]%
+mixing: homogeneous              # RandomNet, n_contacts=7
+study: rota_maled_bangladesh_erlang6
+db: rota_maled_bangladesh_erlang6.db
+# Enqueued starting trial (exp-05 'sharp_peak_9mo'; a seed, not a constraint):
+seed_trial:
+  base_beta: 0.20
+  sus_after_1: 0.60
+  sus_after_2: 0.40
+  sus_after_3plus: 0.25
+  maternal_immunity_efficacy: 0.95
+  maternal_immunity_mean_duration_days: 200.0
+  beta0: -1.30
+  beta1: -0.06
+  beta2: -0.01
+# Search ranges (wide/unbiased) live in calibrate_maled.py:_trial_to_sim_pars.

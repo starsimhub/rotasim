@@ -1,0 +1,27 @@
+{
+  "best_trial": 0,
+  "gof_total": 3.6171273217776028,
+  "gof_inc": 3.5107431539785647,
+  "gof_first": 0.10940872693138501,
+  "med_ir": [
+    6.085970948356607,
+    11.481583496642461,
+    5.723958328773495,
+    0.3513849523540574
+  ],
+  "peak_bin": "6-11 m",
+  "norm_l1": 0.12888110129650768,
+  "cosine": 0.9907345620838955,
+  "first_med": 5.884934306144714,
+  "params": {
+    "base_beta": 0.2,
+    "sus_after_3plus": 0.25,
+    "sus_after_2": 0.4,
+    "sus_after_1": 0.6,
+    "maternal_immunity_efficacy": 0.95,
+    "maternal_immunity_mean_duration_days": 200.0,
+    "beta0": -1.3,
+    "beta1": -0.06,
+    "beta2": -0.01
+  }
+}
