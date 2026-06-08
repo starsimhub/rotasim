@@ -57,3 +57,25 @@ duplicates.
   pending exp 03 (model verification) — early results suggest the demographic
   representation is not what is breaking the age-incidence fit, so this is low
   priority unless verification implicates it.
+- **Downstream VE-gap work — age-of-infection targets + the age-symptom channel.**
+  The eventual question is whether the LMIC age-distribution of infection produces a
+  lower *achieved* VE at identical underlying per-infection efficacy. Empirical
+  age-at-(severe, ~first)-infection targets for parameterizing/validating two settings
+  in the ABM, from a pre-vaccine hospitalization review (PMC6736387):
+  - LMIC / very-high child mortality: **median 38 weeks (~8.7 mo)**, IQR 25–58 wk.
+  - High-income / low mortality: **median 65 weeks (~15.0 mo)**, IQR 40–107 wk
+    (huge within-stratum spread: France 35 wk → Ukraine 101 wk; IQRs overlap).
+  Back-of-envelope (NOT a substitute for running the ABM): applying the Lewnard et al.
+  *J Infect Dis* natural-log-age coefficient for P(RVGE|infection) — **28%/log-month
+  for primary infections** (the right one, since pre-vaccine hospitalizations are
+  ~all first infections; β = ln(0.72) = −0.33) — the 38→65 wk shift is only a 1.71×
+  ratio = 0.54 log-units, giving a **~16% lower** per-infection symptomatic risk in the
+  older/high-income setting (~32% with the steeper 51%/log-month Vellore secondary
+  coef). So the single age-symptom curve plausibly carries a substantial *fraction*
+  (~⅓–⅔) of the observed ~50% high-vs-low-income VE gap, but not all of it — and
+  "lower P(RVGE|infection)" ≠ "lower VE" (the channel must propagate through vaccine
+  take, maternal-antibody timing, and force of infection; the ABM is what bridges it).
+  Note our symptom model uses a *logistic* link with its own fitted betas, whereas
+  Lewnard PLoS Comput Biol (pcbi.1007014) uses a *log* link with age & age² each
+  z-scored to unit variance — so Lewnard's published betas are not drop-in seeds.
+  Deferred until the pre-vaccine symptom-structure selection (exp 07–09) is settled.
