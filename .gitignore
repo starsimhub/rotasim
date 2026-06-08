@@ -149,3 +149,18 @@ calibration/calibration/
 
 # Excel lock files
 ~$*.xlsx
+# Track the Python pin for reproducible uv envs (numba/llvmlite lack 3.14 wheels)
+!.python-version
+
+# --- calibration work: regenerable experiment sweep outputs (re-create via the scripts) ---
+experiments/*/outputs/results.jsonl
+experiments/*/outputs/*_smoke.jsonl
+*.db
+# local dev scratch (not part of the calibration work)
+/debug_rotavirus.py
+/test_reassortment_fix.py
+/starsim_symlink
+/stisim_symlink
+/planning/
+/examples/pure_starsim_usage.py
+calibration/calibration_maled_bangladesh_worker*.json

@@ -23,6 +23,11 @@ dependencies = [
 ]
 
 [dependency-groups]
+# History matching (capybara only; pulls tensorflow/gpflow). Install with:
+#   uv sync --group hm
+hm = [
+    "historymatching @ git+https://github.com/InstituteforDiseaseModeling/historymatching",
+]
 dev = [
     "jupyter",
     "ipykernel", 

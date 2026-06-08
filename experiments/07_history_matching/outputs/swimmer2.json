@@ -1,0 +1,1885 @@
+{
+  "idx": 6268,
+  "seed": 20266873,
+  "obs": {
+    "ir_symp_<6 m": 1.83941,
+    "ir_symp_6-11 m": 5.30966,
+    "ir_symp_12-23 m": 2.38406,
+    "frac_ever_detected": 0.5732,
+    "repeat_detected_frac": 0.4165
+  },
+  "mat_pars": {
+    "eff": 0.9591999802429962,
+    "hl_years": 0.13401347853580262,
+    "slope": 5.972112609753521
+  },
+  "n_enrolled": 2048,
+  "cohort": [
+    {
+      "uid": 43866,
+      "exit_m": 0.295687885010267,
+      "events": []
+    },
+    {
+      "uid": 45344,
+      "exit_m": 0.295687885010267,
+      "events": []
+    },
+    {
+      "uid": 44812,
+      "exit_m": 0.295687885010267,
+      "events": [
+        {
+          "uid": 44812,
+          "age_m": 0.16438356041908264,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 45329,
+      "exit_m": 0.657084188911704,
+      "events": []
+    },
+    {
+      "uid": 43958,
+      "exit_m": 0.887063655030801,
+      "events": []
+    },
+    {
+      "uid": 44596,
+      "exit_m": 0.887063655030801,
+      "events": []
+    },
+    {
+      "uid": 45476,
+      "exit_m": 1.1170431211499,
+      "events": []
+    },
+    {
+      "uid": 44414,
+      "exit_m": 1.18275154004107,
+      "events": []
+    },
+    {
+      "uid": 45024,
+      "exit_m": 1.21560574948665,
+      "events": []
+    },
+    {
+      "uid": 44982,
+      "exit_m": 3.02258726899384,
+      "events": []
+    },
+    {
+      "uid": 45058,
+      "exit_m": 3.05544147843943,
+      "events": []
+    },
+    {
+      "uid": 44574,
+      "exit_m": 3.44969199178645,
+      "events": []
+    },
+    {
+      "uid": 45192,
+      "exit_m": 3.48254620123203,
+      "events": []
+    },
+    {
+      "uid": 45122,
+      "exit_m": 4.17248459958932,
+      "events": []
+    },
+    {
+      "uid": 45511,
+      "exit_m": 5.15811088295688,
+      "events": []
+    },
+    {
+      "uid": 45725,
+      "exit_m": 6.14373716632443,
+      "events": [
+        {
+          "uid": 45725,
+          "age_m": 5.621920466423035,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 43957,
+      "exit_m": 6.14373716632443,
+      "events": []
+    },
+    {
+      "uid": 44884,
+      "exit_m": 6.80082135523614,
+      "events": []
+    },
+    {
+      "uid": 45711,
+      "exit_m": 6.80082135523614,
+      "events": []
+    },
+    {
+      "uid": 44669,
+      "exit_m": 6.80082135523614,
+      "events": []
+    },
+    {
+      "uid": 44467,
+      "exit_m": 6.80082135523614,
+      "events": [
+        {
+          "uid": 44467,
+          "age_m": 5.983564496040344,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 44736,
+      "exit_m": 6.80082135523614,
+      "events": [
+        {
+          "uid": 44736,
+          "age_m": 4.9315091371536255,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 45659,
+      "exit_m": 6.80082135523614,
+      "events": [
+        {
+          "uid": 45659,
+          "age_m": 6.476715087890625,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 45181,
+      "exit_m": 9.13347022587269,
+      "events": [
+        {
+          "uid": 45181,
+          "age_m": 4.8986324071884155,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 43876,
+      "exit_m": 11.7289527720739,
+      "events": [
+        {
+          "uid": 43876,
+          "age_m": 0.1972602680325508,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 44159,
+      "exit_m": 11.7289527720739,
+      "events": [
+        {
+          "uid": 44159,
+          "age_m": 6.279454708099365,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45367,
+      "exit_m": 11.7289527720739,
+      "events": [
+        {
+          "uid": 45367,
+          "age_m": 0.23013697564601898,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 44339,
+      "exit_m": 11.7618069815195,
+      "events": [
+        {
+          "uid": 44339,
+          "age_m": 7.660277366638184,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 44339,
+          "age_m": 10.32329249382019,
+          "order": 2,
+          "symp": false,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 44654,
+      "exit_m": 13.0431211498973,
+      "events": [
+        {
+          "uid": 44654,
+          "age_m": 12.558897972106934,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 44329,
+      "exit_m": 13.0431211498973,
+      "events": [
+        {
+          "uid": 44329,
+          "age_m": 7.824661016464233,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 44326,
+      "exit_m": 13.0431211498973,
+      "events": [
+        {
+          "uid": 44326,
+          "age_m": 6.279454708099365,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 45045,
+      "exit_m": 15.1457905544148,
+      "events": [
+        {
+          "uid": 45045,
+          "age_m": 9.501374244689941,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 45232,
+      "exit_m": 15.1457905544148,
+      "events": [
+        {
+          "uid": 45232,
+          "age_m": 6.706852197647095,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45232,
+          "age_m": 8.876716375350952,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44802,
+      "exit_m": 18.0698151950719,
+      "events": [
+        {
+          "uid": 44802,
+          "age_m": 6.312331438064575,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 44802,
+          "age_m": 8.186305046081543,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44802,
+          "age_m": 8.876716375350952,
+          "order": 3,
+          "symp": false,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 45410,
+      "exit_m": 18.0698151950719,
+      "events": [
+        {
+          "uid": 45410,
+          "age_m": 3.9780839681625366,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45410,
+          "age_m": 13.01916217803955,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45279,
+      "exit_m": 18.3326488706366,
+      "events": [
+        {
+          "uid": 45279,
+          "age_m": 8.449318885803223,
+          "order": 1,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 45279,
+          "age_m": 15.156103134155273,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45279,
+          "age_m": 16.405391693115234,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45816,
+      "exit_m": 21.0595482546201,
+      "events": [
+        {
+          "uid": 45816,
+          "age_m": 12.920534133911133,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45816,
+          "age_m": 20.153257369995117,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44612,
+      "exit_m": 21.6837782340862,
+      "events": [
+        {
+          "uid": 44612,
+          "age_m": 7.364386796951294,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 44612,
+          "age_m": 9.731511354446411,
+          "order": 2,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44612,
+          "age_m": 11.37534785270691,
+          "order": 3,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 44612,
+          "age_m": 12.920534133911133,
+          "order": 4,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 44612,
+          "age_m": 16.931407928466797,
+          "order": 5,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44612,
+          "age_m": 18.279324531555176,
+          "order": 6,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45006,
+      "exit_m": 23.7207392197125,
+      "events": [
+        {
+          "uid": 45006,
+          "age_m": 3.9452072381973267,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45006,
+          "age_m": 5.7205506563186646,
+          "order": 2,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45006,
+          "age_m": 12.854782104492188,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44916,
+      "exit_m": 23.7535934291581,
+      "events": [
+        {
+          "uid": 44916,
+          "age_m": 10.88219690322876,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44916,
+          "age_m": 17.523176193237305,
+          "order": 2,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 44916,
+          "age_m": 22.947718620300293,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44591,
+      "exit_m": 23.7535934291581,
+      "events": [
+        {
+          "uid": 44591,
+          "age_m": 12.854782104492188,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44591,
+          "age_m": 14.630086898803711,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45430,
+      "exit_m": 23.7864476386037,
+      "events": [
+        {
+          "uid": 45430,
+          "age_m": 7.397263526916504,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45430,
+          "age_m": 10.25753903388977,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44083,
+      "exit_m": 23.7864476386037,
+      "events": [
+        {
+          "uid": 44083,
+          "age_m": 17.58892822265625,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44083,
+          "age_m": 21.402545928955078,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44083,
+          "age_m": 22.29019832611084,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 43987,
+      "exit_m": 23.8521560574949,
+      "events": [
+        {
+          "uid": 43987,
+          "age_m": 3.2876726388931274,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 43987,
+          "age_m": 11.14521074295044,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 43987,
+          "age_m": 20.44914150238037,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45271,
+      "exit_m": 23.8521560574949,
+      "events": [
+        {
+          "uid": 45271,
+          "age_m": 5.260276436805725,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 45271,
+          "age_m": 8.120551586151123,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45271,
+          "age_m": 21.271041870117188,
+          "order": 3,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 43815,
+      "exit_m": 23.8521560574949,
+      "events": [
+        {
+          "uid": 43815,
+          "age_m": 5.589043736457825,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 43815,
+          "age_m": 8.745209455490112,
+          "order": 2,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 43815,
+          "age_m": 13.972566604614258,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44539,
+      "exit_m": 23.8521560574949,
+      "events": [
+        {
+          "uid": 44539,
+          "age_m": 4.0767141580581665,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44539,
+          "age_m": 13.972566604614258,
+          "order": 2,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 44539,
+          "age_m": 20.0546293258667,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45523,
+      "exit_m": 23.8850102669405,
+      "events": [
+        {
+          "uid": 45523,
+          "age_m": 8.087674856185913,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45523,
+          "age_m": 11.04658055305481,
+          "order": 2,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 45523,
+          "age_m": 12.789030075073242,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45523,
+          "age_m": 20.514893531799316,
+          "order": 4,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44892,
+      "exit_m": 23.8850102669405,
+      "events": [
+        {
+          "uid": 44892,
+          "age_m": 7.561647176742554,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44892,
+          "age_m": 8.252058506011963,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44892,
+          "age_m": 13.939690589904785,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44892,
+          "age_m": 17.161540031433105,
+          "order": 4,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44571,
+      "exit_m": 23.8850102669405,
+      "events": [
+        {
+          "uid": 44571,
+          "age_m": 8.021921396255493,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44571,
+          "age_m": 14.99172306060791,
+          "order": 2,
+          "symp": true,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45153,
+      "exit_m": 23.8850102669405,
+      "events": [
+        {
+          "uid": 45153,
+          "age_m": 8.449318885803223,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 45153,
+          "age_m": 12.789030075073242,
+          "order": 2,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45153,
+          "age_m": 18.80534076690674,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44408,
+      "exit_m": 23.917864476386,
+      "events": [
+        {
+          "uid": 44408,
+          "age_m": 9.764388084411621,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44408,
+          "age_m": 18.903968811035156,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44408,
+          "age_m": 20.0546293258667,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44841,
+      "exit_m": 23.917864476386,
+      "events": [
+        {
+          "uid": 44841,
+          "age_m": 7.200003147125244,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 44841,
+          "age_m": 13.610930442810059,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44841,
+          "age_m": 21.698430061340332,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45842,
+      "exit_m": 23.917864476386,
+      "events": [
+        {
+          "uid": 45842,
+          "age_m": 7.923291206359863,
+          "order": 1,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 45842,
+          "age_m": 13.906814575195312,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45842,
+          "age_m": 20.021753311157227,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44863,
+      "exit_m": 23.917864476386,
+      "events": [
+        {
+          "uid": 44863,
+          "age_m": 1.5780826807022095,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44863,
+          "age_m": 5.884934306144714,
+          "order": 2,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44863,
+          "age_m": 7.7260308265686035,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44863,
+          "age_m": 19.166976928710938,
+          "order": 4,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45506,
+      "exit_m": 23.9507186858316,
+      "events": [
+        {
+          "uid": 45506,
+          "age_m": 3.747946858406067,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45506,
+          "age_m": 5.227399706840515,
+          "order": 2,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 45506,
+          "age_m": 9.632881164550781,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45506,
+          "age_m": 23.703866958618164,
+          "order": 4,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45425,
+      "exit_m": 23.9835728952772,
+      "events": [
+        {
+          "uid": 45425,
+          "age_m": 14.169822692871094,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 45425,
+          "age_m": 18.871092796325684,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 43842,
+      "exit_m": 24.0164271047228,
+      "events": [
+        {
+          "uid": 43842,
+          "age_m": 7.627400636672974,
+          "order": 1,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 43842,
+          "age_m": 15.1232271194458,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 43842,
+          "age_m": 16.306763648986816,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 43842,
+          "age_m": 18.34507656097412,
+          "order": 4,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45784,
+      "exit_m": 24.0164271047228,
+      "events": [
+        {
+          "uid": 45784,
+          "age_m": 1.7753430604934692,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45784,
+          "age_m": 6.969866037368774,
+          "order": 2,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45784,
+          "age_m": 9.008223295211792,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45784,
+          "age_m": 11.967128992080688,
+          "order": 4,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45784,
+          "age_m": 21.698430061340332,
+          "order": 5,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45784,
+          "age_m": 23.079222679138184,
+          "order": 6,
+          "symp": false,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 43826,
+      "exit_m": 24.0164271047228,
+      "events": [
+        {
+          "uid": 43826,
+          "age_m": 13.446550369262695,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 43826,
+          "age_m": 16.076631546020508,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 43820,
+      "exit_m": 24.0164271047228,
+      "events": [
+        {
+          "uid": 43820,
+          "age_m": 5.7534273862838745,
+          "order": 1,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 43820,
+          "age_m": 7.232879877090454,
+          "order": 2,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 43820,
+          "age_m": 22.816214561462402,
+          "order": 3,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 45529,
+      "exit_m": 24.0164271047228,
+      "events": [
+        {
+          "uid": 45529,
+          "age_m": 8.252058506011963,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 45529,
+          "age_m": 14.399954795837402,
+          "order": 2,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 45529,
+          "age_m": 18.903968811035156,
+          "order": 3,
+          "symp": true,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45608,
+      "exit_m": 24.0164271047228,
+      "events": [
+        {
+          "uid": 45608,
+          "age_m": 4.142467617988586,
+          "order": 1,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 45608,
+          "age_m": 14.136946678161621,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44875,
+      "exit_m": 24.0492813141684,
+      "events": [
+        {
+          "uid": 44875,
+          "age_m": 9.895895004272461,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 44875,
+          "age_m": 11.934252262115479,
+          "order": 2,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 44875,
+          "age_m": 21.336793899536133,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44889,
+      "exit_m": 24.0492813141684,
+      "events": [
+        {
+          "uid": 44889,
+          "age_m": 3.649316668510437,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44889,
+          "age_m": 5.654797196388245,
+          "order": 2,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 44889,
+          "age_m": 10.61918306350708,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44889,
+          "age_m": 20.843653678894043,
+          "order": 4,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44889,
+          "age_m": 23.67099094390869,
+          "order": 5,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 43970,
+      "exit_m": 24.0492813141684,
+      "events": [
+        {
+          "uid": 43970,
+          "age_m": 9.600004434585571,
+          "order": 1,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 43970,
+          "age_m": 14.071194648742676,
+          "order": 2,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 43970,
+          "age_m": 19.3313570022583,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44358,
+      "exit_m": 24.0492813141684,
+      "events": [
+        {
+          "uid": 44358,
+          "age_m": 11.0137038230896,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 44358,
+          "age_m": 13.315046310424805,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44358,
+          "age_m": 17.95056438446045,
+          "order": 3,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44358,
+          "age_m": 21.961438179016113,
+          "order": 4,
+          "symp": true,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44910,
+      "exit_m": 24.0492813141684,
+      "events": [
+        {
+          "uid": 44910,
+          "age_m": 7.167126417160034,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44910,
+          "age_m": 9.468497514724731,
+          "order": 2,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44910,
+          "age_m": 11.21096420288086,
+          "order": 3,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 45250,
+      "exit_m": 24.0492813141684,
+      "events": [
+        {
+          "uid": 45250,
+          "age_m": 7.331510066986084,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 45250,
+          "age_m": 10.3561692237854,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45088,
+      "exit_m": 24.0492813141684,
+      "events": [
+        {
+          "uid": 45088,
+          "age_m": 3.715070128440857,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45088,
+          "age_m": 5.654797196388245,
+          "order": 2,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 44770,
+      "exit_m": 24.082135523614,
+      "events": [
+        {
+          "uid": 44770,
+          "age_m": 6.378084897994995,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44770,
+          "age_m": 9.435620784759521,
+          "order": 2,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44770,
+          "age_m": 21.698430061340332,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45580,
+      "exit_m": 24.082135523614,
+      "events": [
+        {
+          "uid": 45580,
+          "age_m": 3.4520562887191772,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 45580,
+          "age_m": 7.561647176742554,
+          "order": 2,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45580,
+          "age_m": 10.75068998336792,
+          "order": 3,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 44797,
+      "exit_m": 24.1149897330595,
+      "events": [
+        {
+          "uid": 44797,
+          "age_m": 3.747946858406067,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44797,
+          "age_m": 8.449318885803223,
+          "order": 2,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 44797,
+          "age_m": 10.25753903388977,
+          "order": 3,
+          "symp": false,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 45200,
+      "exit_m": 24.1149897330595,
+      "events": [
+        {
+          "uid": 45200,
+          "age_m": 3.9452072381973267,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45200,
+          "age_m": 6.476715087890625,
+          "order": 2,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 44439,
+      "exit_m": 24.1478439425051,
+      "events": [
+        {
+          "uid": 44439,
+          "age_m": 7.167126417160034,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44439,
+          "age_m": 11.0137038230896,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44439,
+          "age_m": 19.46286106109619,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44616,
+      "exit_m": 24.1478439425051,
+      "events": [
+        {
+          "uid": 44616,
+          "age_m": 3.583563208580017,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 44616,
+          "age_m": 10.65205979347229,
+          "order": 2,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 44616,
+          "age_m": 14.531458854675293,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45260,
+      "exit_m": 24.1478439425051,
+      "events": [
+        {
+          "uid": 45260,
+          "age_m": 6.706852197647095,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45260,
+          "age_m": 8.021921396255493,
+          "order": 2,
+          "symp": false,
+          "detected": true
+        },
+        {
+          "uid": 45260,
+          "age_m": 13.51230239868164,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 43854,
+      "exit_m": 24.1806981519507,
+      "events": [
+        {
+          "uid": 43854,
+          "age_m": 6.246577978134155,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 43854,
+          "age_m": 9.928771734237671,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 43854,
+          "age_m": 16.175259590148926,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45493,
+      "exit_m": 24.1806981519507,
+      "events": [
+        {
+          "uid": 45493,
+          "age_m": 5.621920466423035,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45493,
+          "age_m": 10.98082709312439,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45493,
+          "age_m": 18.542332649230957,
+          "order": 3,
+          "symp": false,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 45726,
+      "exit_m": 24.2135523613963,
+      "events": [
+        {
+          "uid": 45726,
+          "age_m": 7.331510066986084,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45726,
+          "age_m": 16.10950756072998,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 43890,
+      "exit_m": 24.2135523613963,
+      "events": [
+        {
+          "uid": 43890,
+          "age_m": 6.969866037368774,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 43890,
+          "age_m": 12.000005722045898,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44058,
+      "exit_m": 24.2464065708419,
+      "events": [
+        {
+          "uid": 44058,
+          "age_m": 6.115071058273315,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44058,
+          "age_m": 11.04658055305481,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44058,
+          "age_m": 16.70127582550049,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45139,
+      "exit_m": 24.2464065708419,
+      "events": [
+        {
+          "uid": 45139,
+          "age_m": 6.641098737716675,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45139,
+          "age_m": 10.25753903388977,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45139,
+          "age_m": 12.460269927978516,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45139,
+          "age_m": 17.884812355041504,
+          "order": 4,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45139,
+          "age_m": 23.309354782104492,
+          "order": 5,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 45785,
+      "exit_m": 24.3121149897331,
+      "events": [
+        {
+          "uid": 45785,
+          "age_m": 8.547949075698853,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45785,
+          "age_m": 15.090351104736328,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45108,
+      "exit_m": 24.3121149897331,
+      "events": [
+        {
+          "uid": 45108,
+          "age_m": 12.197261810302734,
+          "order": 1,
+          "symp": true,
+          "detected": true
+        },
+        {
+          "uid": 45108,
+          "age_m": 13.841062545776367,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45108,
+          "age_m": 17.09578800201416,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45108,
+          "age_m": 21.402545928955078,
+          "order": 4,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45108,
+          "age_m": 23.309354782104492,
+          "order": 5,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 44581,
+      "exit_m": 24.3121149897331,
+      "events": [
+        {
+          "uid": 44581,
+          "age_m": 2.4986311197280884,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 44581,
+          "age_m": 9.600004434585571,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44581,
+          "age_m": 13.709558486938477,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 44975,
+      "exit_m": 24.3121149897331,
+      "events": [
+        {
+          "uid": 44975,
+          "age_m": 8.383565425872803,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44975,
+          "age_m": 9.797264814376831,
+          "order": 2,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 44975,
+          "age_m": 13.578054428100586,
+          "order": 3,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44975,
+          "age_m": 18.80534076690674,
+          "order": 4,
+          "symp": true,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 44154,
+      "exit_m": 25.5605749486653,
+      "events": [
+        {
+          "uid": 44154,
+          "age_m": 12.098633766174316,
+          "order": 1,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 44154,
+          "age_m": 16.536895751953125,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44154,
+          "age_m": 17.45742416381836,
+          "order": 3,
+          "symp": false,
+          "detected": true
+        }
+      ]
+    },
+    {
+      "uid": 44501,
+      "exit_m": 25.5605749486653,
+      "events": [
+        {
+          "uid": 44501,
+          "age_m": 15.451987266540527,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 44501,
+          "age_m": 17.786184310913086,
+          "order": 2,
+          "symp": false,
+          "detected": false
+        }
+      ]
+    },
+    {
+      "uid": 45619,
+      "exit_m": 30.5544147843943,
+      "events": [
+        {
+          "uid": 45619,
+          "age_m": 13.315046310424805,
+          "order": 1,
+          "symp": false,
+          "detected": false
+        },
+        {
+          "uid": 45619,
+          "age_m": 19.166976928710938,
+          "order": 2,
+          "symp": true,
+          "detected": false
+        },
+        {
+          "uid": 45619,
+          "age_m": 30.377697944641113,
+          "order": 3,
+          "symp": false,
+          "detected": true
+        }
+      ]
+    }
+  ]
+}

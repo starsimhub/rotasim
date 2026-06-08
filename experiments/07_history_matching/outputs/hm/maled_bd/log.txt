@@ -1,0 +1,379 @@
+2026-06-05 23:43:42 [INFO] ============================================================
+2026-06-05 23:43:42 [INFO] HISTORY MATCHING — CONFIGURATION
+2026-06-05 23:43:42 [INFO] ============================================================
+2026-06-05 23:43:42 [INFO]   Emulator type:            bayes_linear
+2026-06-05 23:43:42 [INFO]   Parameters:               15
+2026-06-05 23:43:42 [INFO]   Observation targets:      6
+2026-06-05 23:43:42 [INFO]   Samples per wave:         2000
+2026-06-05 23:43:42 [INFO]   Max iterations:           8
+2026-06-05 23:43:42 [INFO]   Implausibility threshold: 3.0
+2026-06-05 23:43:42 [INFO]   Auto space reduction:     disabled
+2026-06-05 23:43:42 [INFO]   Random seed:              20260605
+2026-06-05 23:43:42 [INFO]   Oversample factor:        1.1
+2026-06-05 23:43:42 [INFO]   Max batch size:           10000
+2026-06-05 23:43:42 [INFO]   Output directory:         /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd
+2026-06-05 23:43:42 [INFO]   Run log:                  /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/log.txt
+2026-06-05 23:43:42 [INFO]   Parameters: ['log_base_beta', 'young_reservoir', 'adult_contacts', 'infant_exposure', 'sus_after_1', 'sus_r2', 'sus_r3', 'log_titer_median', 'titer_gsd', 'titer_half_life_days', 'hill_slope', 'maternal_efficacy', 'p_symp_1', 'p_r2', 'p_r3']
+2026-06-05 23:43:42 [INFO]   Targets: ['ir_symp_<6 m', 'ir_symp_6-11 m', 'ir_symp_12-23 m', 'repeat_detected_frac', 'frac_ever_detected', 'first_inf_median']
+2026-06-05 23:43:42 [INFO] ============================================================
+2026-06-05 23:43:42 [INFO] Starting automated run with 8 max iterations
+2026-06-05 23:43:42 [INFO] ============================================================
+2026-06-05 23:43:42 [INFO] WAVE 1 STARTING
+2026-06-05 23:43:42 [INFO] ============================================================
+2026-06-05 23:43:42 [INFO] [Wave 1] Phase 1/5 SAMPLING: generated 2000 samples (acceptance rate: 1.000) [0.0s]
+2026-06-05 23:43:42 [INFO] [Wave 1] Phase 2/5 SIMULATION: running 2000 simulations...
+2026-06-06 00:26:42 [INFO] [Wave 1] Phase 2/5 SIMULATION: complete — 6 outputs [2579.8s]
+2026-06-06 00:26:42 [INFO]   Feature ranking (mean_sq_z): ir_symp_12-23 m=1117.95, ir_symp_<6 m=599.23, first_inf_median=72.55, repeat_detected_frac=64.16, ir_symp_6-11 m=54.39
+2026-06-06 00:26:42 [INFO]   SELECTED: ir_symp_12-23 m (score=1117.95, mean_z=19.22, std_z=27.37)
+2026-06-06 00:26:42 [INFO] [Wave 1] Phase 3/5 FEATURE SELECTION: ['ir_symp_12-23 m'] [0.0s]
+2026-06-06 00:26:42 [INFO] [Wave 1] Phase 4/5 EMULATOR TRAINING: training 1 emulators...
+2026-06-06 00:26:42 [WARNING]   Feature 'ir_symp_12-23 m': dropping 1203/2000 NaN rows before training
+2026-06-06 00:26:42 [INFO]   Emulator 1/1 [ir_symp_12-23 m]: creating (797 samples, 15 params, type=bayes_linear)...
+2026-06-06 00:26:42 [DEBUG] Created bayes_linear emulator for feature: ir_symp_12-23 m
+2026-06-06 00:26:42 [INFO]   Emulator 1/1 [ir_symp_12-23 m]: training...
+2026-06-06 00:26:42 [INFO]     Training Bayes Linear: 597 points, 15 dims
+2026-06-06 00:26:42 [INFO]     OLS trend fit [0.0s]
+2026-06-06 00:26:42 [INFO]     Optimizing theta (15 correlation lengths, 597x597 Cholesky per eval)...
+2026-06-06 00:26:44 [INFO]     L-BFGS-B iter 49: NLL=-585.9186 [2s]
+2026-06-06 00:26:45 [INFO]     L-BFGS-B iter 66: NLL=-754.6339 [3s]
+2026-06-06 00:26:46 [INFO]     L-BFGS-B iter 99: NLL=-799.1202 [5s]
+2026-06-06 00:26:47 [INFO]     L-BFGS-B iter 116: NLL=-825.9785 [5s]
+2026-06-06 00:26:48 [INFO]     L-BFGS-B iter 133: NLL=-858.6294 [6s]
+2026-06-06 00:26:49 [INFO]     L-BFGS-B iter 150: NLL=-863.5874 [7s]
+2026-06-06 00:26:49 [INFO]     L-BFGS-B iter 167: NLL=-868.8765 [8s]
+2026-06-06 00:26:50 [INFO]     L-BFGS-B iter 184: NLL=-869.3310 [8s]
+2026-06-06 00:26:51 [INFO]     L-BFGS-B iter 201: NLL=-870.3165 [9s]
+2026-06-06 00:26:52 [INFO]     L-BFGS-B iter 218: NLL=-871.2140 [10s]
+2026-06-06 00:26:53 [INFO]     L-BFGS-B iter 251: NLL=-871.3418 [12s]
+2026-06-06 00:26:54 [INFO]     L-BFGS-B iter 268: NLL=-871.4953 [12s]
+2026-06-06 00:26:55 [INFO]     L-BFGS-B iter 285: NLL=-871.5632 [13s]
+2026-06-06 00:26:56 [INFO]     L-BFGS-B iter 302: NLL=-871.7338 [14s]
+2026-06-06 00:26:57 [INFO]     L-BFGS-B iter 319: NLL=-871.8502 [15s]
+2026-06-06 00:26:57 [INFO]     L-BFGS-B iter 336: NLL=-871.9181 [15s]
+2026-06-06 00:26:58 [INFO]     L-BFGS-B iter 353: NLL=-871.9455 [16s]
+2026-06-06 00:26:59 [INFO]     L-BFGS-B iter 370: NLL=-871.9550 [17s]
+2026-06-06 00:27:00 [INFO]     L-BFGS-B iter 387: NLL=-871.9710 [18s]
+2026-06-06 00:27:00 [INFO]     L-BFGS-B iter 404: NLL=-871.9947 [19s]
+2026-06-06 00:27:01 [INFO]     L-BFGS-B iter 421: NLL=-872.0094 [19s]
+2026-06-06 00:27:02 [INFO]     L-BFGS-B iter 438: NLL=-872.0209 [20s]
+2026-06-06 00:27:03 [INFO]     L-BFGS-B iter 455: NLL=-872.0230 [21s]
+2026-06-06 00:27:04 [INFO]     L-BFGS-B iter 472: NLL=-872.0233 [22s]
+2026-06-06 00:27:04 [INFO]     Theta optimization: 24 L-BFGS iters, 472 NLL evals, final NLL=-872.0233 [21.8s]
+2026-06-06 00:27:04 [INFO]     Building 597x597 correlation matrix and Cholesky...
+2026-06-06 00:27:04 [INFO]     Training complete — sigma²=1.9685, theta range=[0.789, 33.444] [21.8s total]
+2026-06-06 00:27:04 [INFO]   Emulator 1/1 [ir_symp_12-23 m]: trained [21.8s]
+2026-06-06 00:27:04 [INFO] [Wave 1] Phase 4/5 EMULATOR TRAINING: complete [21.8s]
+2026-06-06 00:27:04 [INFO] [Wave 1] Phase 5/5 NROY SAMPLING: finding 2000 plausible candidates for next wave...
+2026-06-06 00:27:04 [INFO]   LHS rejection: 0/2000 (0%) — starting
+2026-06-06 00:27:04 [INFO]   LHS rejection: 1350/2000 (67%) | 2,200 tested | rate=61.3636% [0s]
+2026-06-06 00:27:04 [INFO]   LHS rejection: 2049/2000 (102%) | 3,365 tested | rate=60.8915% [0s]
+2026-06-06 00:27:04 [INFO]   LHS rejection: 2000/2000 [0.4s]
+2026-06-06 00:27:04 [INFO]   NROY SUMMARY: 2000/2000 [OK] — sources: LHS=2000 [0.4s]
+2026-06-06 00:27:04 [DEBUG] NROY fraction: 0.594354
+2026-06-06 00:27:04 [INFO] [Wave 1] Phase 5/5 NROY SAMPLING: found 2000 candidates [0.4s]
+2026-06-06 00:27:04 [INFO] [Wave 1] ALL PHASES COMPLETE [2602.0s total]. Committing...
+2026-06-06 00:27:10 [INFO] Checkpoint saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/checkpoint.pkl
+2026-06-06 00:27:10 [INFO] Wave 1 output saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/wave1
+2026-06-06 00:27:10 [INFO] [Wave 1] COMMITTED — diagnostics and checkpoint saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd
+2026-06-06 00:27:10 [INFO] ============================================================
+2026-06-06 00:27:10 [INFO] ============================================================
+2026-06-06 00:27:10 [INFO] WAVE 2 STARTING
+2026-06-06 00:27:10 [INFO] ============================================================
+2026-06-06 00:27:10 [INFO] [Wave 2] Phase 1/5 SAMPLING: using 2000 pre-computed samples from wave 1 [0.0s]
+2026-06-06 00:27:10 [INFO] [Wave 2] Phase 2/5 SIMULATION: running 2000 simulations...
+2026-06-06 01:09:45 [INFO] [Wave 2] Phase 2/5 SIMULATION: complete — 6 outputs [2555.4s]
+2026-06-06 01:09:45 [INFO]   Feature ranking (mean_sq_z): ir_symp_<6 m=228.10, first_inf_median=62.45, repeat_detected_frac=37.90, ir_symp_12-23 m=24.71, ir_symp_6-11 m=23.76
+2026-06-06 01:09:45 [INFO]   Cooldown (skip): ['ir_symp_12-23 m']
+2026-06-06 01:09:45 [INFO]   SELECTED: ir_symp_<6 m (score=228.10, mean_z=11.51, std_z=9.79)
+2026-06-06 01:09:45 [INFO] [Wave 2] Phase 3/5 FEATURE SELECTION: ['ir_symp_<6 m'] [0.0s]
+2026-06-06 01:09:45 [INFO] [Wave 2] Phase 4/5 EMULATOR TRAINING: training 1 emulators...
+2026-06-06 01:09:45 [WARNING]   Feature 'ir_symp_<6 m': dropping 1334/2000 NaN rows before training
+2026-06-06 01:09:45 [INFO]   Emulator 1/1 [ir_symp_<6 m]: creating (666 samples, 15 params, type=bayes_linear)...
+2026-06-06 01:09:45 [DEBUG] Created bayes_linear emulator for feature: ir_symp_<6 m
+2026-06-06 01:09:45 [INFO]   Emulator 1/1 [ir_symp_<6 m]: training...
+2026-06-06 01:09:45 [INFO]     Training Bayes Linear: 499 points, 15 dims
+2026-06-06 01:09:45 [INFO]     OLS trend fit [0.0s]
+2026-06-06 01:09:45 [INFO]     Optimizing theta (15 correlation lengths, 499x499 Cholesky per eval)...
+2026-06-06 01:09:47 [INFO]     L-BFGS-B iter 65: NLL=-444.2429 [2s]
+2026-06-06 01:09:48 [INFO]     L-BFGS-B iter 82: NLL=-458.4312 [2s]
+2026-06-06 01:09:48 [INFO]     L-BFGS-B iter 99: NLL=-465.9696 [3s]
+2026-06-06 01:09:49 [INFO]     L-BFGS-B iter 116: NLL=-472.2158 [3s]
+2026-06-06 01:09:49 [INFO]     L-BFGS-B iter 133: NLL=-474.2563 [4s]
+2026-06-06 01:09:50 [INFO]     L-BFGS-B iter 150: NLL=-475.0119 [4s]
+2026-06-06 01:09:50 [INFO]     L-BFGS-B iter 167: NLL=-475.4548 [5s]
+2026-06-06 01:09:51 [INFO]     L-BFGS-B iter 184: NLL=-475.9806 [5s]
+2026-06-06 01:09:51 [INFO]     L-BFGS-B iter 201: NLL=-476.1532 [6s]
+2026-06-06 01:09:52 [INFO]     L-BFGS-B iter 218: NLL=-476.2796 [6s]
+2026-06-06 01:09:52 [INFO]     L-BFGS-B iter 235: NLL=-476.3411 [7s]
+2026-06-06 01:09:53 [INFO]     L-BFGS-B iter 252: NLL=-476.3680 [7s]
+2026-06-06 01:09:53 [INFO]     L-BFGS-B iter 269: NLL=-476.3828 [8s]
+2026-06-06 01:09:54 [INFO]     L-BFGS-B iter 286: NLL=-476.3873 [8s]
+2026-06-06 01:09:54 [INFO]     L-BFGS-B iter 303: NLL=-476.3914 [9s]
+2026-06-06 01:09:55 [INFO]     L-BFGS-B iter 320: NLL=-476.4033 [9s]
+2026-06-06 01:09:55 [INFO]     L-BFGS-B iter 337: NLL=-476.4159 [10s]
+2026-06-06 01:09:56 [INFO]     L-BFGS-B iter 354: NLL=-476.4393 [10s]
+2026-06-06 01:09:56 [INFO]     L-BFGS-B iter 371: NLL=-476.4610 [11s]
+2026-06-06 01:09:57 [INFO]     L-BFGS-B iter 388: NLL=-476.4810 [11s]
+2026-06-06 01:09:58 [INFO]     L-BFGS-B iter 421: NLL=-476.4907 [12s]
+2026-06-06 01:09:58 [INFO]     L-BFGS-B iter 438: NLL=-476.5023 [13s]
+2026-06-06 01:09:59 [INFO]     L-BFGS-B iter 455: NLL=-476.5079 [13s]
+2026-06-06 01:09:59 [INFO]     L-BFGS-B iter 472: NLL=-476.5088 [14s]
+2026-06-06 01:10:00 [INFO]     L-BFGS-B iter 489: NLL=-476.5096 [14s]
+2026-06-06 01:10:00 [INFO]     L-BFGS-B iter 506: NLL=-476.5097 [15s]
+2026-06-06 01:10:00 [INFO]     Theta optimization: 26 L-BFGS iters, 506 NLL evals, final NLL=-476.5097 [14.9s]
+2026-06-06 01:10:00 [INFO]     Building 499x499 correlation matrix and Cholesky...
+2026-06-06 01:10:00 [INFO]     Training complete — sigma²=0.4650, theta range=[0.480, 54.598] [15.0s total]
+2026-06-06 01:10:00 [INFO]   Emulator 1/1 [ir_symp_<6 m]: trained [15.0s]
+2026-06-06 01:10:00 [INFO] [Wave 2] Phase 4/5 EMULATOR TRAINING: complete [15.0s]
+2026-06-06 01:10:00 [INFO] [Wave 2] Phase 5/5 NROY SAMPLING: finding 2000 plausible candidates for next wave...
+2026-06-06 01:10:00 [INFO]   LHS rejection: 0/2000 (0%) — starting
+2026-06-06 01:10:01 [INFO]   LHS rejection: 823/2000 (41%) | 2,200 tested | rate=37.4091% [0s]
+2026-06-06 01:10:01 [INFO]   LHS rejection: 2207/2000 (110%) | 5,660 tested | rate=38.9929% [1s]
+2026-06-06 01:10:01 [INFO]   LHS rejection: 2000/2000 [0.7s]
+2026-06-06 01:10:01 [INFO]   NROY SUMMARY: 2000/2000 [OK] — sources: LHS=2000 [0.7s]
+2026-06-06 01:10:01 [DEBUG] NROY fraction: 0.353357
+2026-06-06 01:10:01 [INFO] [Wave 2] Phase 5/5 NROY SAMPLING: found 2000 candidates [0.7s]
+2026-06-06 01:10:01 [INFO] [Wave 2] ALL PHASES COMPLETE [2571.1s total]. Committing...
+2026-06-06 01:10:19 [INFO] Checkpoint saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/checkpoint.pkl
+2026-06-06 01:10:19 [INFO] Wave 2 output saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/wave2
+2026-06-06 01:10:19 [INFO] [Wave 2] COMMITTED — diagnostics and checkpoint saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd
+2026-06-06 01:10:19 [INFO] ============================================================
+2026-06-06 01:10:19 [INFO] ============================================================
+2026-06-06 01:10:19 [INFO] WAVE 3 STARTING
+2026-06-06 01:10:19 [INFO] ============================================================
+2026-06-06 01:10:19 [INFO] [Wave 3] Phase 1/5 SAMPLING: using 2000 pre-computed samples from wave 2 [0.0s]
+2026-06-06 01:10:19 [INFO] [Wave 3] Phase 2/5 SIMULATION: running 2000 simulations...
+2026-06-06 01:52:03 [INFO] [Wave 3] Phase 2/5 SIMULATION: complete — 6 outputs [2504.1s]
+2026-06-06 01:52:03 [INFO]   Feature ranking (mean_sq_z): ir_symp_12-23 m=34.24, first_inf_median=28.07, ir_symp_<6 m=21.77, ir_symp_6-11 m=19.20, repeat_detected_frac=14.51
+2026-06-06 01:52:03 [INFO]   Cooldown (skip): ['ir_symp_12-23 m', 'ir_symp_<6 m']
+2026-06-06 01:52:03 [INFO]   SELECTED: ir_symp_6-11 m (score=19.20, mean_z=-3.75, std_z=2.26)
+2026-06-06 01:52:03 [INFO] [Wave 3] Phase 3/5 FEATURE SELECTION: ['ir_symp_6-11 m'] [0.0s]
+2026-06-06 01:52:03 [INFO] [Wave 3] Phase 4/5 EMULATOR TRAINING: training 1 emulators...
+2026-06-06 01:52:03 [WARNING]   Feature 'ir_symp_6-11 m': dropping 1634/2000 NaN rows before training
+2026-06-06 01:52:03 [INFO]   Emulator 1/1 [ir_symp_6-11 m]: creating (366 samples, 15 params, type=bayes_linear)...
+2026-06-06 01:52:03 [DEBUG] Created bayes_linear emulator for feature: ir_symp_6-11 m
+2026-06-06 01:52:03 [INFO]   Emulator 1/1 [ir_symp_6-11 m]: training...
+2026-06-06 01:52:03 [INFO]     Training Bayes Linear: 274 points, 15 dims
+2026-06-06 01:52:03 [INFO]     OLS trend fit [0.0s]
+2026-06-06 01:52:03 [INFO]     Optimizing theta (15 correlation lengths, 274x274 Cholesky per eval)...
+2026-06-06 01:52:04 [INFO]     L-BFGS-B iter 33: NLL=-149.3501 [0s]
+2026-06-06 01:52:05 [INFO]     L-BFGS-B iter 146: NLL=-153.2895 [1s]
+2026-06-06 01:52:05 [INFO]     L-BFGS-B iter 195: NLL=-158.5896 [2s]
+2026-06-06 01:52:05 [INFO]     L-BFGS-B iter 228: NLL=-159.7063 [2s]
+2026-06-06 01:52:05 [INFO]     L-BFGS-B iter 261: NLL=-161.8027 [2s]
+2026-06-06 01:52:06 [INFO]     L-BFGS-B iter 278: NLL=-163.2637 [2s]
+2026-06-06 01:52:06 [INFO]     L-BFGS-B iter 295: NLL=-165.0942 [2s]
+2026-06-06 01:52:06 [INFO]     L-BFGS-B iter 328: NLL=-165.7055 [3s]
+2026-06-06 01:52:06 [INFO]     L-BFGS-B iter 345: NLL=-165.7914 [3s]
+2026-06-06 01:52:06 [INFO]     L-BFGS-B iter 362: NLL=-165.9197 [3s]
+2026-06-06 01:52:06 [INFO]     L-BFGS-B iter 395: NLL=-166.3837 [3s]
+2026-06-06 01:52:07 [INFO]     L-BFGS-B iter 428: NLL=-166.4832 [3s]
+2026-06-06 01:52:07 [INFO]     L-BFGS-B iter 445: NLL=-166.6919 [3s]
+2026-06-06 01:52:07 [INFO]     L-BFGS-B iter 462: NLL=-167.2541 [4s]
+2026-06-06 01:52:07 [INFO]     L-BFGS-B iter 479: NLL=-167.6301 [4s]
+2026-06-06 01:52:07 [INFO]     L-BFGS-B iter 496: NLL=-168.0358 [4s]
+2026-06-06 01:52:07 [INFO]     L-BFGS-B iter 529: NLL=-168.4716 [4s]
+2026-06-06 01:52:08 [INFO]     L-BFGS-B iter 546: NLL=-168.5885 [4s]
+2026-06-06 01:52:08 [INFO]     L-BFGS-B iter 563: NLL=-168.6270 [4s]
+2026-06-06 01:52:08 [INFO]     L-BFGS-B iter 580: NLL=-168.6712 [4s]
+2026-06-06 01:52:08 [INFO]     L-BFGS-B iter 597: NLL=-168.6836 [5s]
+2026-06-06 01:52:08 [INFO]     L-BFGS-B iter 614: NLL=-168.6898 [5s]
+2026-06-06 01:52:08 [INFO]     L-BFGS-B iter 631: NLL=-168.7069 [5s]
+2026-06-06 01:52:09 [INFO]     L-BFGS-B iter 696: NLL=-168.8487 [5s]
+2026-06-06 01:52:09 [INFO]     L-BFGS-B iter 729: NLL=-168.8854 [5s]
+2026-06-06 01:52:09 [INFO]     L-BFGS-B iter 762: NLL=-169.1082 [6s]
+2026-06-06 01:52:09 [INFO]     L-BFGS-B iter 779: NLL=-169.3459 [6s]
+2026-06-06 01:52:09 [INFO]     L-BFGS-B iter 796: NLL=-169.4142 [6s]
+2026-06-06 01:52:09 [INFO]     L-BFGS-B iter 813: NLL=-169.4332 [6s]
+2026-06-06 01:52:10 [INFO]     L-BFGS-B iter 830: NLL=-169.4484 [6s]
+2026-06-06 01:52:10 [INFO]     L-BFGS-B iter 847: NLL=-169.5069 [6s]
+2026-06-06 01:52:10 [INFO]     L-BFGS-B iter 864: NLL=-169.5967 [6s]
+2026-06-06 01:52:10 [INFO]     L-BFGS-B iter 881: NLL=-169.7185 [7s]
+2026-06-06 01:52:10 [INFO]     L-BFGS-B iter 914: NLL=-169.9398 [7s]
+2026-06-06 01:52:10 [INFO]     L-BFGS-B iter 931: NLL=-170.3924 [7s]
+2026-06-06 01:52:10 [INFO]     L-BFGS-B iter 948: NLL=-170.6070 [7s]
+2026-06-06 01:52:11 [INFO]     L-BFGS-B iter 981: NLL=-170.6877 [7s]
+2026-06-06 01:52:11 [INFO]     L-BFGS-B iter 998: NLL=-170.7719 [7s]
+2026-06-06 01:52:11 [INFO]     L-BFGS-B iter 1015: NLL=-170.8580 [7s]
+2026-06-06 01:52:11 [INFO]     L-BFGS-B iter 1048: NLL=-170.9111 [8s]
+2026-06-06 01:52:11 [INFO]     L-BFGS-B iter 1081: NLL=-171.0163 [8s]
+2026-06-06 01:52:11 [INFO]     L-BFGS-B iter 1098: NLL=-171.1697 [8s]
+2026-06-06 01:52:12 [INFO]     L-BFGS-B iter 1115: NLL=-171.4484 [8s]
+2026-06-06 01:52:12 [INFO]     L-BFGS-B iter 1132: NLL=-172.4923 [8s]
+2026-06-06 01:52:12 [INFO]     L-BFGS-B iter 1213: NLL=-176.1183 [9s]
+2026-06-06 01:52:13 [INFO]     L-BFGS-B iter 1246: NLL=-176.2286 [9s]
+2026-06-06 01:52:13 [INFO]     L-BFGS-B iter 1263: NLL=-177.0753 [9s]
+2026-06-06 01:52:13 [INFO]     L-BFGS-B iter 1280: NLL=-177.8446 [9s]
+2026-06-06 01:52:13 [INFO]     L-BFGS-B iter 1297: NLL=-178.0539 [9s]
+2026-06-06 01:52:13 [INFO]     L-BFGS-B iter 1314: NLL=-178.1719 [10s]
+2026-06-06 01:52:13 [INFO]     L-BFGS-B iter 1331: NLL=-178.1867 [10s]
+2026-06-06 01:52:13 [INFO]     L-BFGS-B iter 1348: NLL=-178.2175 [10s]
+2026-06-06 01:52:13 [INFO]     L-BFGS-B iter 1365: NLL=-178.2300 [10s]
+2026-06-06 01:52:13 [INFO]     L-BFGS-B iter 1382: NLL=-178.2532 [10s]
+2026-06-06 01:52:14 [INFO]     L-BFGS-B iter 1399: NLL=-178.2753 [10s]
+2026-06-06 01:52:14 [INFO]     L-BFGS-B iter 1416: NLL=-178.3017 [10s]
+2026-06-06 01:52:14 [INFO]     L-BFGS-B iter 1433: NLL=-178.3156 [10s]
+2026-06-06 01:52:14 [INFO]     L-BFGS-B iter 1450: NLL=-178.3215 [11s]
+2026-06-06 01:52:14 [INFO]     L-BFGS-B iter 1467: NLL=-178.3255 [11s]
+2026-06-06 01:52:14 [INFO]     L-BFGS-B iter 1484: NLL=-178.3292 [11s]
+2026-06-06 01:52:14 [INFO]     L-BFGS-B iter 1501: NLL=-178.3310 [11s]
+2026-06-06 01:52:14 [INFO]     L-BFGS-B iter 1518: NLL=-178.3326 [11s]
+2026-06-06 01:52:15 [INFO]     L-BFGS-B iter 1535: NLL=-178.3329 [11s]
+2026-06-06 01:52:15 [INFO]     L-BFGS-B iter 1552: NLL=-178.3335 [11s]
+2026-06-06 01:52:15 [INFO]     L-BFGS-B iter 1569: NLL=-178.3344 [11s]
+2026-06-06 01:52:15 [INFO]     L-BFGS-B iter 1586: NLL=-178.3361 [12s]
+2026-06-06 01:52:15 [INFO]     L-BFGS-B iter 1603: NLL=-178.3378 [12s]
+2026-06-06 01:52:15 [INFO]     L-BFGS-B iter 1620: NLL=-178.3394 [12s]
+2026-06-06 01:52:15 [INFO]     L-BFGS-B iter 1637: NLL=-178.3396 [12s]
+2026-06-06 01:52:15 [INFO]     L-BFGS-B iter 1654: NLL=-178.3397 [12s]
+2026-06-06 01:52:15 [INFO]     Theta optimization: 70 L-BFGS iters, 1654 NLL evals, final NLL=-178.3397 [12.0s]
+2026-06-06 01:52:15 [INFO]     Building 274x274 correlation matrix and Cholesky...
+2026-06-06 01:52:15 [INFO]     Training complete — sigma²=0.3567, theta range=[0.241, 54.598] [12.0s total]
+2026-06-06 01:52:15 [INFO]   Emulator 1/1 [ir_symp_6-11 m]: trained [12.0s]
+2026-06-06 01:52:15 [INFO] [Wave 3] Phase 4/5 EMULATOR TRAINING: complete [12.0s]
+2026-06-06 01:52:15 [INFO] [Wave 3] Phase 5/5 NROY SAMPLING: finding 2000 plausible candidates for next wave...
+2026-06-06 01:52:15 [INFO]   LHS rejection: 0/2000 (0%) — starting
+2026-06-06 01:52:16 [INFO]   LHS rejection: 549/2000 (27%) | 2,200 tested | rate=24.9545% [0s]
+2026-06-06 01:52:17 [INFO]   LHS rejection: 2320/2000 (116%) | 8,596 tested | rate=26.9893% [1s]
+2026-06-06 01:52:17 [INFO]   LHS rejection: 2000/2000 [1.2s]
+2026-06-06 01:52:17 [INFO]   NROY SUMMARY: 2000/2000 [OK] — sources: LHS=2000 [1.2s]
+2026-06-06 01:52:17 [DEBUG] NROY fraction: 0.232666
+2026-06-06 01:52:17 [INFO] [Wave 3] Phase 5/5 NROY SAMPLING: found 2000 candidates [1.2s]
+2026-06-06 01:52:17 [INFO] [Wave 3] ALL PHASES COMPLETE [2517.4s total]. Committing...
+2026-06-06 01:52:36 [INFO] Checkpoint saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/checkpoint.pkl
+2026-06-06 01:52:36 [INFO] Wave 3 output saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/wave3
+2026-06-06 01:52:36 [INFO] [Wave 3] COMMITTED — diagnostics and checkpoint saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd
+2026-06-06 01:52:36 [INFO] ============================================================
+2026-06-06 01:52:36 [INFO] ============================================================
+2026-06-06 01:52:36 [INFO] WAVE 4 STARTING
+2026-06-06 01:52:36 [INFO] ============================================================
+2026-06-06 01:52:36 [INFO] [Wave 4] Phase 1/5 SAMPLING: using 2000 pre-computed samples from wave 3 [0.0s]
+2026-06-06 01:52:36 [INFO] [Wave 4] Phase 2/5 SIMULATION: running 2000 simulations...
+2026-06-06 02:34:19 [INFO] [Wave 4] Phase 2/5 SIMULATION: complete — 6 outputs [2502.8s]
+2026-06-06 02:34:19 [INFO]   Feature ranking (mean_sq_z): ir_symp_12-23 m=42.97, ir_symp_<6 m=27.52, first_inf_median=26.51, repeat_detected_frac=13.50, ir_symp_6-11 m=12.83
+2026-06-06 02:34:19 [INFO]   Cooldown (skip): ['ir_symp_<6 m', 'ir_symp_6-11 m']
+2026-06-06 02:34:19 [INFO]   SELECTED: ir_symp_12-23 m (score=42.97, mean_z=2.93, std_z=5.87)
+2026-06-06 02:34:19 [INFO] [Wave 4] Phase 3/5 FEATURE SELECTION: ['ir_symp_12-23 m'] [0.0s]
+2026-06-06 02:34:19 [INFO] [Wave 4] Phase 4/5 EMULATOR TRAINING: training 1 emulators...
+2026-06-06 02:34:19 [WARNING]   Feature 'ir_symp_12-23 m': dropping 1725/2000 NaN rows before training
+2026-06-06 02:34:19 [INFO]   Emulator 1/1 [ir_symp_12-23 m]: creating (275 samples, 15 params, type=bayes_linear)...
+2026-06-06 02:34:19 [DEBUG] Created bayes_linear emulator for feature: ir_symp_12-23 m
+2026-06-06 02:34:19 [INFO]   Emulator 1/1 [ir_symp_12-23 m]: training...
+2026-06-06 02:34:19 [INFO]     Training Bayes Linear: 206 points, 15 dims
+2026-06-06 02:34:19 [INFO]     OLS trend fit [0.0s]
+2026-06-06 02:34:19 [INFO]     Optimizing theta (15 correlation lengths, 206x206 Cholesky per eval)...
+2026-06-06 02:34:19 [INFO]     L-BFGS-B iter 65: NLL=-168.4139 [0s]
+2026-06-06 02:34:19 [INFO]     L-BFGS-B iter 82: NLL=-170.6020 [0s]
+2026-06-06 02:34:19 [INFO]     L-BFGS-B iter 99: NLL=-171.6235 [0s]
+2026-06-06 02:34:19 [INFO]     L-BFGS-B iter 116: NLL=-172.1403 [0s]
+2026-06-06 02:34:19 [INFO]     L-BFGS-B iter 133: NLL=-172.4025 [1s]
+2026-06-06 02:34:19 [INFO]     L-BFGS-B iter 150: NLL=-172.7912 [1s]
+2026-06-06 02:34:20 [INFO]     L-BFGS-B iter 183: NLL=-172.8920 [1s]
+2026-06-06 02:34:20 [INFO]     L-BFGS-B iter 200: NLL=-173.0141 [1s]
+2026-06-06 02:34:20 [INFO]     L-BFGS-B iter 217: NLL=-173.0955 [1s]
+2026-06-06 02:34:20 [INFO]     L-BFGS-B iter 234: NLL=-173.1192 [1s]
+2026-06-06 02:34:20 [INFO]     L-BFGS-B iter 251: NLL=-173.1322 [1s]
+2026-06-06 02:34:20 [INFO]     L-BFGS-B iter 268: NLL=-173.1337 [1s]
+2026-06-06 02:34:20 [INFO]     L-BFGS-B iter 285: NLL=-173.1394 [1s]
+2026-06-06 02:34:20 [INFO]     L-BFGS-B iter 302: NLL=-173.1401 [1s]
+2026-06-06 02:34:20 [INFO]     L-BFGS-B iter 319: NLL=-173.1416 [1s]
+2026-06-06 02:34:20 [INFO]     L-BFGS-B iter 336: NLL=-173.1420 [1s]
+2026-06-06 02:34:20 [INFO]     L-BFGS-B iter 353: NLL=-173.1428 [1s]
+2026-06-06 02:34:20 [INFO]     L-BFGS-B iter 370: NLL=-173.1429 [1s]
+2026-06-06 02:34:20 [INFO]     Theta optimization: 18 L-BFGS iters, 370 NLL evals, final NLL=-173.1429 [1.4s]
+2026-06-06 02:34:20 [INFO]     Building 206x206 correlation matrix and Cholesky...
+2026-06-06 02:34:20 [INFO]     Training complete — sigma²=0.4972, theta range=[0.621, 3.937] [1.4s total]
+2026-06-06 02:34:20 [INFO]   Emulator 1/1 [ir_symp_12-23 m]: trained [1.4s]
+2026-06-06 02:34:20 [INFO] [Wave 4] Phase 4/5 EMULATOR TRAINING: complete [1.4s]
+2026-06-06 02:34:20 [INFO] [Wave 4] Phase 5/5 NROY SAMPLING: finding 2000 plausible candidates for next wave...
+2026-06-06 02:34:20 [INFO]   LHS rejection: 0/2000 (0%) — starting
+2026-06-06 02:34:21 [INFO]   LHS rejection: 409/2000 (20%) | 2,200 tested | rate=18.5909% [0s]
+2026-06-06 02:34:22 [INFO]   LHS rejection: 2351/2000 (117%) | 11,613 tested | rate=20.2446% [1s]
+2026-06-06 02:34:22 [INFO]   LHS rejection: 2000/2000 [1.4s]
+2026-06-06 02:34:22 [INFO]   NROY SUMMARY: 2000/2000 [OK] — sources: LHS=2000 [1.4s]
+2026-06-06 02:34:22 [DEBUG] NROY fraction: 0.172221
+2026-06-06 02:34:22 [INFO] [Wave 4] Phase 5/5 NROY SAMPLING: found 2000 candidates [1.4s]
+2026-06-06 02:34:22 [INFO] [Wave 4] ALL PHASES COMPLETE [2505.6s total]. Committing...
+2026-06-06 02:34:41 [INFO] Checkpoint saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/checkpoint.pkl
+2026-06-06 02:34:41 [INFO] Wave 4 output saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/wave4
+2026-06-06 02:34:41 [INFO] [Wave 4] COMMITTED — diagnostics and checkpoint saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd
+2026-06-06 02:34:41 [INFO] ============================================================
+2026-06-06 02:34:41 [INFO] ============================================================
+2026-06-06 02:34:41 [INFO] WAVE 5 STARTING
+2026-06-06 02:34:41 [INFO] ============================================================
+2026-06-06 02:34:41 [INFO] [Wave 5] Phase 1/5 SAMPLING: using 2000 pre-computed samples from wave 4 [0.0s]
+2026-06-06 02:34:41 [INFO] [Wave 5] Phase 2/5 SIMULATION: running 2000 simulations...
+2026-06-06 03:16:17 [INFO] [Wave 5] Phase 2/5 SIMULATION: complete — 6 outputs [2496.1s]
+2026-06-06 03:16:17 [INFO]   Feature ranking (mean_sq_z): ir_symp_<6 m=35.05, first_inf_median=20.15, ir_symp_12-23 m=16.19, repeat_detected_frac=15.37, ir_symp_6-11 m=12.71
+2026-06-06 03:16:17 [INFO]   Cooldown (skip): ['ir_symp_6-11 m', 'ir_symp_12-23 m']
+2026-06-06 03:16:17 [INFO]   SELECTED: ir_symp_<6 m (score=35.05, mean_z=3.77, std_z=4.57)
+2026-06-06 03:16:17 [INFO] [Wave 5] Phase 3/5 FEATURE SELECTION: ['ir_symp_<6 m'] [0.0s]
+2026-06-06 03:16:17 [INFO] [Wave 5] Phase 4/5 EMULATOR TRAINING: training 1 emulators...
+2026-06-06 03:16:17 [WARNING]   Feature 'ir_symp_<6 m': dropping 1708/2000 NaN rows before training
+2026-06-06 03:16:17 [INFO]   Emulator 1/1 [ir_symp_<6 m]: creating (292 samples, 15 params, type=bayes_linear)...
+2026-06-06 03:16:17 [DEBUG] Created bayes_linear emulator for feature: ir_symp_<6 m
+2026-06-06 03:16:17 [INFO]   Emulator 1/1 [ir_symp_<6 m]: training...
+2026-06-06 03:16:17 [INFO]     Training Bayes Linear: 219 points, 15 dims
+2026-06-06 03:16:17 [INFO]     OLS trend fit [0.0s]
+2026-06-06 03:16:17 [INFO]     Optimizing theta (15 correlation lengths, 219x219 Cholesky per eval)...
+2026-06-06 03:16:17 [INFO]     L-BFGS-B iter 33: NLL=-85.7507 [0s]
+2026-06-06 03:16:17 [INFO]     Theta optimization: 1 L-BFGS iters, 33 NLL evals, final NLL=-85.7507 [0.2s]
+2026-06-06 03:16:17 [INFO]     Building 219x219 correlation matrix and Cholesky...
+2026-06-06 03:16:17 [INFO]     Training complete — sigma²=0.4570, theta range=[0.018, 54.598] [0.2s total]
+2026-06-06 03:16:17 [INFO]   Emulator 1/1 [ir_symp_<6 m]: trained [0.2s]
+2026-06-06 03:16:17 [INFO] [Wave 5] Phase 4/5 EMULATOR TRAINING: complete [0.2s]
+2026-06-06 03:16:17 [INFO] [Wave 5] Phase 5/5 NROY SAMPLING: finding 2000 plausible candidates for next wave...
+2026-06-06 03:16:17 [INFO]   LHS rejection: 0/2000 (0%) — starting
+2026-06-06 03:16:18 [INFO]   LHS rejection: 396/2000 (19%) | 2,200 tested | rate=18.0000% [0s]
+2026-06-06 03:16:19 [INFO]   LHS rejection: 2368/2000 (118%) | 12,002 tested | rate=19.7300% [2s]
+2026-06-06 03:16:19 [INFO]   LHS rejection: 2000/2000 [1.6s]
+2026-06-06 03:16:19 [INFO]   NROY SUMMARY: 2000/2000 [OK] — sources: LHS=2000 [1.6s]
+2026-06-06 03:16:19 [DEBUG] NROY fraction: 0.166639
+2026-06-06 03:16:19 [INFO] [Wave 5] Phase 5/5 NROY SAMPLING: found 2000 candidates [1.6s]
+2026-06-06 03:16:19 [INFO] [Wave 5] ALL PHASES COMPLETE [2497.8s total]. Committing...
+2026-06-06 03:16:38 [INFO] Checkpoint saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/checkpoint.pkl
+2026-06-06 03:16:38 [INFO] Wave 5 output saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/wave5
+2026-06-06 03:16:38 [INFO] [Wave 5] COMMITTED — diagnostics and checkpoint saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd
+2026-06-06 03:16:38 [INFO] ============================================================
+2026-06-06 03:16:38 [INFO] ============================================================
+2026-06-06 03:16:38 [INFO] WAVE 6 STARTING
+2026-06-06 03:16:38 [INFO] ============================================================
+2026-06-06 03:16:38 [INFO] [Wave 6] Phase 1/5 SAMPLING: using 2000 pre-computed samples from wave 5 [0.0s]
+2026-06-06 03:16:38 [INFO] [Wave 6] Phase 2/5 SIMULATION: running 2000 simulations...
+2026-06-06 03:58:17 [INFO] [Wave 6] Phase 2/5 SIMULATION: complete — 6 outputs [2498.3s]
+2026-06-06 03:58:17 [INFO]   Feature ranking (mean_sq_z): ir_symp_<6 m=29.90, ir_symp_12-23 m=20.42, first_inf_median=16.83, repeat_detected_frac=14.21, ir_symp_6-11 m=11.06
+2026-06-06 03:58:17 [INFO]   Cooldown (skip): ['ir_symp_12-23 m', 'ir_symp_<6 m']
+2026-06-06 03:58:17 [INFO]   SELECTED: repeat_detected_frac (score=14.21, mean_z=1.40, std_z=3.51)
+2026-06-06 03:58:17 [INFO] [Wave 6] Phase 3/5 FEATURE SELECTION: ['repeat_detected_frac'] [0.0s]
+2026-06-06 03:58:17 [INFO] [Wave 6] Phase 4/5 EMULATOR TRAINING: training 1 emulators...
+2026-06-06 03:58:17 [WARNING]   Feature 'repeat_detected_frac': dropping 1685/2000 NaN rows before training
+2026-06-06 03:58:17 [INFO]   Emulator 1/1 [repeat_detected_frac]: creating (315 samples, 15 params, type=bayes_linear)...
+2026-06-06 03:58:17 [DEBUG] Created bayes_linear emulator for feature: repeat_detected_frac
+2026-06-06 03:58:17 [INFO]   Emulator 1/1 [repeat_detected_frac]: training...
+2026-06-06 03:58:17 [INFO]     Training Bayes Linear: 236 points, 15 dims
+2026-06-06 03:58:17 [INFO]     OLS trend fit [0.0s]
+2026-06-06 03:58:17 [INFO]     Optimizing theta (15 correlation lengths, 236x236 Cholesky per eval)...
+2026-06-06 03:58:17 [INFO]     L-BFGS-B iter 33: NLL=-82.2623 [0s]
+2026-06-06 03:58:17 [INFO]     Theta optimization: 1 L-BFGS iters, 33 NLL evals, final NLL=-82.2623 [0.2s]
+2026-06-06 03:58:17 [INFO]     Building 236x236 correlation matrix and Cholesky...
+2026-06-06 03:58:17 [INFO]     Training complete — sigma²=0.4980, theta range=[0.018, 54.598] [0.2s total]
+2026-06-06 03:58:17 [INFO]   Emulator 1/1 [repeat_detected_frac]: trained [0.2s]
+2026-06-06 03:58:17 [INFO] [Wave 6] Phase 4/5 EMULATOR TRAINING: complete [0.2s]
+2026-06-06 03:58:17 [INFO] [Wave 6] Phase 5/5 NROY SAMPLING: finding 2000 plausible candidates for next wave...
+2026-06-06 03:58:17 [INFO]   LHS rejection: 0/2000 (0%) — starting
+2026-06-06 03:58:17 [INFO]   LHS rejection: 356/2000 (17%) | 2,200 tested | rate=16.1818% [0s]
+2026-06-06 03:58:19 [INFO]   LHS rejection: 2433/2000 (121%) | 13,375 tested | rate=18.1907% [2s]
+2026-06-06 03:58:19 [INFO]   LHS rejection: 2000/2000 [1.9s]
+2026-06-06 03:58:19 [INFO]   NROY SUMMARY: 2000/2000 [OK] — sources: LHS=2000 [1.9s]
+2026-06-06 03:58:19 [DEBUG] NROY fraction: 0.149533
+2026-06-06 03:58:19 [INFO] [Wave 6] Phase 5/5 NROY SAMPLING: found 2000 candidates [1.9s]
+2026-06-06 03:58:19 [INFO] [Wave 6] ALL PHASES COMPLETE [2500.5s total]. Committing...
+2026-06-06 03:58:39 [INFO] Checkpoint saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/checkpoint.pkl
+2026-06-06 03:58:39 [INFO] Wave 6 output saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd/wave6
+2026-06-06 03:58:39 [INFO] [Wave 6] COMMITTED — diagnostics and checkpoint saved to /home/dklein/GIT/rotasim/experiments/07_history_matching/outputs/hm/maled_bd
+2026-06-06 03:58:39 [INFO] ============================================================
+2026-06-06 03:58:39 [INFO] ============================================================
+2026-06-06 03:58:39 [INFO] WAVE 7 STARTING
+2026-06-06 03:58:39 [INFO] ============================================================
+2026-06-06 03:58:39 [INFO] [Wave 7] Phase 1/5 SAMPLING: using 2000 pre-computed samples from wave 6 [0.0s]
+2026-06-06 03:58:39 [INFO] [Wave 7] Phase 2/5 SIMULATION: running 2000 simulations...

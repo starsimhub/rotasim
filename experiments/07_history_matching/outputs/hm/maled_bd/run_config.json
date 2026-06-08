@@ -1,0 +1,110 @@
+{
+  "parameters": [
+    "log_base_beta",
+    "young_reservoir",
+    "adult_contacts",
+    "infant_exposure",
+    "sus_after_1",
+    "sus_r2",
+    "sus_r3",
+    "log_titer_median",
+    "titer_gsd",
+    "titer_half_life_days",
+    "hill_slope",
+    "maternal_efficacy",
+    "p_symp_1",
+    "p_r2",
+    "p_r3"
+  ],
+  "parameter_bounds": {
+    "log_base_beta": [
+      -2.3025850929940455,
+      -0.5108256237659907
+    ],
+    "young_reservoir": [
+      1.0,
+      15.0
+    ],
+    "adult_contacts": [
+      0.5,
+      2.5
+    ],
+    "infant_exposure": [
+      0.3,
+      4.0
+    ],
+    "sus_after_1": [
+      0.1,
+      1.0
+    ],
+    "sus_r2": [
+      0.0,
+      1.0
+    ],
+    "sus_r3": [
+      0.0,
+      1.0
+    ],
+    "log_titer_median": [
+      1.3862943611198906,
+      4.0943445622221
+    ],
+    "titer_gsd": [
+      1.3,
+      3.5
+    ],
+    "titer_half_life_days": [
+      25.0,
+      70.0
+    ],
+    "hill_slope": [
+      1.5,
+      8.0
+    ],
+    "maternal_efficacy": [
+      0.7,
+      0.99
+    ],
+    "p_symp_1": [
+      0.4,
+      1.0
+    ],
+    "p_r2": [
+      0.0,
+      1.0
+    ],
+    "p_r3": [
+      0.0,
+      1.0
+    ]
+  },
+  "observations": {
+    "ir_symp_<6 m": [
+      1.91,
+      0.38698296450207575
+    ],
+    "ir_symp_6-11 m": [
+      5.37,
+      0.6548983416056554
+    ],
+    "ir_symp_12-23 m": [
+      2.35,
+      0.3385656434360318
+    ],
+    "repeat_detected_frac": [
+      0.43,
+      0.04536745399901719
+    ],
+    "frac_ever_detected": [
+      0.638,
+      0.034136497615947184
+    ],
+    "first_inf_median": [
+      7.98,
+      0.5389322777492549
+    ]
+  },
+  "n_samples": 2000,
+  "max_iterations": 8,
+  "implausibility_threshold": 3.0
+}

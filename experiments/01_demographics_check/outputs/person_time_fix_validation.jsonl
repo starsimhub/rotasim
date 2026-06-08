@@ -1,0 +1,8 @@
+{"site": "bangladesh", "bin": "<6 m", "pm_accumulated": 12445.5, "pm_snapshot": 12300.0, "ratio_snapshot_to_accumulated": 0.9883}
+{"site": "bangladesh", "bin": "6-11 m", "pm_accumulated": 12249.4, "pm_snapshot": 12240.0, "ratio_snapshot_to_accumulated": 0.9992}
+{"site": "bangladesh", "bin": "12-23 m", "pm_accumulated": 23784.8, "pm_snapshot": 25020.0, "ratio_snapshot_to_accumulated": 1.0519}
+{"site": "bangladesh", "bin": "24-35 m", "pm_accumulated": 23094.3, "pm_snapshot": 26760.0, "ratio_snapshot_to_accumulated": 1.1587}
+{"site": "pakistan", "bin": "<6 m", "pm_accumulated": 19068.7, "pm_snapshot": 18960.0, "ratio_snapshot_to_accumulated": 0.9943}
+{"site": "pakistan", "bin": "6-11 m", "pm_accumulated": 18661.2, "pm_snapshot": 19500.0, "ratio_snapshot_to_accumulated": 1.0449}
+{"site": "pakistan", "bin": "12-23 m", "pm_accumulated": 36116.9, "pm_snapshot": 39120.0, "ratio_snapshot_to_accumulated": 1.0832}
+{"site": "pakistan", "bin": "24-35 m", "pm_accumulated": 34508.3, "pm_snapshot": 39900.0, "ratio_snapshot_to_accumulated": 1.1562}
