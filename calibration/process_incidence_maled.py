@@ -343,6 +343,26 @@ def gof_incidence(model_ir: pd.DataFrame, target_ir: pd.DataFrame) -> float:
     return float(np.sum((m - t) ** 2))
 
 
+def gof_incidence_poisson(model_ir: pd.DataFrame, target_ir: pd.DataFrame) -> float:
+    """Poisson deviance of the observed (MAL-ED) age-bin case counts under the model's
+    predicted rate. Pure per-bin Poisson MLE (no free weights): minimizing this is
+    maximizing the per-bin Poisson likelihood. Unlike the squared-log-IR term it
+    penalizes putting cases in the wrong age BIN (shape), not just per-bin level, and
+    it weights the sparse 24-35mo bin (1 case) correctly instead of letting the
+    log+LOG_EPS over-weight it.
+
+    Expected count in bin k = (model IR_k / 100) * observed person-months_k; observed
+    count = MAL-ED cases_k. Deviance = 2*sum_k[c_k*log(c_k/lam_k) - (c_k - lam_k)]
+    (the c*log(c/lam) term is 0 where c_k=0). Deviance keeps the term on a chi-square
+    scale (O(few) at a good fit), comparable to gof_first_infection, so the joint
+    weighting carries over from the squared-log objective. Lower = better."""
+    c = target_ir['cases'].values.astype(float)            # observed MAL-ED counts
+    pt = target_ir['PT'].values.astype(float)              # observed person-months
+    lam = np.maximum(model_ir['IR'].values / 100.0 * pt, 1e-9)  # model-expected counts
+    dev = np.where(c > 0, c * np.log(np.where(c > 0, c, 1.0) / lam), 0.0)
+    return float(2.0 * np.sum(dev + (lam - c)))
+
+
 def gof_first_infection(model_q: dict, target_q: dict) -> float:
     """Squared difference in median/Q25/Q75 of age-at-first-infection, normalised
     by the target median so the result is unitless and on a similar scale to GOF_inc."""
@@ -359,22 +379,34 @@ def gof(model_out: dict, targets: dict,
         w_inc: float = 1.0, w_first: float = 1.0,
         fit_target: str = 'joint') -> dict:
     """Combined GOF. `fit_target` selects which terms count:
-      - 'joint':           w_inc * GOF_inc + w_first * GOF_first
-      - 'symptomatic_ir':  GOF_inc only (w_first ignored)
+      - 'joint':           w_inc * GOF_inc(squared-log) + w_first * GOF_first
+      - 'symptomatic_ir':  GOF_inc (squared-log) only (w_first ignored)
       - 'first_infection': GOF_first only (w_inc ignored)
-    Per-component values are always returned for logging.
+      - 'poisson':         w_inc * GOF_inc_poisson(deviance) + w_first * GOF_first
+      - 'poisson_ir':      GOF_inc_poisson only (w_first ignored)
+    Per-component values (both incidence forms) are always returned for logging.
+    `gof_incidence_active` is whichever incidence term is in the objective.
     """
     g_inc = gof_incidence(model_out['ir_by_age'], targets['ir_by_age'])
+    g_inc_pois = gof_incidence_poisson(model_out['ir_by_age'], targets['ir_by_age'])
     g_first = gof_first_infection(model_out['first_infection'], targets['first_infection'])
+    g_inc_active = g_inc
     if fit_target == 'symptomatic_ir':
         total = g_inc
     elif fit_target == 'first_infection':
         total = g_first
     elif fit_target == 'joint':
         total = w_inc * g_inc + w_first * g_first
+    elif fit_target == 'poisson':
+        g_inc_active = g_inc_pois
+        total = w_inc * g_inc_pois + w_first * g_first
+    elif fit_target == 'poisson_ir':
+        g_inc_active = g_inc_pois
+        total = g_inc_pois
     else:
         raise ValueError(f"Unknown fit_target: {fit_target}")
-    return dict(gof=total, gof_incidence=g_inc, gof_first_infection=g_first,
+    return dict(gof=total, gof_incidence=g_inc, gof_incidence_poisson=g_inc_pois,
+                gof_incidence_active=g_inc_active, gof_first_infection=g_first,
                 w_inc=w_inc, w_first=w_first, fit_target=fit_target)
 
 

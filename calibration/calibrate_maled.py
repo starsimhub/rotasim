@@ -261,10 +261,13 @@ class MALEDCalibration:
             std_total    = float(np.std(gofs)),
             min_total    = float(np.min(gofs)),
             max_total    = float(np.max(gofs)),
-            median_inc   = float(np.median([b['gof_incidence']        for b in breakdowns])),
+            # 'active' incidence term = whichever form is in the objective (squared-log
+            # for joint/symptomatic_ir, Poisson deviance for poisson*); falls back to
+            # squared-log for older breakdowns without the key.
+            median_inc   = float(np.median([b.get('gof_incidence_active', b['gof_incidence']) for b in breakdowns])),
             median_first = float(np.median([b['gof_first_infection'] for b in breakdowns])),
             per_rep_gofs  = gofs,
-            per_rep_inc   = [float(b['gof_incidence'])       for b in breakdowns],
+            per_rep_inc   = [float(b.get('gof_incidence_active', b['gof_incidence'])) for b in breakdowns],
             per_rep_first = [float(b['gof_first_infection']) for b in breakdowns],
         )
 
@@ -397,11 +400,14 @@ def main():
     parser.add_argument('--w-inc', type=float, default=1.0)
     parser.add_argument('--w-first', type=float, default=1.0)
     parser.add_argument('--fit-target', type=str, default='joint',
-                        choices=['joint', 'symptomatic_ir', 'first_infection'],
+                        choices=['joint', 'symptomatic_ir', 'first_infection',
+                                 'poisson', 'poisson_ir'],
                         help='Which GOF component(s) to optimize against. '
-                             '"joint" = incidence + first-inf; '
-                             '"symptomatic_ir" = only the per-age-bin IR target; '
-                             '"first_infection" = only the age-at-first-detection target.')
+                             '"joint" = squared-log incidence + first-inf; '
+                             '"symptomatic_ir" = only the squared-log per-age-bin IR; '
+                             '"first_infection" = only the age-at-first-detection target; '
+                             '"poisson" = per-bin Poisson-deviance incidence + first-inf '
+                             '(shape-aware); "poisson_ir" = Poisson incidence only.')
     parser.add_argument('--p-asymp-detect', type=float, default=0.4,
                         help='Probability MAL-ED detects an asymptomatic infection '
                              'via monthly stool (default 0.4 = ~shedding/collection_interval).')
