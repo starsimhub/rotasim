@@ -157,6 +157,20 @@ def _run_one_replicate(args):
         censor_at_months=36.0,
         p_asymp_detect=sim_config.get('p_asymp_detect', 0.4),
     )
+    # starsim#1343: each ss.Sim leaks its start/finish_step bound methods into a
+    # module-level list that is never cleared, so a worker that builds many sims
+    # accumulates pinned sims (each with its full network/state) until the box OOMs.
+    # shrink() drops the large arrays so even a pinned sim is tiny; everything we
+    # need (df, pt, model_out) is already extracted above. die=False -> warn rather
+    # than raise if a component won't shrink. Paired with maxtasksperchild in the
+    # within-trial Pool, which periodically discards the leaked module-level list.
+    # (Mitigation flagged by D. Klein; fix is not in any released starsim.)
+    try:
+        sim.shrink(die=False)
+    except TypeError:
+        sim.shrink()  # older starsim without the die kwarg
+    except Exception:
+        pass
     return model_out
 
 
@@ -242,7 +256,11 @@ class MALEDCalibration:
 
         n_workers = min(self.n_reps, self.n_cpus or self.n_reps)
         ctx = get_context('spawn')
-        with ctx.Pool(processes=n_workers) as pool:
+        # maxtasksperchild recycles each worker process every few tasks, discarding
+        # the process-global list that starsim#1343 leaks into (belt-and-suspenders
+        # with the sim.shrink() in _run_one_replicate). Cheap: workers re-import the
+        # module on respawn, but a calibration sim run dwarfs that.
+        with ctx.Pool(processes=n_workers, maxtasksperchild=4) as pool:
             model_outs = pool.map(_run_one_replicate, args_list)
         return model_outs
 
