@@ -76,6 +76,12 @@ def _run_one_replicate(args):
         use_infection_based_severity=False,
         constant_severity=sim_config['constant_severity'],
     )
+    # Unbiased IR denominator: accumulate (count in bin) x dt over LIVING agents in
+    # the calibration window, instead of the end-of-sim headcount snapshot x window
+    # length. The snapshot overstates older cohorts (up to ~16% in 24-35mo) because
+    # the population grows; the accumulator is exact regardless of demographic drift.
+    # (Ported from D. Klein; affects the age gradient / sus_after_3plus, ~0 in <6m.)
+    pt_analyzer = rs.PersonTimeByAge(calibration_window=cal_window)
     immunity_connector = rs.RotaImmunityConnector(use_fixed_susceptibility=False)
     people = ss.People(n_agents=sim_config['n_agents'],
                        age_data=sim_config['age_data_path'])
@@ -86,7 +92,7 @@ def _run_one_replicate(args):
         verbose=False,
         scenario='single',
         people=people,
-        analyzers=[analyzer],
+        analyzers=[analyzer, pt_analyzer],
         networks=ss.RandomNet(n_contacts=sim_config['n_contacts']),
         demographics=[
             ss.Births(birth_rate=ss.peryear(sim_config['birth_rate'])),
@@ -135,10 +141,8 @@ def _run_one_replicate(args):
     # downstream. Everything large stays inside the worker process and is
     # released when the worker is reused for the next task or torn down.
     df = sim.analyzers['infectedstrainstats'].to_df()
-    pt = process_incidence_maled.compute_person_months_steady_state(
-        ages_years=sim.people.age.values,
-        window_months=(cal_window[1] - cal_window[0]) * 12.0,
-    )
+    # Person-time denominator from the accumulator analyzer (read BEFORE shrink()).
+    pt = sim.analyzers['persontimebyage'].person_months
     model_out = process_incidence_maled.process_model(
         df,
         person_months_by_bin=pt,
