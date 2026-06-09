@@ -121,14 +121,23 @@ def _run_one_replicate(args):
     # Defaults to OFF (0.0 efficacy) if not in sim_pars -- lets us re-run old
     # trials that pre-date this parameter via evaluate_trial.py.
     ic.pars['maternal_immunity_efficacy']  = sim_pars.get('maternal_immunity_efficacy', 0.0)
-    # Erlang shape for the main maternal component (1 = exponential, ~6 = sharp).
-    ic.pars['maternal_immunity_n_stages'] = sim_config.get('maternal_n_stages', 1)
-    # Scale: prefer an explicit mean duration (1/omega) if the trial fits one,
-    # else fall back to the half-life param (backward compat with age-model trials).
-    if 'maternal_immunity_mean_duration_days' in sim_pars:
-        ic.pars['maternal_immunity_mean_duration'] = ss.days(sim_pars['maternal_immunity_mean_duration_days'])
+    # Maternal waning model: 'titer' (D. Klein IBM) or 'erlang' (default).
+    if sim_config.get('maternal_model', 'erlang') == 'titer':
+        ic.pars['maternal_immunity_model']   = 'titer'
+        ic.pars['maternal_titer_median']     = sim_pars['maternal_titer_median']
+        ic.pars['maternal_titer_gsd']        = sim_pars['maternal_titer_gsd']
+        ic.pars['maternal_titer_half_life']  = ss.days(sim_pars['maternal_titer_half_life_days'])
+        ic.pars['maternal_hill_slope']       = sim_pars['maternal_hill_slope']
     else:
-        ic.pars['maternal_immunity_half_life'] = ss.days(sim_pars.get('maternal_immunity_half_life_days', 90.0))
+        ic.pars['maternal_immunity_model'] = 'erlang'
+        # Erlang shape for the main maternal component (1 = exponential, ~6 = sharp).
+        ic.pars['maternal_immunity_n_stages'] = sim_config.get('maternal_n_stages', 1)
+        # Scale: prefer an explicit mean duration (1/omega) if the trial fits one,
+        # else fall back to the half-life param (backward compat with age-model trials).
+        if 'maternal_immunity_mean_duration_days' in sim_pars:
+            ic.pars['maternal_immunity_mean_duration'] = ss.days(sim_pars['maternal_immunity_mean_duration_days'])
+        else:
+            ic.pars['maternal_immunity_half_life'] = ss.days(sim_pars.get('maternal_immunity_half_life_days', 90.0))
     # Slow (breastfeeding) maternal component; defaults to OFF for trials predating it.
     ic.pars['maternal_immunity_efficacy_slow']  = sim_pars.get('maternal_immunity_efficacy_slow', 0.0)
     ic.pars['maternal_immunity_half_life_slow'] = ss.days(sim_pars.get('maternal_immunity_half_life_slow_days', 270.0))
@@ -210,19 +219,26 @@ class MALEDCalibration:
         sus_after_2     = trial.suggest_float('sus_after_2',     sus_after_3plus, 1.0)
         sus_after_1     = trial.suggest_float('sus_after_1',     sus_after_2, 1.0)
         maternal_immunity_efficacy = trial.suggest_float('maternal_immunity_efficacy', 0.5, 0.99)
-        # Maternal immunity is held to a COMMON structure across all symptom models
-        # being compared: Erlang(n_stages, set at config level) scaled by a fitted
-        # mean duration (1/omega; literature LMIC fits ~3-5 months). Fitting it
-        # separately per model -- but with identical structure -- keeps the formal
-        # symptom-model comparison clean (differences are due to symptoms, not maternal).
-        maternal_immunity_mean_duration_days = trial.suggest_float(
-            'maternal_immunity_mean_duration_days', 30.0, 300.0)
         pars = dict(
             base_beta=base_beta,
             sus_after_1=sus_after_1, sus_after_2=sus_after_2, sus_after_3plus=sus_after_3plus,
             maternal_immunity_efficacy=maternal_immunity_efficacy,
-            maternal_immunity_mean_duration_days=maternal_immunity_mean_duration_days,
         )
+        # Maternal waning shape: 'erlang' (default) or 'titer' (D. Klein's IBM model).
+        mat_model = self.sim_config.get('maternal_model', 'erlang')
+        if mat_model == 'titer':
+            # Per-infant log-normal initial titer -> common exponential decay ->
+            # sigmoidal Hill protection. median+half_life set the drop age (~6mo);
+            # gsd+hill_slope set the population peak sharpness. Priors match DK exp-06.
+            pars['maternal_titer_median']         = trial.suggest_float('maternal_titer_median', 4.0, 60.0, log=True)
+            pars['maternal_titer_gsd']            = trial.suggest_float('maternal_titer_gsd', 1.3, 3.5)
+            pars['maternal_titer_half_life_days'] = trial.suggest_float('maternal_titer_half_life_days', 25.0, 70.0)
+            pars['maternal_hill_slope']           = trial.suggest_float('maternal_hill_slope', 1.5, 8.0)
+        else:
+            # Erlang(n_stages, config-level) scaled by a fitted mean duration (1/omega;
+            # literature LMIC fits ~3-5 months).
+            pars['maternal_immunity_mean_duration_days'] = trial.suggest_float(
+                'maternal_immunity_mean_duration_days', 30.0, 300.0)
 
         sm = self.symptom_model
         if sm == 'infection_number':
@@ -350,14 +366,20 @@ class MALEDCalibration:
             self.logger.info(f"  Immunity: sus_1={sim_pars['sus_after_1']:.3f}, "
                              f"sus_2={sim_pars['sus_after_2']:.3f}, "
                              f"sus_3+={sim_pars['sus_after_3plus']:.3f}")
-            if 'maternal_immunity_mean_duration_days' in sim_pars:
+            if 'maternal_titer_median' in sim_pars:
+                self.logger.info(f"  Maternal (titer): efficacy={sim_pars['maternal_immunity_efficacy']:.3f}, "
+                                 f"median={sim_pars['maternal_titer_median']:.1f}, "
+                                 f"gsd={sim_pars['maternal_titer_gsd']:.2f}, "
+                                 f"half_life={sim_pars['maternal_titer_half_life_days']:.1f}d, "
+                                 f"hill={sim_pars['maternal_hill_slope']:.2f}")
+            elif 'maternal_immunity_mean_duration_days' in sim_pars:
                 n_stages = self.sim_config.get('maternal_n_stages', 1)
                 self.logger.info(f"  Maternal (Erlang n={n_stages}): "
                                  f"efficacy={sim_pars['maternal_immunity_efficacy']:.3f}, "
                                  f"mean_duration={sim_pars['maternal_immunity_mean_duration_days']:.1f} days")
             else:
                 self.logger.info(f"  Maternal FAST: efficacy={sim_pars['maternal_immunity_efficacy']:.3f}, "
-                                 f"half_life={sim_pars['maternal_immunity_half_life_days']:.1f} days")
+                                 f"half_life={sim_pars.get('maternal_immunity_half_life_days', 90.0):.1f} days")
             if 'maternal_immunity_efficacy_slow' in sim_pars:
                 self.logger.info(f"  Maternal SLOW: efficacy={sim_pars['maternal_immunity_efficacy_slow']:.3f}, "
                                  f"half_life={sim_pars['maternal_immunity_half_life_slow_days']:.1f} days")
@@ -450,6 +472,12 @@ def main():
                              'in the first months of life. Applies to the infection_number '
                              'model (which fits a mean duration); the age model keeps its '
                              'exponential two-phase maternal.')
+    parser.add_argument('--maternal-model', type=str, default='erlang',
+                        choices=['erlang', 'titer'],
+                        help="Maternal-immunity waning model. 'erlang' (default) = "
+                             "Erlang(n_stages) scaled by a fitted mean duration. 'titer' "
+                             "= D. Klein's IBM model (per-infant log-normal titer -> common "
+                             "decay -> Hill protection; fits median/gsd/half-life/slope).")
     parser.add_argument('--smoke', action='store_true',
                         help='Tiny end-to-end smoke test (5k agents, 5y sim, 1 trial, 1 rep).')
     args = parser.parse_args()
@@ -467,7 +495,10 @@ def main():
         'age_and_infection':         '_ageinf',
         'age_and_infection_offsets': '_ageinfoff',
     }.get(args.symptom_model, '')  # age_only / age_and_infection_simple -> '' (plain age)
-    mat_tag = f'_erlang{args.maternal_n_stages}' if args.maternal_n_stages > 1 else ''
+    if args.maternal_model == 'titer':
+        mat_tag = '_titer'
+    else:
+        mat_tag = f'_erlang{args.maternal_n_stages}' if args.maternal_n_stages > 1 else ''
     ft_suffix = '' if args.fit_target == 'joint' else f'_{args.fit_target}'
     if args.db_path is None:
         args.db_path = f'rota_maled_{args.site}{sm_tag}{mat_tag}{ft_suffix}.db'
@@ -497,6 +528,7 @@ def main():
     logger.info(f"GOF weights: w_inc={args.w_inc}, w_first={args.w_first}")
     logger.info(f"Fit target: {args.fit_target}")
     logger.info(f"Symptom model: {args.symptom_model}")
+    logger.info(f"Maternal model: {args.maternal_model}")
     logger.info(f"Maternal waning: Erlang n_stages={args.maternal_n_stages} "
                 f"({'exponential' if args.maternal_n_stages == 1 else 'sharpened'})")
     logger.info(f"P(asymp detect by MAL-ED): {args.p_asymp_detect:.2f}")
@@ -556,6 +588,7 @@ def main():
         age_data_path=str(age_file),
         symptom_model=args.symptom_model,
         maternal_n_stages=args.maternal_n_stages,
+        maternal_model=args.maternal_model,
     )
 
     study_name = f'rota_maled_{args.site}{sm_tag}{mat_tag}{ft_suffix}'

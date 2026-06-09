@@ -101,6 +101,20 @@ class RotaImmunityConnector(ss.Connector):
             maternal_immunity_mean_duration=None,
             maternal_immunity_efficacy_slow=0.0,    # slow / breastfeeding
             maternal_immunity_half_life_slow=ss.days(270),
+            # --- Titer-based maternal model (IBM-correct alternative to Erlang) ---
+            # 'erlang' (default, back-compat) applies a deterministic age-survival
+            # curve to all agents. 'titer' draws a per-infant initial maternal
+            # antibody titer (log-normal, IC50 units), decays it at a common rate,
+            # and maps titer->protection through a sigmoidal Hill curve (IC50=1).
+            # Population-level peak sharpness then emerges from the titer spread
+            # (gsd) and Hill slope rather than an imposed shape. (Literature:
+            # rotavirus maternal IgG ~exponential decay, half-life ~30-40d; initial
+            # titer varies ~log-normally; titer->protection is threshold-like.)
+            maternal_immunity_model='erlang',       # 'erlang' | 'titer'
+            maternal_titer_median=8.0,              # median initial titer / IC50 (>1 = protected at birth)
+            maternal_titer_gsd=2.0,                 # geometric SD of initial titers (peak-sharpness lever)
+            maternal_titer_half_life=ss.days(35),   # IgG decay half-life (~30-40d)
+            maternal_hill_slope=3.0,                # titer->protection Hill slope (sharpness lever)
             # Age-dependent baseline immunity parameters
             # adult_baseline_immunity=0.0,  # Baseline immunity for adults (e.g., from childhood exposure history). Calibration parameter.
             # adult_age_threshold=5.0,  # Age threshold (in years) for applying adult baseline immunity (default 5 years)
@@ -154,6 +168,7 @@ class RotaImmunityConnector(ss.Connector):
                 "final_decayed_immunity_factor", default=0.0
             ),  # Reusable array for final decay factor calculations (to reduce allocations)
             ss.FloatArr("baseline_immunity", default=0.0),  # Permanent baseline immunity (e.g., for adults with childhood exposure history)
+            ss.FloatArr("maternal_titer0", default=np.nan),  # Per-infant initial maternal antibody titer (IC50 units), titer model only
         )
 
         # Will be populated during init_post
@@ -422,21 +437,35 @@ class RotaImmunityConnector(ss.Connector):
             mat_eff_slow = float(self.pars.maternal_immunity_efficacy_slow)
             if mat_eff > 0 or mat_eff_slow > 0:
                 agent_ages_years = self.sim.people.age.values
-                # Main component: Erlang(n) waning (n=1 -> exponential). Mean duration
-                # from the explicit param if set, else the exponential-equivalent of
-                # the half-life (mean = half_life / ln2) for backward compatibility.
-                if self.pars.maternal_immunity_mean_duration is not None:
-                    mean_dur_years = self.pars.maternal_immunity_mean_duration.years
+                if self.pars.maternal_immunity_model == 'titer':
+                    # IBM-correct: per-infant initial titer (log-normal, IC50 units),
+                    # common exponential decay, sigmoidal Hill titer->protection.
+                    t0 = self.maternal_titer0.values
+                    need = np.isnan(t0)
+                    if need.any():
+                        if getattr(self, '_mat_rng', None) is None:
+                            self._mat_rng = np.random.default_rng(int(self.sim.pars.rand_seed or 0) + 90210)
+                        sigma = np.log(max(float(self.pars.maternal_titer_gsd), 1.0 + 1e-9))
+                        med = max(float(self.pars.maternal_titer_median), 1e-9)
+                        t0[need] = med * np.exp(sigma * self._mat_rng.standard_normal(int(need.sum())))
+                    hl_years = self.pars.maternal_titer_half_life.years
+                    titer = t0 * np.exp(-np.log(2) * agent_ages_years / hl_years)
+                    th = np.power(np.maximum(titer, 0.0), float(self.pars.maternal_hill_slope))
+                    maternal_protection = mat_eff * (th / (th + 1.0))  # Hill, IC50=1
                 else:
-                    mean_dur_years = self.pars.maternal_immunity_half_life.years / np.log(2)
-                p_main = mat_eff * erlang_survival(
-                    agent_ages_years, self.pars.maternal_immunity_n_stages, mean_dur_years)
-                if mat_eff_slow > 0:
-                    p_slow = mat_eff_slow * np.exp(
-                        -np.log(2) * agent_ages_years / self.pars.maternal_immunity_half_life_slow.years)
-                    maternal_protection = 1.0 - (1.0 - p_main) * (1.0 - p_slow)
-                else:
-                    maternal_protection = p_main
+                    # Erlang(n) waning (n=1 -> exponential), deterministic by age.
+                    if self.pars.maternal_immunity_mean_duration is not None:
+                        mean_dur_years = self.pars.maternal_immunity_mean_duration.years
+                    else:
+                        mean_dur_years = self.pars.maternal_immunity_half_life.years / np.log(2)
+                    p_main = mat_eff * erlang_survival(
+                        agent_ages_years, self.pars.maternal_immunity_n_stages, mean_dur_years)
+                    if mat_eff_slow > 0:
+                        p_slow = mat_eff_slow * np.exp(
+                            -np.log(2) * agent_ages_years / self.pars.maternal_immunity_half_life_slow.years)
+                        maternal_protection = 1.0 - (1.0 - p_main) * (1.0 - p_slow)
+                    else:
+                        maternal_protection = p_main
                 total_protection = np.maximum(acquired_protection, maternal_protection)
             else:
                 total_protection = acquired_protection
