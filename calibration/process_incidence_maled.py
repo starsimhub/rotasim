@@ -418,13 +418,17 @@ def gof_incidence_poisson(model_ir: pd.DataFrame, target_ir: pd.DataFrame) -> fl
     return float(2.0 * np.sum(dev + (lam - c)))
 
 
-def gof_first_infection(model_q: dict, target_q: dict) -> float:
-    """Squared difference in median/Q25/Q75 of age-at-first-infection, normalised
-    by the target median so the result is unitless and on a similar scale to GOF_inc."""
+def gof_first_infection(model_q: dict, target_q: dict, median_only: bool = False) -> float:
+    """Squared difference in age-at-first-infection quartiles, normalised by the target
+    median so the result is unitless and on a similar scale to GOF_inc. With
+    median_only=True, uses the median term alone (e.g. the cohort KM target, whose Q75 is
+    a heavy-censoring extrapolation we don't want to fit)."""
     scale = target_q['scale']
     if not np.isfinite(model_q['median']):
         return 100.0  # heavy penalty if the model produces no first infections
     med = (model_q['median'] - target_q['median']) / scale
+    if median_only:
+        return float(med ** 2)
     q25 = (model_q['q25']    - target_q['q25'])    / scale
     q75 = (model_q['q75']    - target_q['q75'])    / scale
     return float(med ** 2 + 0.5 * (q25 ** 2 + q75 ** 2))
@@ -457,7 +461,8 @@ def gof(model_out: dict, targets: dict,
     g_inc = gof_incidence(model_out['ir_by_age'], targets['ir_by_age'])
     g_inc_pois = gof_incidence_poisson(model_out['ir_by_age'], targets['ir_by_age'])
     first_target = targets['first_infection_km'] if fit_target == 'cohort' else targets['first_infection']
-    g_first = gof_first_infection(model_out['first_infection'], first_target)
+    g_first = gof_first_infection(model_out['first_infection'], first_target,
+                                  median_only=(fit_target == 'cohort'))
     g_repeat = gof_repeat(model_out.get('repeat_frac'), targets.get('repeat_frac'))
     g_inc_active = g_inc
     if fit_target == 'symptomatic_ir':
