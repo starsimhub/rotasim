@@ -39,29 +39,36 @@ TODO (needs decisions / data — see Open questions):
 
 ## Open questions for Alicia (the "other steps")
 
-1. **Censoring/dropout data.** Where is the MAL-ED Bangladesh per-child study-exit age
-   distribution (months)? (CSV / RData object?) Needed for `censoring_ages`. Until then
-   I'll placeholder with a 24-mo administrative exit + a nominal dropout, clearly flagged.
+1. **Censoring/dropout data — RESOLVED.** Source: `maled_data/first_infection_bangladesh.csv`
+   (from `CoxDat`, event_observed = `!is.na(DateRota)`). 265 children, 44% censored.
+   `censoring_ages` = `age_event_months` where `event_observed==0` (116 ages; median exit
+   23.9 mo; filter one <=0 edge row). No R re-run needed.
 
-2. **Re-derived targets — the big one.** The cohort observation changes what "a case"
-   and "first infection" mean (detected, KM-censored, among-followed cohort). Do you have
-   cohort-consistent targets, or do we derive them from the data? Specifically:
-   - symptomatic IR by age among the followed cohort,
-   - age-at-first-**detection** (KM survival, handles dropout) — vs the current
-     events-only first-infection quartiles,
-   - repeat-detected fraction.
+2. **First-detection target — RESOLVED (re-derive as KM).** Same CSV gives
+   `(age_event_months, event_observed)` -> KM age-at-first-DETECTION. NOTE: the current
+   target (events-only quartiles Q25/med/Q75 = 5.13/7.98/11.24) drops the 44% censored and
+   biases the median young; the cohort objective should use the censoring-aware KM curve
+   (median sits higher). Symptomatic IR-by-age target: the existing
+   `ir_by_age_symp_bangladesh.csv` is a per-age rate (cases/PT), comparable cohort vs
+   cross-section, so reuse as-is (revisit only if detection-convention shifts it).
 
-3. **Repeat-fraction definition + value.** Proposed (DK): among children with >=1 detected
-   infection, the fraction with >=2 detected -> Bangladesh ~**0.43** (58/136). Confirm the
-   definition and the value for your TAC dataset.
+3. **Repeat-fraction definition + value — pending confirm.** Proposed (DK): among children
+   with >=1 detected infection, fraction with >=2 detected -> Bangladesh ~**0.43**
+   (58/136). Using 0.43 as a placeholder target; CONFIRM value + definition. (Not in the
+   first_infection CSV -- needs a per-child detected-count extraction, or just the scalar.)
 
-4. **Detection params (mostly settled, confirm):** `symp_collection=0.80` (diarrheal-stool
-   collection completeness; sensitivity-check 0.9), `eia_sensitivity=0.85` (EIA positivity;
-   set ~1.0 only if you switch the target to TAC positivity), `shed_days=13`.
+4. **Detection params (settled, confirm):** `symp_collection=0.80` (sensitivity-check 0.9),
+   `eia_sensitivity=0.85` (EIA positivity), `shed_days=13`.
 
-5. **Person-time frame.** Cohort PT here is full in-follow-up child-time. Confirm that
-   matches how your data PT is constructed (so the `symp_collection` deflation is applied
-   once, not double-counted — see DETECTION_MODEL_NOTES).
+5. **Person-time frame.** Cohort PT here is full in-follow-up child-time. Confirm matches
+   the data PT frame so `symp_collection` isn't double-counted (see DETECTION_MODEL_NOTES).
+
+## Remaining build (turnkey once #3 confirmed)
+- Wire `censoring_ages` from `first_infection_bangladesh.csv` (event_observed==0, >0).
+- Re-derive KM first-detection target (manual KM; no lifelines dep).
+- Add `repeat_detected_frac` target (0.43) + GOF term.
+- `--observation cohort` path in `_run_one_replicate` (MALEDCohort, homogeneous mixing) +
+  a `cohort` objective: Poisson IR + KM-first-detection + repeat-fraction. Smoke, launch.
 
 ## Not launching tonight
 This needs the re-derived targets (#2) before the objective is meaningful, so it is built
