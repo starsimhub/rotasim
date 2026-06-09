@@ -107,12 +107,67 @@ def load_first_infection_quartiles(site: str) -> dict:
     )
 
 
+def km_quartiles(times, observed):
+    """Censoring-aware Kaplan-Meier quartiles (q25, median, q75) of a time-to-event
+    distribution. `times` = per-subject time to event-or-censoring; `observed` = 1 if the
+    event was seen, 0 if right-censored. A quantile is NaN if KM survival never drops to
+    that level (too much censoring). No external dependency."""
+    times = np.asarray(times, float)
+    observed = np.asarray(observed).astype(bool)
+    n = len(times)
+    if n == 0:
+        return float('nan'), float('nan'), float('nan')
+    t_sorted = np.sort(times)
+    event_times = np.unique(times[observed])
+    surv = 1.0
+    res = {}
+    for ut in event_times:
+        at_risk = n - int(np.searchsorted(t_sorted, ut, side='left'))
+        d = int(((times == ut) & observed).sum())
+        if at_risk > 0:
+            surv *= (1.0 - d / at_risk)
+        for p in (0.25, 0.5, 0.75):
+            if p not in res and surv <= 1.0 - p:
+                res[p] = float(ut)
+    return res.get(0.25, float('nan')), res.get(0.5, float('nan')), res.get(0.75, float('nan'))
+
+
+def load_first_infection_km(site: str) -> dict:
+    """Censoring-aware KM quartiles of age-at-first-DETECTION from MAL-ED CoxDat (all
+    children, using the right-censoring indicator) -- the cohort-consistent first-infection
+    target. Unlike load_first_infection_quartiles (events only), this keeps the ~44%
+    censored children, so the median is not biased young."""
+    path = DATA_DIR / f'first_infection_{site.lower()}.csv'
+    df = pd.read_csv(path)
+    df = df[df['age_event_months'] > 0]  # drop a <=0 edge row
+    q25, med, q75 = km_quartiles(df['age_event_months'].values, df['event_observed'].values)
+    return dict(median=float(med), q25=float(q25), q75=float(q75),
+                n_total=int(len(df)), scale=float(med))
+
+
+# Repeat-detected fraction target (among children with >=1 detected infection, the
+# fraction with >=2 detected), in the TAC cohort frame -- matches MALEDCohort's
+# repeat_detected_frac. Bangladesh: 60/149 (A. Kraay, 2026-06-09).
+REPEAT_FRAC = {'bangladesh': dict(frac=0.403, n=149)}
+
+
+def load_repeat_fraction(site: str):
+    """Target repeat-detected fraction + binomial SE (for GOF normalisation), or None."""
+    r = REPEAT_FRAC.get(site.lower())
+    if r is None:
+        return None
+    p, n = r['frac'], r['n']
+    return dict(frac=float(p), n=int(n), se=float((p * (1 - p) / n) ** 0.5))
+
+
 def load_targets(site: str) -> dict:
     """Bundle of all calibration targets for a site."""
     return dict(
         site=site,
         ir_by_age=load_ir_targets(site),
-        first_infection=load_first_infection_quartiles(site),
+        first_infection=load_first_infection_quartiles(site),       # events-only (process_model path)
+        first_infection_km=load_first_infection_km(site),           # KM, censoring-aware (cohort path)
+        repeat_frac=load_repeat_fraction(site),                     # repeat-detected fraction (cohort path)
     )
 
 
@@ -375,8 +430,17 @@ def gof_first_infection(model_q: dict, target_q: dict) -> float:
     return float(med ** 2 + 0.5 * (q25 ** 2 + q75 ** 2))
 
 
+def gof_repeat(model_frac, target) -> float:
+    """Repeat-detected-fraction GOF: z-score^2 vs the target, normalised by the target's
+    binomial SE so a 1-SE miss = 1.0 (chi-square scale, comparable to the other terms).
+    Returns 0 if no target or model value (term simply doesn't count)."""
+    if target is None or model_frac is None or not np.isfinite(model_frac):
+        return 0.0
+    return float(((model_frac - target['frac']) / target['se']) ** 2)
+
+
 def gof(model_out: dict, targets: dict,
-        w_inc: float = 1.0, w_first: float = 1.0,
+        w_inc: float = 1.0, w_first: float = 1.0, w_repeat: float = 1.0,
         fit_target: str = 'joint') -> dict:
     """Combined GOF. `fit_target` selects which terms count:
       - 'joint':           w_inc * GOF_inc(squared-log) + w_first * GOF_first
@@ -384,12 +448,17 @@ def gof(model_out: dict, targets: dict,
       - 'first_infection': GOF_first only (w_inc ignored)
       - 'poisson':         w_inc * GOF_inc_poisson(deviance) + w_first * GOF_first
       - 'poisson_ir':      GOF_inc_poisson only (w_first ignored)
-    Per-component values (both incidence forms) are always returned for logging.
-    `gof_incidence_active` is whichever incidence term is in the objective.
+      - 'cohort':          w_inc * GOF_inc_poisson + w_first * GOF_first(KM) +
+                           w_repeat * GOF_repeat  (cohort-emulation objective)
+    For 'cohort', GOF_first compares the model's KM first-DETECTION quartiles to the
+    censoring-aware KM target; otherwise to the events-only target. Per-component values
+    are always returned for logging; `gof_incidence_active` is the incidence term in use.
     """
     g_inc = gof_incidence(model_out['ir_by_age'], targets['ir_by_age'])
     g_inc_pois = gof_incidence_poisson(model_out['ir_by_age'], targets['ir_by_age'])
-    g_first = gof_first_infection(model_out['first_infection'], targets['first_infection'])
+    first_target = targets['first_infection_km'] if fit_target == 'cohort' else targets['first_infection']
+    g_first = gof_first_infection(model_out['first_infection'], first_target)
+    g_repeat = gof_repeat(model_out.get('repeat_frac'), targets.get('repeat_frac'))
     g_inc_active = g_inc
     if fit_target == 'symptomatic_ir':
         total = g_inc
@@ -403,11 +472,15 @@ def gof(model_out: dict, targets: dict,
     elif fit_target == 'poisson_ir':
         g_inc_active = g_inc_pois
         total = g_inc_pois
+    elif fit_target == 'cohort':
+        g_inc_active = g_inc_pois
+        total = w_inc * g_inc_pois + w_first * g_first + w_repeat * g_repeat
     else:
         raise ValueError(f"Unknown fit_target: {fit_target}")
     return dict(gof=total, gof_incidence=g_inc, gof_incidence_poisson=g_inc_pois,
                 gof_incidence_active=g_inc_active, gof_first_infection=g_first,
-                w_inc=w_inc, w_first=w_first, fit_target=fit_target)
+                gof_repeat=g_repeat, w_inc=w_inc, w_first=w_first, w_repeat=w_repeat,
+                fit_target=fit_target)
 
 
 # ---------------------------------------------------------------------------

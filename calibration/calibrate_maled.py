@@ -27,6 +27,7 @@ from datetime import datetime
 from multiprocessing import get_context
 
 import numpy as np
+import pandas as pd
 import sciris as sc
 import starsim as ss
 import rotasim as rs
@@ -72,16 +73,30 @@ def _run_one_replicate(args):
     # Build base sim from picklable config (no pre-built sim objects crossing
     # the process boundary -- spawn cannot pickle a fully-initialised Sim
     # anyway, and even if it could, this is the whole point of the refactor).
-    analyzer = rs.InfectedStrainStats(
-        use_infection_based_severity=False,
-        constant_severity=sim_config['constant_severity'],
-    )
-    # Unbiased IR denominator: accumulate (count in bin) x dt over LIVING agents in
-    # the calibration window, instead of the end-of-sim headcount snapshot x window
-    # length. The snapshot overstates older cohorts (up to ~16% in 24-35mo) because
-    # the population grows; the accumulator is exact regardless of demographic drift.
-    # (Ported from D. Klein; affects the age gradient / sus_after_3plus, ~0 in <6m.)
-    pt_analyzer = rs.PersonTimeByAge(calibration_window=cal_window)
+    obs = sim_config.get('observation', 'process_model')
+    if obs == 'cohort':
+        # MAL-ED birth-cohort observation: infection-number symptoms + age-varying
+        # surveillance detection (replaces InfectedStrainStats + PersonTimeByAge +
+        # process_model). Requires infection-number p_symp in sim_pars.
+        analyzers = [rs.MALEDCohort(
+            p_symp_1=sim_pars['p_symp_1'], p_symp_2=sim_pars['p_symp_2'],
+            p_symp_3plus=sim_pars['p_symp_3plus'],
+            censoring_ages=sim_config['censoring_ages'],
+            enroll_window=(cal_window[0], cal_window[0] + 2.5),
+            symp_collection=sim_config.get('symp_collection', 0.80),
+            eia_sensitivity=sim_config.get('eia_sensitivity', 0.85),
+            shed_days=sim_config.get('shed_days', 13.0),
+            seed=rand_seed,
+        )]
+    else:
+        # Unbiased IR denominator: PersonTimeByAge accumulates (count in bin) x dt over
+        # LIVING agents in the window (exact under population growth; the end-of-sim
+        # snapshot overstates older cohorts ~16%). Ported from D. Klein.
+        analyzers = [
+            rs.InfectedStrainStats(use_infection_based_severity=False,
+                                   constant_severity=sim_config['constant_severity']),
+            rs.PersonTimeByAge(calibration_window=cal_window),
+        ]
     immunity_connector = rs.RotaImmunityConnector(use_fixed_susceptibility=False)
     people = ss.People(n_agents=sim_config['n_agents'],
                        age_data=sim_config['age_data_path'])
@@ -92,7 +107,7 @@ def _run_one_replicate(args):
         verbose=False,
         scenario='single',
         people=people,
-        analyzers=[analyzer, pt_analyzer],
+        analyzers=analyzers,
         networks=ss.RandomNet(n_contacts=sim_config['n_contacts']),
         demographics=[
             ss.Births(birth_rate=ss.peryear(sim_config['birth_rate'])),
@@ -149,27 +164,45 @@ def _run_one_replicate(args):
     # Reduce the sim's analyzer output to the small model_out dict we need
     # downstream. Everything large stays inside the worker process and is
     # released when the worker is reused for the next task or torn down.
-    df = sim.analyzers['infectedstrainstats'].to_df()
-    # Person-time denominator from the accumulator analyzer (read BEFORE shrink()).
-    pt = sim.analyzers['persontimebyage'].person_months
-    model_out = process_incidence_maled.process_model(
-        df,
-        person_months_by_bin=pt,
-        symptom_model=sim_config.get('symptom_model', 'age_and_infection_simple'),
-        beta0=sim_pars.get('beta0', 0.0),
-        beta1=sim_pars.get('beta1', 0.0),
-        beta2=sim_pars.get('beta2', 0.0),
-        beta3=sim_pars.get('beta3', 0.0),
-        p_symp_1=sim_pars.get('p_symp_1', 1.0),
-        p_symp_2=sim_pars.get('p_symp_2', 1.0),
-        p_symp_3plus=sim_pars.get('p_symp_3plus', 0.0),
-        gamma_2=sim_pars.get('gamma_2', 0.0),
-        gamma_3plus=sim_pars.get('gamma_3plus', 0.0),
-        reporting_rate=sim_config['reporting_rate'],
-        calibration_window=cal_window,
-        censor_at_months=36.0,
-        p_asymp_detect=sim_config.get('p_asymp_detect', 0.4),
-    )
+    if obs == 'cohort':
+        # Cohort emulator folds detection + age-binning + first-detection into step();
+        # build the model_out the GOF expects from its summary.
+        coh = sim.analyzers['maledcohort']
+        rd = coh.results_dict()
+        bins = process_incidence_maled.MALED_AGE_BINS
+        model_out = dict(
+            ir_by_age=pd.DataFrame({
+                'cases': [int(coh.cases_symp[b]) for b in bins],
+                'PT':    [coh.person_years[b] * 12.0 for b in bins],
+                'IR':    [rd['ir_symp'][b] for b in bins],
+            }, index=bins),
+            first_infection=dict(zip(
+                ('q25', 'median', 'q75'),
+                (float(x) for x in process_incidence_maled.km_quartiles(rd['km_time'], rd['km_observed'])))),
+            repeat_frac=rd.get('repeat_detected_frac'),
+        )
+    else:
+        df = sim.analyzers['infectedstrainstats'].to_df()
+        # Person-time denominator from the accumulator analyzer (read BEFORE shrink()).
+        pt = sim.analyzers['persontimebyage'].person_months
+        model_out = process_incidence_maled.process_model(
+            df,
+            person_months_by_bin=pt,
+            symptom_model=sim_config.get('symptom_model', 'age_and_infection_simple'),
+            beta0=sim_pars.get('beta0', 0.0),
+            beta1=sim_pars.get('beta1', 0.0),
+            beta2=sim_pars.get('beta2', 0.0),
+            beta3=sim_pars.get('beta3', 0.0),
+            p_symp_1=sim_pars.get('p_symp_1', 1.0),
+            p_symp_2=sim_pars.get('p_symp_2', 1.0),
+            p_symp_3plus=sim_pars.get('p_symp_3plus', 0.0),
+            gamma_2=sim_pars.get('gamma_2', 0.0),
+            gamma_3plus=sim_pars.get('gamma_3plus', 0.0),
+            reporting_rate=sim_config['reporting_rate'],
+            calibration_window=cal_window,
+            censor_at_months=36.0,
+            p_asymp_detect=sim_config.get('p_asymp_detect', 0.4),
+        )
     # starsim#1343: each ss.Sim leaks its start/finish_step bound methods into a
     # module-level list that is never cleared, so a worker that builds many sims
     # accumulates pinned sims (each with its full network/state) until the box OOMs.
@@ -195,7 +228,7 @@ class MALEDCalibration:
     def __init__(self, sim_config, targets, cal_window, total_trials, n_reps,
                  n_jobs, n_cpus, w_inc, w_first, db_path, study_name, logger,
                  fit_target='joint', p_asymp_detect=0.4,
-                 symptom_model='age_and_infection_simple'):
+                 symptom_model='age_and_infection_simple', w_repeat=1.0):
         self.symptom_model  = symptom_model
         self.sim_config     = sim_config
         self.targets        = targets
@@ -206,6 +239,7 @@ class MALEDCalibration:
         self.n_cpus         = n_cpus
         self.w_inc          = w_inc
         self.w_first        = w_first
+        self.w_repeat       = w_repeat
         self.db_path        = db_path
         self.study_name     = study_name
         self.logger         = logger
@@ -290,6 +324,7 @@ class MALEDCalibration:
         for mo in model_outs:
             g = process_incidence_maled.gof(mo, self.targets,
                                             w_inc=self.w_inc, w_first=self.w_first,
+                                            w_repeat=self.w_repeat,
                                             fit_target=self.fit_target)
             gofs.append(g['gof'])
             breakdowns.append(g)
@@ -326,6 +361,10 @@ class MALEDCalibration:
         trial.set_user_attr('per_rep_gof_inc', agg['per_rep_inc'])
         trial.set_user_attr('per_rep_gof_first', agg['per_rep_first'])
         trial.set_user_attr('per_rep_gof_total', agg['per_rep_gofs'])
+        # Cohort-only: per-rep repeat-detected fraction (None under process_model).
+        if any('repeat_frac' in mo for mo in model_outs):
+            trial.set_user_attr('repeat_frac_per_rep',
+                                [mo.get('repeat_frac') for mo in model_outs])
 
     def _log_summary(self, agg, model_outs, sim_pars, trial_num):
         # Median IR per bin and median first-inf quartile across reps.
@@ -443,9 +482,19 @@ def main():
     parser.add_argument('--db-path', type=str, default=None)
     parser.add_argument('--w-inc', type=float, default=1.0)
     parser.add_argument('--w-first', type=float, default=1.0)
+    parser.add_argument('--w-repeat', type=float, default=1.0,
+                        help='Weight on the repeat-detected-fraction term (cohort fit only).')
+    parser.add_argument('--observation', type=str, default='process_model',
+                        choices=['process_model', 'cohort'],
+                        help="Observation model. 'process_model' (default) = steady-state "
+                             "cross-section + post-hoc symptom/detection. 'cohort' = MAL-ED "
+                             "birth-cohort emulation (MALEDCohort: infection-number symptoms, "
+                             "age-varying surveillance detection, KM first-detection, repeat "
+                             "fraction). Use with --symptom-model infection_number "
+                             "--fit-target cohort.")
     parser.add_argument('--fit-target', type=str, default='joint',
                         choices=['joint', 'symptomatic_ir', 'first_infection',
-                                 'poisson', 'poisson_ir'],
+                                 'poisson', 'poisson_ir', 'cohort'],
                         help='Which GOF component(s) to optimize against. '
                              '"joint" = squared-log incidence + first-inf; '
                              '"symptomatic_ir" = only the squared-log per-age-bin IR; '
@@ -589,7 +638,26 @@ def main():
         symptom_model=args.symptom_model,
         maternal_n_stages=args.maternal_n_stages,
         maternal_model=args.maternal_model,
+        observation=args.observation,
     )
+    # Cohort observation needs the data's per-child study-exit ages (for dropout) +
+    # the fixed detection params (per DETECTION_MODEL_NOTES.md).
+    if args.observation == 'cohort':
+        fi_path = thisdir / 'maled_data' / f'first_infection_{args.site}.csv'
+        fidf = pd.read_csv(fi_path)
+        cens = fidf.loc[(fidf['event_observed'] == 0) & (fidf['age_event_months'] > 0),
+                        'age_event_months'].astype(float).tolist()
+        sim_config.update(censoring_ages=cens, symp_collection=0.80,
+                          eia_sensitivity=0.85, shed_days=13.0)
+        logger.info(f"Cohort observation: {len(cens)} censoring ages "
+                    f"(median {np.median(cens):.1f} mo); symp_collection=0.80, eia=0.85, shed=13d")
+        rf = targets.get('repeat_frac')
+        if rf:
+            logger.info(f"Target repeat-detected fraction: {rf['frac']:.3f} (n={rf['n']}, se={rf['se']:.3f})")
+        kmt = targets.get('first_infection_km')
+        if kmt:
+            logger.info(f"Target first-DETECTION (KM, mo): Q25={kmt['q25']:.2f}, "
+                        f"med={kmt['median']:.2f}, Q75={kmt['q75']:.2f}")
 
     study_name = f'rota_maled_{args.site}{sm_tag}{mat_tag}{ft_suffix}'
     calib = MALEDCalibration(
@@ -608,6 +676,7 @@ def main():
         fit_target=args.fit_target,
         p_asymp_detect=args.p_asymp_detect,
         symptom_model=args.symptom_model,
+        w_repeat=args.w_repeat,
     )
     study = calib.calibrate()
 
