@@ -63,12 +63,25 @@ TODO (needs decisions / data — see Open questions):
 5. **Person-time frame.** Cohort PT here is full in-follow-up child-time. Confirm matches
    the data PT frame so `symp_collection` isn't double-counted (see DETECTION_MODEL_NOTES).
 
-## Remaining build (turnkey once #3 confirmed)
-- Wire `censoring_ages` from `first_infection_bangladesh.csv` (event_observed==0, >0).
-- Re-derive KM first-detection target (manual KM; no lifelines dep).
-- Add `repeat_detected_frac` target (0.43) + GOF term.
-- `--observation cohort` path in `_run_one_replicate` (MALEDCohort, homogeneous mixing) +
-  a `cohort` objective: Poisson IR + KM-first-detection + repeat-fraction. Smoke, launch.
+## Remaining build — DONE (smoke-validated 2026-06-09, commit 7f9e318)
+- [x] `censoring_ages` wired from `first_infection_bangladesh.csv` (event_observed==0, >0):
+      115 ages, median 23.9 mo.
+- [x] KM first-detection target (`km_quartiles`, no deps): Q25/med/Q75 = 6.90/12.12/30.36
+      (vs events-only 5.13/7.98/11.24 -- KM median much higher, confirming the young bias).
+- [x] Repeat-fraction target 0.403 (n=149, binomial se 0.040) + `gof_repeat` (se-normalized).
+- [x] `--observation cohort` -> MALEDCohort in `_run_one_replicate`; `--fit-target cohort`
+      objective (w_inc*Poisson + w_first*KM-first-detection + w_repeat*repeat); `--w-repeat`.
+- [x] Smoke green end-to-end. NOT launched.
+
+## Before launch (open for Alicia)
+- Objective weights: default 1/1/1. The repeat term is already well-scaled (se-normalized:
+  0.1 miss ~6, 0.2 miss ~25), so it bites. Tune `--w-first` / `--w-repeat` only if needed.
+- KM Q75 = 30.36 is a heavy-censoring tail extrapolation -- decide whether to target full
+  KM quartiles or just median + repeat-fraction.
+- Repeat-fraction #5 (PT frame / symp_collection double-count) -- confirm if precision matters.
+- Launch cmd: `--site bangladesh --symptom-model infection_number --observation cohort
+  --fit-target cohort --maternal-model {erlang|titer} --n-trials 40 --n-reps 20`
+  (study rota_maled_bangladesh_infnum_cohort[_titer]). Add a seed + run.py at launch.
 
 ## Not launching tonight
 This needs the re-derived targets (#2) before the objective is meaningful, so it is built
