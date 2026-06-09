@@ -1243,5 +1243,165 @@ class MALEDTargets(ss.Analyzer):
                     prev_mean=prev_mean, prev_drift=prev_drift)
 
 
+class MALEDCohort(ss.Analyzer):
+    """MAL-ED birth-cohort emulator with infection-number symptoms + surveillance detection.
+
+    Adapted from D. Klein's exp-05/06 cohort analyzer. It is a read-only observer (does
+    NOT affect transmission), so it works with any mixing. It reproduces MAL-ED's actual
+    observation process rather than a steady-state cross-section:
+      - enrolls newborns during an enrollment window and follows each to its study-exit
+        age (drawn from the data's empirical per-child censoring-age distribution);
+      - symptom status by INFECTION ORDER (true cumulative count): p_symp_1>=p_symp_2>=
+        p_symp_3+ (same per-infection conditional as the infection_number symptom model);
+      - DETECTION, per the MAL-ED-TAC/EIA decisions in calibration/DETECTION_MODEL_NOTES.md:
+          symptomatic  -> diarrheal stool: detected w.p. symp_collection * eia_sensitivity
+                          (age-INDEPENDENT; ~0.8 collection completeness x ~0.85 EIA sens),
+          asymptomatic -> scheduled surveillance stool: detected w.p. p_surv(age)*eia,
+                          where p_surv = shed_days / interval and the interval is MONTHLY
+                          (<12mo) then QUARTERLY (>=12mo) -> asymptomatic detection drops
+                          ~3x at one year. (No TAC-completeness 'tested' factor: it cancels
+                          when numerator and person-time share the TAC frame.)
+      - reports per-bin symptomatic & all-detected IR, repeat-detected fraction (among
+        children with >=1 detection, the fraction with >=2), KM age-at-first-detection,
+        and ever-infected / ever-detected fractions.
+
+    NOTE (data dependencies; see exp 13 BUILD_PLAN): `censoring_ages` must be the data's
+    empirical per-child study-exit ages, and the calibration targets (symptomatic IR,
+    age-at-first-DETECTION, repeat fraction) must be re-derived from the data CONSISTENTLY
+    with this observation process before this analyzer is wired into the objective.
+
+    Defaults reflect the agreed MAL-ED Bangladesh / TAC settings (revisit `symp_collection`
+    against the surveillance-coverage data, and `eia_sensitivity` if positivity is TAC- vs
+    EIA-defined).
+    """
+    LABELS = ['<6 m', '6-11 m', '12-23 m', '24-35 m']
+    EDGES_M = np.array([0.0, 6.0, 12.0, 24.0, 36.0])
+    BINS_M = {'<6 m': (0, 6), '6-11 m': (6, 12), '12-23 m': (12, 24), '24-35 m': (24, 36)}
+    MONTHLY_INTERVAL_D = 30.4375
+    QUARTERLY_INTERVAL_D = 91.3125
+
+    def __init__(self, p_symp_1, p_symp_2, p_symp_3plus, censoring_ages,
+                 enroll_window=(5.0, 7.5), symp_collection=0.80,
+                 eia_sensitivity=0.85, shed_days=13.0, seed=0, log_events=False, **kw):
+        super().__init__(**kw)
+        self.p_symp = [p_symp_1, p_symp_2, p_symp_3plus]   # by infection order (1,2,3+)
+        self.enroll = enroll_window
+        self.capture = symp_collection      # diarrheal-stool collection completeness ("sampled")
+        self.eia = eia_sensitivity          # assay sensitivity (EIA ~0.85; TAC ~1.0)
+        self.shed = shed_days
+        self.censoring_ages = np.asarray(censoring_ages, float)
+        self.rng = np.random.default_rng(seed)
+        self.log_events = log_events
+        self.events = []
+        self.uid2idx = {}
+        self.exit_age_m = []
+        self.last_age_m = []
+        self.n_inf = []          # TRUE cumulative infection count (sets symptom order)
+        self.true_first_m = []
+        self.det_first_m = []
+        self.n_det = []
+        self.person_years = {b: 0.0 for b in self.LABELS}
+        self.cases_all = {b: 0 for b in self.LABELS}
+        self.cases_symp = {b: 0 for b in self.LABELS}
+
+    def init_pre(self, sim, force=False):
+        super().init_pre(sim, force)
+        self._dty = self.dt.years
+        self._dtm = self.dt.years * 12.0
+
+    def init_results(self):
+        super().init_results()
+        self._diseases = [d for d in self.sim.diseases.values() if hasattr(d, 'G')]
+        self._prev_infected = {d.name: d.infected.uids for d in self._diseases}
+
+    def _symp_prob(self, order):
+        return self.p_symp[min(order, 3) - 1]
+
+    def _p_surv(self, age_m):
+        interval = self.MONTHLY_INTERVAL_D if age_m < 12.0 else self.QUARTERLY_INTERVAL_D
+        return min(1.0, self.shed / interval)
+
+    def _enroll(self, uid):
+        self.uid2idx[uid] = len(self.last_age_m)
+        self.exit_age_m.append(float(self.rng.choice(self.censoring_ages)))
+        self.last_age_m.append(0.0); self.n_inf.append(0)
+        self.true_first_m.append(np.nan); self.det_first_m.append(np.nan); self.n_det.append(0)
+
+    def step(self):
+        sim = self.sim
+        t = sim.t.relvec[sim.ti].years
+        alive_uids = sim.people.alive.uids
+        ages_m = np.asarray(sim.people.age[alive_uids]) * 12.0
+        if self.enroll[0] <= t < self.enroll[1]:
+            for u in np.asarray(alive_uids)[ages_m <= self._dtm]:
+                if int(u) not in self.uid2idx:
+                    self._enroll(int(u))
+        if not self.uid2idx:
+            for d in self._diseases:
+                self._prev_infected[d.name] = d.infected.uids
+            return
+        eu = np.fromiter(self.uid2idx.keys(), dtype=np.int64)
+        eu_idx = np.fromiter(self.uid2idx.values(), dtype=np.int64)
+        eu_age_m = np.asarray(sim.people.age[ss.uids(eu)]) * 12.0
+        eu_alive = np.asarray(sim.people.alive[ss.uids(eu)])
+        eu_exit = np.array(self.exit_age_m)[eu_idx]
+        in_fu = eu_alive & (eu_age_m <= eu_exit)
+        for b, (lo_m, hi_m) in self.BINS_M.items():
+            self.person_years[b] += int((in_fu & (eu_age_m >= lo_m) & (eu_age_m < hi_m)).sum()) * self._dty
+        la = np.array(self.last_age_m)
+        la[eu_idx[in_fu]] = np.maximum(la[eu_idx[in_fu]], eu_age_m[in_fu])
+        self.last_age_m = la.tolist()
+        for d in self._diseases:
+            cur = d.infected.uids
+            new = cur - self._prev_infected[d.name]
+            for u in np.asarray(new):
+                idx = self.uid2idx.get(int(u))
+                if idx is None:
+                    continue
+                a = float(sim.people.age[ss.uids(np.array([int(u)]))][0]) * 12.0
+                if a > self.exit_age_m[idx]:
+                    continue
+                self.n_inf[idx] += 1
+                order = self.n_inf[idx]
+                if np.isnan(self.true_first_m[idx]):
+                    self.true_first_m[idx] = a
+                symp = self.rng.random() < self._symp_prob(order)
+                if symp:
+                    detected = self.rng.random() < (self.capture * self.eia)
+                else:
+                    detected = self.rng.random() < (self._p_surv(a) * self.eia)
+                if self.log_events:
+                    self.events.append(dict(uid=int(u), age_m=float(a), order=int(order),
+                                            symp=bool(symp), detected=bool(detected)))
+                if detected:
+                    self.n_det[idx] += 1
+                    k = int(np.digitize(a, self.EDGES_M) - 1)
+                    if 0 <= k < 4:
+                        self.cases_all[self.LABELS[k]] += 1
+                        if symp:
+                            self.cases_symp[self.LABELS[k]] += 1
+                    if np.isnan(self.det_first_m[idx]):
+                        self.det_first_m[idx] = a
+            self._prev_infected[d.name] = cur
+
+    def results_dict(self):
+        n = len(self.last_age_m)
+        det = np.array(self.det_first_m); last = np.array(self.last_age_m)
+        exitage = np.array(self.exit_age_m); true_first = np.array(self.true_first_m)
+        ndet = np.array(self.n_det)
+        observed = ~np.isnan(det)
+        time = np.where(observed, det, np.minimum(last, exitage))
+        pm = {b: self.person_years[b] * 12.0 for b in self.LABELS}
+        ir_symp = {b: (self.cases_symp[b] / pm[b] * 100.0 if pm[b] > 0 else 0.0) for b in self.LABELS}
+        ir_all = {b: (self.cases_all[b] / pm[b] * 100.0 if pm[b] > 0 else 0.0) for b in self.LABELS}
+        ever = ~np.isnan(true_first)
+        return dict(n_enrolled=int(n), km_time=time.tolist(), km_observed=observed.astype(int).tolist(),
+                    ir_symp=ir_symp, ir_all=ir_all,
+                    frac_ever_detected=float(observed.mean()) if n else float('nan'),
+                    frac_ever_infected=float(ever.mean()) if n else float('nan'),
+                    repeat_detected_frac=float((ndet[observed] >= 2).mean()) if observed.any() else 0.0,
+                    true_first_median=float(np.nanmedian(true_first)) if ever.any() else float('nan'))
+
+
 # Make importable from package root
-__all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats", "InfectedStrainStats", "UidTracker", "PersonTimeByAge", "MALEDTargets"]
+__all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats", "InfectedStrainStats", "UidTracker", "PersonTimeByAge", "MALEDTargets", "MALEDCohort"]
