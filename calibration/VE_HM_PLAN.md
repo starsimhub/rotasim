@@ -69,8 +69,44 @@ spot-resume (run_hm_full.sh). Two runs, one per model:
 7. **Vaccine config:** RotaVax dose schedule + the (constant-across-settings) underlying
    efficacy to use.
 
-## Suggested first concrete step
-Confirm the environment (historymatching in conda or via uv), cherry-pick DK's run_wave +
-trajectory_selection, and do a **re-identification / smoke HM** on ONE model (infnum+titer,
-homogeneous, cohort) to validate the pipeline end-to-end before scaling to both models +
-the VE layer. (This is calibration-workflow step 7 — re-identify before the real run.)
+## Data landscape (clarified 2026-06-10)
+- **Bangladesh** — MAL-ED birth cohort, NO vaccine rollout. Cohort targets available.
+  VE here is HYPOTHETICAL (counterfactual vaccine on the fitted pre-vaccine model).
+- **UK** — incidence data is SURVEILLANCE (not a cohort): age-distribution of reported
+  RVGE only (no first-detection/repeat-fraction). Use the process_model/IR-by-age path
+  (the existing UK calibration). This is the high-income age-of-infection contrast.
+- **Within-MAL-ED FOI contrast is too narrow** (BD first-inf median 7.98 vs PAK 8.48 mo;
+  all sites high-FOI/early) -> a second MAL-ED site does NOT give a useful gradient. Use
+  BD (LMIC, early) vs UK (high-income, late ~15mo, PMC6736387) as the two settings.
+- **MAL-ED vaccinated sites** (Brazil, Peru, South Africa) HAVE rollout -> can ANCHOR /
+  validate the vaccine parameters and check predicted-vs-observed VE (bonus layer).
+
+## Environment finding (2026-06-10)
+`historymatching` is IDM-internal (NOT on PyPI); `uv` not installed; DK's HM ran on
+"capybara", not covaguest. -> To do HM, obtain `historymatching` from Dan/IDM and set it
+up (conda pip from their source, or uv + py3.13 as DK used). This GATES the HM approach.
+
+## Open decisions (updated)
+1. **HM environment** — get `historymatching` from Dan/IDM (access step). Until then HM
+   is blocked.
+2. **Reuse** — cherry-pick DK run_wave/trajectory_selection, parameterize per model.
+3. **Mixing** — homogeneous (start) vs DK reservoir.
+4. **Observation** — BD cohort (fast MALEDCohort + target uncertainties + transmission
+   pinning); UK surveillance (process_model/IR-by-age).
+5. **Cross-setting design** — SHARED biology (symptom + maternal) + per-setting FOI/
+   demographics, fit jointly to BD (cohort) + UK (surveillance) so the age-of-infection
+   gradient emerges. Need the UK age/IR targets wired as a second site.
+6. **Vaccine** — hypothetical (same per-dose efficacy held constant across settings) for
+   the BD/UK counterfactual; optionally anchor to Brazil/Peru/SA rollout data.
+7. **Maternal per model** — age->Erlang, infnum->titer (entangled; exp 10-14).
+
+## Suggested sequence (given the HM env gate)
+1. **In parallel:** ask Dan for the `historymatching` package + install (unblocks HM).
+2. **Cheap scoping pass FIRST (no HM needed):** add the hypothetical vaccine to the
+   existing POINT-FIT pair (exp 10 age+Erlang, exp 11 infnum+titer) and check whether the
+   two models diverge on predicted VE *at all*. If they diverge meaningfully -> invest in
+   HM to quantify the divergence with uncertainty. If they barely diverge -> the
+   structural-uncertainty story is weak and HM may not be worth the setup. This de-risks
+   the HM investment.
+3. **Then (if scoping motivates it):** HM posteriors per model + the cross-setting VE
+   comparison, re-identification smoke first (calibration-workflow step 7).
