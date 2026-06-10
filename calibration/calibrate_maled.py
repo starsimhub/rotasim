@@ -75,13 +75,16 @@ def _run_one_replicate(args):
     # anyway, and even if it could, this is the whole point of the refactor).
     obs = sim_config.get('observation', 'process_model')
     if obs == 'cohort':
-        # MAL-ED birth-cohort observation: infection-number symptoms + age-varying
-        # surveillance detection (replaces InfectedStrainStats + PersonTimeByAge +
-        # process_model). Requires infection-number p_symp in sim_pars.
+        # MAL-ED birth-cohort observation (age-varying surveillance detection) wrapping
+        # either symptom model -- so the SAME observation serves a matched age-vs-infnum
+        # pair. Replaces InfectedStrainStats + PersonTimeByAge + process_model.
         analyzers = [rs.MALEDCohort(
-            p_symp_1=sim_pars['p_symp_1'], p_symp_2=sim_pars['p_symp_2'],
-            p_symp_3plus=sim_pars['p_symp_3plus'],
             censoring_ages=sim_config['censoring_ages'],
+            symptom_model=sim_config.get('symptom_model', 'infection_number'),
+            p_symp_1=sim_pars.get('p_symp_1', 1.0), p_symp_2=sim_pars.get('p_symp_2', 1.0),
+            p_symp_3plus=sim_pars.get('p_symp_3plus', 1.0),
+            beta0=sim_pars.get('beta0', 0.0), beta1=sim_pars.get('beta1', 0.0),
+            beta2=sim_pars.get('beta2', 0.0),
             enroll_window=(cal_window[0], cal_window[0] + 2.5),
             symp_collection=sim_config.get('symp_collection', 0.80),
             eia_sensitivity=sim_config.get('eia_sensitivity', 0.85),

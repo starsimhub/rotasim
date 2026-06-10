@@ -1280,11 +1280,18 @@ class MALEDCohort(ss.Analyzer):
     MONTHLY_INTERVAL_D = 30.4375
     QUARTERLY_INTERVAL_D = 91.3125
 
-    def __init__(self, p_symp_1, p_symp_2, p_symp_3plus, censoring_ages,
+    def __init__(self, censoring_ages, p_symp_1=1.0, p_symp_2=1.0, p_symp_3plus=1.0,
+                 symptom_model='infection_number', beta0=0.0, beta1=0.0, beta2=0.0,
                  enroll_window=(5.0, 7.5), symp_collection=0.80,
                  eia_sensitivity=0.85, shed_days=13.0, seed=0, log_events=False, **kw):
         super().__init__(**kw)
+        # Symptom probability: 'infection_number' uses p_symp by infection order (1,2,3+);
+        # 'age_only' uses the quadratic age logistic (beta0+beta1*(a-12)+beta2*(a-12)^2,
+        # a capped at 60mo) -- so the SAME observation (cohort + detection) can wrap either
+        # the infection-number or the age-symptom model, for a matched-pair VE comparison.
+        self.symptom_model = symptom_model
         self.p_symp = [p_symp_1, p_symp_2, p_symp_3plus]   # by infection order (1,2,3+)
+        self.beta0, self.beta1, self.beta2 = beta0, beta1, beta2
         self.enroll = enroll_window
         self.capture = symp_collection      # diarrheal-stool collection completeness ("sampled")
         self.eia = eia_sensitivity          # assay sensitivity (EIA ~0.85; TAC ~1.0)
@@ -1314,7 +1321,11 @@ class MALEDCohort(ss.Analyzer):
         self._diseases = [d for d in self.sim.diseases.values() if hasattr(d, 'G')]
         self._prev_infected = {d.name: d.infected.uids for d in self._diseases}
 
-    def _symp_prob(self, order):
+    def _symp_prob(self, order, age_m):
+        if self.symptom_model == 'age_only':
+            ac = min(age_m, 60.0) - 12.0
+            lp = self.beta0 + self.beta1 * ac + self.beta2 * ac * ac
+            return 1.0 / (1.0 + np.exp(-np.clip(lp, -30.0, 30.0)))
         return self.p_symp[min(order, 3) - 1]
 
     def _p_surv(self, age_m):
@@ -1365,7 +1376,7 @@ class MALEDCohort(ss.Analyzer):
                 order = self.n_inf[idx]
                 if np.isnan(self.true_first_m[idx]):
                     self.true_first_m[idx] = a
-                symp = self.rng.random() < self._symp_prob(order)
+                symp = self.rng.random() < self._symp_prob(order, a)
                 if symp:
                     detected = self.rng.random() < (self.capture * self.eia)
                 else:
