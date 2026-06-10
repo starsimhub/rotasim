@@ -1,0 +1,11 @@
+# Exp 15 — toy vaccine simulations on the exp-10 (age+Erlang) and exp-11 (infnum+titer) fits.
+site: bangladesh
+n_agents: 50000
+reps: 3
+responses: [0.6, 0.75, 0.9]      # per-dose seroconversion (SI: ~0.63 LIC -> ~HIC)
+beta_mults: [1.0, 0.5]           # fitted (LMIC) + half (HIC proxy -- faded out)
+vaccine: 2 doses at 2 & 4 months; each seroconversion -> num_recovered_infections += 1 (up to +2)
+ve_metric: 1 - symptomatic_IR(fully-vaccinated) / symptomatic_IR(unvaccinated), age<=36mo, total effect
+models:
+  age:    {study: rota_maled_bangladesh_erlang6_poisson, symptom_model: age_only}
+  infnum: {study: rota_maled_bangladesh_infnum_titer_poisson, symptom_model: infection_number}

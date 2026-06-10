@@ -1,0 +1,110 @@
+[
+  {
+    "model": "age",
+    "beta_mult": 1.0,
+    "base_beta": 0.12,
+    "response": 0.6,
+    "novax_ir": 1.3493003369975052,
+    "vax_ir": 1.090970769301488,
+    "VE": 0.19145446022110846
+  },
+  {
+    "model": "age",
+    "beta_mult": 1.0,
+    "base_beta": 0.12,
+    "response": 0.75,
+    "novax_ir": 1.3493003369975052,
+    "vax_ir": 1.012680728015765,
+    "VE": 0.24947715475325083
+  },
+  {
+    "model": "age",
+    "beta_mult": 1.0,
+    "base_beta": 0.12,
+    "response": 0.9,
+    "novax_ir": 1.3493003369975052,
+    "vax_ir": 0.9837478590308106,
+    "VE": 0.2709200227283205
+  },
+  {
+    "model": "age",
+    "beta_mult": 0.5,
+    "base_beta": 0.06,
+    "response": 0.6,
+    "novax_ir": 0.0,
+    "vax_ir": 0.0,
+    "VE": NaN
+  },
+  {
+    "model": "age",
+    "beta_mult": 0.5,
+    "base_beta": 0.06,
+    "response": 0.75,
+    "novax_ir": 0.0,
+    "vax_ir": 0.0,
+    "VE": NaN
+  },
+  {
+    "model": "age",
+    "beta_mult": 0.5,
+    "base_beta": 0.06,
+    "response": 0.9,
+    "novax_ir": 0.0,
+    "vax_ir": 0.0,
+    "VE": NaN
+  },
+  {
+    "model": "infnum",
+    "beta_mult": 1.0,
+    "base_beta": 0.23101214707165416,
+    "response": 0.6,
+    "novax_ir": 2.5006702620461176,
+    "vax_ir": 1.2133674703766337,
+    "VE": 0.5147831008380037
+  },
+  {
+    "model": "infnum",
+    "beta_mult": 1.0,
+    "base_beta": 0.23101214707165416,
+    "response": 0.75,
+    "novax_ir": 2.5006702620461176,
+    "vax_ir": 0.9549107693633423,
+    "VE": 0.618138071277735
+  },
+  {
+    "model": "infnum",
+    "beta_mult": 1.0,
+    "base_beta": 0.23101214707165416,
+    "response": 0.9,
+    "novax_ir": 2.5006702620461176,
+    "vax_ir": 0.702340654563219,
+    "VE": 0.7191390383518439
+  },
+  {
+    "model": "infnum",
+    "beta_mult": 0.5,
+    "base_beta": 0.11550607353582708,
+    "response": 0.6,
+    "novax_ir": 0.0,
+    "vax_ir": 0.0,
+    "VE": NaN
+  },
+  {
+    "model": "infnum",
+    "beta_mult": 0.5,
+    "base_beta": 0.11550607353582708,
+    "response": 0.75,
+    "novax_ir": 0.0,
+    "vax_ir": 0.0,
+    "VE": NaN
+  },
+  {
+    "model": "infnum",
+    "beta_mult": 0.5,
+    "base_beta": 0.11550607353582708,
+    "response": 0.9,
+    "novax_ir": 0.0,
+    "vax_ir": 0.0,
+    "VE": NaN
+  }
+]
