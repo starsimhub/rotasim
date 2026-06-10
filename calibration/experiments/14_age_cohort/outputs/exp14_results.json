@@ -1,0 +1,84 @@
+{
+  "study": "rota_maled_bangladesh_titer_cohort",
+  "n_trials": 40,
+  "best_trial": 35,
+  "best_gof": 102.30653177815562,
+  "params": {
+    "base_beta": 0.05125211710180571,
+    "sus_after_3plus": 0.822088353707557,
+    "sus_after_2": 0.9228724575697286,
+    "sus_after_1": 0.9671457882390441,
+    "maternal_immunity_efficacy": 0.928344002625368,
+    "maternal_titer_median": 6.938034337771789,
+    "maternal_titer_gsd": 1.3030570780245876,
+    "maternal_titer_half_life_days": 33.39715021200453,
+    "maternal_hill_slope": 5.868451590625314,
+    "beta0": 0.1502650431599859,
+    "beta1": -0.07503135995045383,
+    "beta2": -0.004310947172923164
+  },
+  "age_bins": [
+    "<6 m",
+    "6-11 m",
+    "12-23 m",
+    "24-35 m"
+  ],
+  "targets": {
+    "ir_by_age": [
+      1.91,
+      5.37,
+      2.35,
+      0.14
+    ],
+    "repeat_detected_frac": 0.403,
+    "first_inf_median": 12.12
+  },
+  "model": {
+    "ir_by_age_mean": [
+      4.713,
+      6.75,
+      4.44,
+      1.978
+    ],
+    "ir_by_age_p5": [
+      4.556,
+      6.551,
+      4.253,
+      1.191
+    ],
+    "ir_by_age_p95": [
+      4.868,
+      6.999,
+      4.584,
+      2.762
+    ],
+    "repeat_detected_frac_mean": 0.5603478612701044,
+    "first_inf_median_mean": 8.021921396255493
+  },
+  "gof_components": {
+    "gof_inc_median": 87.16072572950895,
+    "gof_first_median": 0.11444701377102615
+  },
+  "top5": [
+    {
+      "trial": 35,
+      "gof": 102.3065
+    },
+    {
+      "trial": 0,
+      "gof": 129.1192
+    },
+    {
+      "trial": 31,
+      "gof": 210.7225
+    },
+    {
+      "trial": 34,
+      "gof": 212.767
+    },
+    {
+      "trial": 28,
+      "gof": 243.6277
+    }
+  ]
+}
