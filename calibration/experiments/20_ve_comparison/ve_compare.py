@@ -6,8 +6,8 @@ posterior. For each posterior draw: run baseline (no vaccine) vs vaccinated at t
 (posterior draws instead of the Optuna point fit).
 
 Run in the pinned env on a 120-core VM, in tmux:
-  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python python ve_compare.py --model age   --n-ve 800 --response 0.75
-  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python python ve_compare.py --model infnum --n-ve 800 --response 0.75
+  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python python ve_compare.py --model age   --n-ve 800 --responses 0.63 0.75 0.9
+  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python python ve_compare.py --model infnum --n-ve 800 --responses 0.63 0.75 0.9
 Overlay the two with plot_ve.py (run after both finish).
 """
 import sys, json, argparse, pathlib
@@ -38,7 +38,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', required=True, choices=['age', 'infnum'])
     ap.add_argument('--n-ve', type=int, default=800)
-    ap.add_argument('--response', type=float, default=0.75)
+    ap.add_argument('--responses', type=float, nargs='+', default=[0.63, 0.75, 0.9])  # seroconversion probs to compare (does the model gap change with efficacy?)
     ap.add_argument('--n-agents', type=int, default=40000)
     ap.add_argument('--n-workers', type=int, default=118)
     ap.add_argument('--smoke', action='store_true')
@@ -50,44 +50,57 @@ def main():
     uniq = post.drop_duplicates().reset_index(drop=True)      # resampling makes duplicates; run each unique point once
     if len(uniq) > a.n_ve:
         uniq = uniq.sample(a.n_ve, random_state=0).reset_index(drop=True)
-    print(f"VE {a.model}: {len(post)} posterior rows -> {len(uniq)} unique draws; response={a.response}, agents={a.n_agents}", flush=True)
+    print(f"VE {a.model}: {len(post)} posterior rows -> {len(uniq)} unique draws; responses={a.responses}, agents={a.n_agents}", flush=True)
 
+    # novax once per draw (shared across responses); vax once per (draw, response). All paired on seed = VE_BASE + i.
     tasks, meta = [], []
     for i, (_, row) in enumerate(uniq.iterrows()):
         p = untransform(row, a.model); seed = VE_BASE + i
-        tasks.append((a.model, p, p['base_beta'], 0.0, False, seed, a.n_agents)); meta.append((i, 'novax'))
-        tasks.append((a.model, p, p['base_beta'], a.response, True, seed, a.n_agents)); meta.append((i, 'vax'))
+        tasks.append((a.model, p, p['base_beta'], 0.0, False, seed, a.n_agents)); meta.append((i, 'novax', None))
+        for resp in a.responses:
+            tasks.append((a.model, p, p['base_beta'], resp, True, seed, a.n_agents)); meta.append((i, 'vax', resp))
 
     with get_context('spawn').Pool(processes=min(a.n_workers, len(tasks)), maxtasksperchild=4) as pool:
         outs = pool.map(vt._build_run, tasks)
 
-    by = {}
-    for (i, kind), o in zip(meta, outs):
-        by.setdefault(i, {})[kind] = o
+    novax, vaxr = {}, {}
+    for (i, kind, resp), o in zip(meta, outs):
+        if kind == 'novax':
+            novax[i] = o
+        else:
+            vaxr[(i, resp)] = o
     rows = []
-    for i, d in by.items():
-        if 'novax' not in d or 'vax' not in d:
-            continue
-        nov, vax = d['novax'], d['vax']
-        rec = dict(draw=int(i), model=a.model, response=a.response,
-                   novax_overall=nov['overall'], vax_overall=vax['overall'],
-                   ve_overall=(1 - vax['overall'] / nov['overall']) if nov['overall'] > 0 else float('nan'))
-        for b in BINS:
-            nb, vb = nov['by_age'][b], vax['by_age'][b]
-            rec[f've_{b}'] = (1 - vb / nb) if nb > 0 else float('nan')
-        rows.append(rec)
+    for i in novax:
+        nov = novax[i]
+        for resp in a.responses:
+            vax = vaxr.get((i, resp))
+            if vax is None:
+                continue
+            rec = dict(draw=int(i), model=a.model, response=resp,
+                       novax_overall=nov['overall'], vax_overall=vax['overall'],
+                       ve_overall=(1 - vax['overall'] / nov['overall']) if nov['overall'] > 0 else float('nan'))
+            for b in BINS:
+                nb, vb = nov['by_age'][b], vax['by_age'][b]
+                rec[f've_{b}'] = (1 - vb / nb) if nb > 0 else float('nan')
+            rows.append(rec)
     df = pd.DataFrame(rows)
     suf = '_smoke' if a.smoke else ''
     df.to_csv(HERE / 'outputs' / f'{a.model}_ve_draws{suf}.csv', index=False)
 
-    summ = dict(model=a.model, response=a.response, n_draws=len(df), ve_overall=_ci(df['ve_overall']))
-    print(f"\nVE_overall {a.model}: median {summ['ve_overall']['median']:.3f}  "
-          f"95% CrI [{summ['ve_overall']['lo']:.3f}, {summ['ve_overall']['hi']:.3f}]  (n={summ['ve_overall']['n']})")
-    for b in BINS:
-        c = _ci(df[f've_{b}']); summ[f've_{b}'] = c
-        print(f"  VE {b:8s}: median {c['median']:.3f}  [{c['lo']:.3f}, {c['hi']:.3f}]")
+    summ = dict(model=a.model, responses=a.responses, by_response={})
+    for resp in a.responses:
+        sub = df[df.response == resp]
+        cr = dict(n_draws=len(sub), ve_overall=_ci(sub['ve_overall']),
+                  **{f've_{b}': _ci(sub[f've_{b}']) for b in BINS})
+        summ['by_response'][str(resp)] = cr
+        o = cr['ve_overall']
+        print(f"\nVE_overall {a.model} @resp {resp}: median {o['median']:.3f}  "
+              f"95% CrI [{o['lo']:.3f}, {o['hi']:.3f}]  (n={o['n']})")
+        for b in BINS:
+            c = cr[f've_{b}']
+            print(f"  VE {b:8s}: median {c['median']:.3f}  [{c['lo']:.3f}, {c['hi']:.3f}]")
     json.dump(summ, (HERE / 'outputs' / f'{a.model}_ve_summary{suf}.json').open('w'), indent=2)
-    print(f"wrote {a.model}_ve_draws{suf}.csv + summary", flush=True)
+    print(f"\nwrote {a.model}_ve_draws{suf}.csv + summary", flush=True)
 
 
 if __name__ == '__main__':

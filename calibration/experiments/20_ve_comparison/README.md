@@ -28,15 +28,24 @@ are measuring.
 **Design choices (defaults; revisit before launch).**
 - **Metric:** overall symptomatic-IR VE *and* by-age VE (total effect, whole-population — same
   as exp 15). By-age speaks to the LMIC-vs-HIC achieved-VE question.
-- **Response:** fixed at **0.75** (exp-15 central) so the model-vs-model VE difference reflects
-  structure + parameter uncertainty, not vaccine assumptions. Can sweep 0.6/0.75/0.9 later.
+- **Response (seroconversion):** sweep **0.63, 0.75, 0.9** (novax shared across them) — the
+  question is not just the gap at one efficacy but whether the **age-vs-infnum VE gap changes
+  with efficacy** (does the structural divergence widen, narrow, or hold as the vaccine gets
+  more effective?). 0.63 ≈ LIC seroconversion; 0.9 ≈ high-efficacy ceiling.
+- **Metric:** total effect only (overall + by-age symptomatic-IR VE) — agreed. Direct effect
+  (vaccinated-vs-unvaccinated within one partial-coverage population) needs new code
+  (`VaccinePrime` coverage tagging + `SympIRObserver` stratification) + an extra run per draw;
+  deferred to a possible **exp 20b** if the total-effect result motivates separating
+  per-person protection from herd effects.
 - **N_VE:** **800** draws thinned from each posterior (≈ the informative content once ESS is
   known; 800×2 sims ≈ ~1 h/model at 118 workers). If a posterior's ESS ≪ 800, use the unique
   draws and weight by posterior multiplicity.
 - **N_agents:** 40k (consistent with the fit), `WINDOW=(5,10)`, Bangladesh demographics.
 
-**Success criteria.** Two VE distributions (age, infnum) with credible intervals. The headline
-is their **overlap**: clear separation ⇒ VE depends on the unidentifiable symptom structure (a
-structural-uncertainty finding); substantial overlap ⇒ VE is robust. Either is publishable. A
-secondary read is the **by-age VE shape** (does the age model predict more age-skewed achieved
-VE?), the bridge to the LMIC-vs-HIC question.
+**Success criteria.** Per efficacy level, two VE distributions (age, infnum) with credible
+intervals. Headlines: (1) their **overlap** at each level — clear separation ⇒ VE depends on the
+unidentifiable symptom structure (a structural-uncertainty finding); substantial overlap ⇒ VE
+is robust; (2) **how the gap moves across 0.63 → 0.75 → 0.9** — does the structural divergence
+widen, hold, or shrink with efficacy? A secondary read is the **by-age VE shape** (does the age
+model predict more age-skewed achieved VE?), the bridge to the LMIC-vs-HIC question. Either
+overlap outcome is publishable.

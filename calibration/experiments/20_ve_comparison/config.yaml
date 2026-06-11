@@ -6,11 +6,12 @@ inputs:
   - ../18_age_posterior/outputs/posterior.csv
   - ../19_infnum_posterior/outputs/posterior.csv
 n_ve_draws: 800            # unique posterior draws per model (resampling duplicates collapsed)
-response: 0.75             # fixed; can sweep 0.6/0.75/0.9 later
+responses: [0.63, 0.75, 0.9]   # 3 efficacy levels -- does the age-vs-infnum VE gap change with efficacy?
 n_agents: 40000
 seed_scheme: paired -- baseline & vaccinated of draw i BOTH use seed = 30000 + i (common random numbers)
 metric: VE = 1 - IR_symp(vax)/IR_symp(novax), overall AND by age bin (<=36mo)
 outputs: [outputs/{model}_ve_draws.csv, outputs/{model}_ve_summary.json]
 machines: age->raccoon, infnum->covaguest (pinned env; ../../hm_env_pins.txt)
 status: SCAFFOLDED -- awaiting exp 18/19 posteriors; NOT yet launched
-open_decisions: [VE metric (overall vs by-age vs direct-effect), response (fix 0.75 vs sweep), N_VE vs ESS]
+decisions_locked: {metric: total-effect (overall + by-age; direct-effect deferred to a possible exp 20b),
+                   responses: [0.63, 0.75, 0.9], N_VE: 800}
