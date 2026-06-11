@@ -183,6 +183,9 @@ def _run_one_replicate(args):
                 ('q25', 'median', 'q75'),
                 (float(x) for x in process_incidence_maled.km_quartiles(rd['km_time'], rd['km_observed'])))),
             repeat_frac=rd.get('repeat_detected_frac'),
+            # Raw KM first-detection records for the censored-survival likelihood
+            # (trajectory selection, exp 18/19); ignored by the Optuna GOF path.
+            km_time=rd['km_time'], km_observed=rd['km_observed'],
         )
     else:
         df = sim.analyzers['infectedstrainstats'].to_df()
