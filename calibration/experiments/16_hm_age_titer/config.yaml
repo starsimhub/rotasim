@@ -1,0 +1,20 @@
+# Exp 16 — history-matching posterior for age-symptom + titer maternal (the re-test).
+# historymatching 2.0.1, Bayes-linear emulator, cohort observation, homogeneous mixing.
+model: age                 # symptom_model = age_only (beta0/1/2)
+maternal_model: titer
+observation: cohort
+method: history_matching
+emulator: bayes_linear
+implausibility_threshold: 3.0
+n_agents: 40000
+n_samples_per_wave: 1500
+waves: 9                   # 1-6 AUTO (mean_sq_z, 1/wave, cooldown 2); 7-9 MANUAL force skipped targets
+forced_features_waves_7_9: [repeat_detected_frac, first_inf_median]
+targets: [ir_symp_<6m, ir_symp_6-11m, ir_symp_12-23m, repeat_detected_frac, first_inf_median]
+box_params: [log_base_beta, sus_after_1, sus_r2, sus_r3, log_titer_median, titer_gsd,
+             titer_half_life_days, hill_slope, maternal_efficacy, beta0, beta1, beta2]
+driver: ../../hm_calibrate.py
+run_name: maled_age_titer
+random_seed: 20260610
+machine: raccoon (uv env; starsim 3.0.5 / numpy 1.26.4 — see ../../hm_env_pins.txt)
+compare_against: ../17_hm_infnum_titer   # matched same-maternal partner
