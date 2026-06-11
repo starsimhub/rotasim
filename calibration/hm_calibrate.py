@@ -139,6 +139,11 @@ def main():
     ap.add_argument('--max-iter', type=int, default=1)
     ap.add_argument('--resume', action='store_true')
     ap.add_argument('--out-dir', default=None)
+    ap.add_argument('--features', default=None,
+                    help='comma-separated feature names to force every wave via '
+                         'ManualFeatureSelection (overrides auto). Used to make targets the '
+                         'auto-selector skipped (e.g. repeat_detected_frac,first_inf_median) bite '
+                         'on a --resume continuation.')
     ap.add_argument('--smoke', action='store_true')
     a = ap.parse_args()
     n_agents = N_AGENTS
@@ -148,14 +153,22 @@ def main():
         / ('16_hm_age_titer' if a.model == 'age' else '17_hm_infnum_titer') / 'outputs' / 'hm')
 
     obs = make_observations()
+    if a.features:
+        feats = [s.strip() for s in a.features.split(',') if s.strip()]
+        feature_selection = hm.ManualFeatureSelection(feats)
+        fs_desc = f"MANUAL {feats}"
+    else:
+        feature_selection = hm.AutoFeatureSelection(method='mean_sq_z', max_features=1, cooldown_period=2)
+        fs_desc = "AUTO mean_sq_z (1/wave, cooldown 2)"
     print(f"HM model={a.model}  n_samples={a.n_samples}  max_iter={a.max_iter}  workers={N_WORKERS}")
+    print(f"Feature selection: {fs_desc}")
     print("Targets:", {k: (round(v[0], 3), round(v[1], 3)) for k, v in obs.items()})
     sim_config = build_sim_config(a.model, n_agents)
     engine = hm.HistoryMatching(
         function=make_simulator(a.model, sim_config),
         bounds=BOUNDS[a.model], observations=obs,
         emulator_type='bayes_linear', sampling_strategy='lhs',
-        feature_selection=hm.AutoFeatureSelection(method='mean_sq_z', max_features=1, cooldown_period=2),
+        feature_selection=feature_selection,
         n_samples=a.n_samples, implausibility_threshold=3.0, max_iterations=a.max_iter,
         output_dir=out_dir, run_name=f'maled_{a.model}_titer', random_seed=20260610,
     )
