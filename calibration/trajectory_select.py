@@ -27,6 +27,23 @@ sys.path.insert(0, str(THISDIR))
 import calibrate_maled as cm
 import process_incidence_maled as P
 
+
+def _read_jsonl(path):
+    """Robustly read a JSONL stream, skipping null-padded/truncated lines left by a
+    spot-eviction mid-write (so a resumed run self-heals instead of crashing)."""
+    out = []
+    if not pathlib.Path(path).exists():
+        return out
+    for line in open(path, errors='ignore'):
+        line = line.replace('\x00', '').strip()
+        if not line:
+            continue
+        try:
+            out.append(json.loads(line))
+        except Exception:
+            pass
+    return out
+
 SITE = 'bangladesh'
 BASE_SEED = 20260611
 N_AGENTS = 40_000
@@ -148,9 +165,8 @@ def main():
     print(f"NROY draw: {len(nroy)} samples (cache={cache.name})")
 
     sim_config = build_sim_config(a.model, n_agents)
-    done = set()
-    if jsonl.exists():
-        done = {json.loads(l)['idx'] for l in open(jsonl)}
+    done = {r['idx'] for r in _read_jsonl(jsonl)}
+    if done:
         print(f"resuming: {len(done)} already scored")
     tasks = [(i, sim_config, untransform(row, a.model), BASE_SEED + i)
              for i, (_, row) in enumerate(nroy.iterrows()) if i not in done]
@@ -165,7 +181,7 @@ def main():
                     print(f"  {n_done}/{a.n} scored, {sc.toc(t0, output=True):.0f}s", flush=True)
 
     # ---- importance resample ----
-    recs = [json.loads(l) for l in open(jsonl)]
+    recs = _read_jsonl(jsonl)
     logL = np.array([r['logL'] if r.get('logL') is not None else -np.inf for r in recs], float)
     finite = np.isfinite(logL)
     print(f"finite-logL trajectories: {finite.sum()}/{len(recs)}")
