@@ -34,33 +34,53 @@ OBS_COLS = [f'ir_symp_{b}' for b in IR_BINS] + ['repeat_detected_frac', 'first_i
 
 import numpy as _np
 LOG = _np.log
-COMMON_BOUNDS = {
+TRANSMISSION_BOUNDS = {
     'log_base_beta':        (LOG(0.05), LOG(0.5)),
     'sus_after_1':          (0.1, 1.0),
     'sus_r2':               (0.0, 1.0),    # sus_2 = sus_1 * r2
     'sus_r3':               (0.0, 1.0),    # sus_3 = sus_2 * r3
-    'log_titer_median':     (LOG(4.0), LOG(60.0)),
-    'titer_gsd':            (1.3, 3.5),
-    'titer_half_life_days': (25.0, 70.0),
-    'hill_slope':           (1.5, 8.0),
-    'maternal_efficacy':    (0.5, 0.99),
 }
-BOUNDS = {
-    'age':    {**COMMON_BOUNDS, 'beta0': (-5.0, 2.0), 'beta1': (-1.0, 1.0), 'beta2': (-0.5, 0.5)},
-    'infnum': {**COMMON_BOUNDS, 'p_symp_1': (0.4, 1.0), 'p_r2': (0.0, 1.0), 'p_r3': (0.0, 1.0)},
+MATERNAL_BOUNDS = {
+    'titer':  {'log_titer_median': (LOG(4.0), LOG(60.0)), 'titer_gsd': (1.3, 3.5),
+               'titer_half_life_days': (25.0, 70.0), 'hill_slope': (1.5, 8.0), 'maternal_efficacy': (0.5, 0.99)},
+    'erlang': {'maternal_efficacy': (0.5, 0.99), 'maternal_mean_duration_days': (30.0, 300.0)},  # n_stages fixed at 6
 }
+SYMPTOM_BOUNDS = {
+    'age':    {'beta0': (-5.0, 2.0), 'beta1': (-1.0, 1.0), 'beta2': (-0.5, 0.5)},
+    'infnum': {'p_symp_1': (0.4, 1.0), 'p_r2': (0.0, 1.0), 'p_r3': (0.0, 1.0)},
+}
+def bounds_for(model, maternal):
+    return {**TRANSMISSION_BOUNDS, **MATERNAL_BOUNDS[maternal], **SYMPTOM_BOUNDS[model]}
+BOUNDS = {m: bounds_for(m, 'titer') for m in ('age', 'infnum')}   # back-compat default (exp 16/17 = titer)
 SYMPTOM_MODEL = {'age': 'age_only', 'infnum': 'infection_number'}
 
 
-def untransform(row, model):
+class CycleFeatureSelection(hm.FeatureSelectionStrategy):
+    """One feature per wave, cycling through a fixed list -> every target constrains the NROY
+    over the waves (unlike auto, which kept picking IR and skipped repeat/first-inf), while
+    keeping emulator training well-conditioned (1 feature/wave, vs all-at-once which can go
+    singular when a feature is degenerate)."""
+    def __init__(self, feats):
+        self.feats = list(feats)
+    def select_features(self, simulation_results, observations, iteration=1):
+        f = self.feats[(int(iteration) - 1) % len(self.feats)]
+        return self.validate_features([f], simulation_results, observations)
+    def get_strategy_name(self):
+        return f"Cycle 1/wave over {len(self.feats)} targets"
+
+
+def untransform(row, model, maternal='titer'):
     s1 = float(row['sus_after_1']); s2 = s1 * float(row['sus_r2']); s3 = s2 * float(row['sus_r3'])
     p = dict(base_beta=float(np.exp(row['log_base_beta'])),
              sus_after_1=s1, sus_after_2=s2, sus_after_3plus=s3,
-             maternal_immunity_efficacy=float(row['maternal_efficacy']),
-             maternal_titer_median=float(np.exp(row['log_titer_median'])),
-             maternal_titer_gsd=float(row['titer_gsd']),
-             maternal_titer_half_life_days=float(row['titer_half_life_days']),
-             maternal_hill_slope=float(row['hill_slope']))
+             maternal_immunity_efficacy=float(row['maternal_efficacy']))
+    if maternal == 'titer':   # presence of maternal_titer_median triggers the titer branch in _run_one_replicate
+        p.update(maternal_titer_median=float(np.exp(row['log_titer_median'])),
+                 maternal_titer_gsd=float(row['titer_gsd']),
+                 maternal_titer_half_life_days=float(row['titer_half_life_days']),
+                 maternal_hill_slope=float(row['hill_slope']))
+    else:                     # erlang (n_stages fixed in sim_config)
+        p.update(maternal_immunity_mean_duration_days=float(row['maternal_mean_duration_days']))
     if model == 'age':
         p.update(beta0=float(row['beta0']), beta1=float(row['beta1']), beta2=float(row['beta2']))
     else:
@@ -69,7 +89,7 @@ def untransform(row, model):
     return p
 
 
-def build_sim_config(model, n_agents):
+def build_sim_config(model, n_agents, maternal='titer'):
     demo = cm.SITE_DEMOGRAPHICS[SITE]
     fi = pd.read_csv(THISDIR / 'maled_data' / f'first_infection_{SITE}.csv')
     cens = fi.loc[(fi['event_observed'] == 0) & (fi['age_event_months'] > 0), 'age_event_months'].astype(float).tolist()
@@ -78,7 +98,7 @@ def build_sim_config(model, n_agents):
         birth_rate=demo['birth_rate'], death_rate=demo['death_rate'],
         constant_severity=cm.FIXED_CONSTANT_SEVERITY, reporting_rate=cm.FIXED_REPORTING_RATE,
         age_data_path=str(THISDIR / f'{SITE}_age_data.csv'),
-        symptom_model=SYMPTOM_MODEL[model], maternal_n_stages=6, maternal_model='titer',
+        symptom_model=SYMPTOM_MODEL[model], maternal_n_stages=6, maternal_model=maternal,
         observation='cohort', censoring_ages=cens,
         symp_collection=0.80, eia_sensitivity=0.85, shed_days=13.0,
     )
@@ -109,11 +129,11 @@ def make_observations():
     return obs
 
 
-def make_simulator(model, sim_config):
+def make_simulator(model, sim_config, maternal='titer'):
     def simulate(params_df: pd.DataFrame) -> pd.DataFrame:
         args = []
         for _, row in params_df.iterrows():
-            sp = untransform(row, model)
+            sp = untransform(row, model, maternal)
             seed = abs(hash(tuple(np.round(row.values, 6)))) % (2**31)
             args.append((sim_config, sp, int(seed), CAL_WINDOW))
         with get_context('spawn').Pool(processes=min(N_WORKERS, len(args)), maxtasksperchild=4) as pool:
@@ -135,6 +155,7 @@ def make_simulator(model, sim_config):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', required=True, choices=['age', 'infnum'])
+    ap.add_argument('--maternal', default='titer', choices=['titer', 'erlang'])
     ap.add_argument('--n-samples', type=int, default=1500)
     ap.add_argument('--max-iter', type=int, default=1)
     ap.add_argument('--resume', action='store_true')
@@ -144,33 +165,41 @@ def main():
                          'ManualFeatureSelection (overrides auto). Used to make targets the '
                          'auto-selector skipped (e.g. repeat_detected_frac,first_inf_median) bite '
                          'on a --resume continuation.')
+    ap.add_argument('--all-targets', action='store_true',
+                    help='force ManualFeatureSelection over ALL 5 targets every wave (IR bins + '
+                         'repeat_detected_frac + first_inf_median), so the NROY is constrained by every '
+                         'target -- not just incidence (the auto selector skipped repeat/first-inf in exp 16/17).')
     ap.add_argument('--smoke', action='store_true')
     a = ap.parse_args()
     n_agents = N_AGENTS
     if a.smoke:
         a.n_samples = 16; a.max_iter = 1; n_agents = 8000
-    out_dir = a.out_dir or str(THISDIR / 'experiments'
-        / ('16_hm_age_titer' if a.model == 'age' else '17_hm_infnum_titer') / 'outputs' / 'hm')
+    EXP_FOLDER = {('age', 'titer'): '16_hm_age_titer', ('infnum', 'titer'): '17_hm_infnum_titer',
+                  ('age', 'erlang'): '21_hm_age_erlang', ('infnum', 'erlang'): '22_hm_infnum_erlang'}
+    out_dir = a.out_dir or str(THISDIR / 'experiments' / EXP_FOLDER[(a.model, a.maternal)] / 'outputs' / 'hm')
 
     obs = make_observations()
-    if a.features:
+    if a.all_targets:
+        feature_selection = CycleFeatureSelection(OBS_COLS)
+        fs_desc = f"CYCLE 1/wave over all {len(OBS_COLS)} targets: {OBS_COLS}"
+    elif a.features:
         feats = [s.strip() for s in a.features.split(',') if s.strip()]
         feature_selection = hm.ManualFeatureSelection(feats)
         fs_desc = f"MANUAL {feats}"
     else:
         feature_selection = hm.AutoFeatureSelection(method='mean_sq_z', max_features=1, cooldown_period=2)
         fs_desc = "AUTO mean_sq_z (1/wave, cooldown 2)"
-    print(f"HM model={a.model}  n_samples={a.n_samples}  max_iter={a.max_iter}  workers={N_WORKERS}")
+    print(f"HM model={a.model}  maternal={a.maternal}  n_samples={a.n_samples}  max_iter={a.max_iter}  workers={N_WORKERS}")
     print(f"Feature selection: {fs_desc}")
     print("Targets:", {k: (round(v[0], 3), round(v[1], 3)) for k, v in obs.items()})
-    sim_config = build_sim_config(a.model, n_agents)
+    sim_config = build_sim_config(a.model, n_agents, a.maternal)
     engine = hm.HistoryMatching(
-        function=make_simulator(a.model, sim_config),
-        bounds=BOUNDS[a.model], observations=obs,
+        function=make_simulator(a.model, sim_config, a.maternal),
+        bounds=bounds_for(a.model, a.maternal), observations=obs,
         emulator_type='bayes_linear', sampling_strategy='lhs',
         feature_selection=feature_selection,
         n_samples=a.n_samples, implausibility_threshold=3.0, max_iterations=a.max_iter,
-        output_dir=out_dir, run_name=f'maled_{a.model}_titer', random_seed=20260610,
+        output_dir=out_dir, run_name=f'maled_{a.model}_{a.maternal}', random_seed=20260610,
     )
     t0 = sc.tic()
     engine.run(resume=a.resume)
