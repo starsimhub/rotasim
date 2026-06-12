@@ -49,8 +49,16 @@ SYMPTOM_BOUNDS = {
     'age':    {'beta0': (-5.0, 2.0), 'beta1': (-1.0, 1.0), 'beta2': (-0.5, 0.5)},
     'infnum': {'p_symp_1': (0.4, 1.0), 'p_r2': (0.0, 1.0), 'p_r3': (0.0, 1.0)},
 }
-def bounds_for(model, maternal):
-    return {**TRANSMISSION_BOUNDS, **MATERNAL_BOUNDS[maternal], **SYMPTOM_BOUNDS[model]}
+# Fixed titer-shape values (infnum posterior medians) -- the identified maternal curve, used
+# to remove titer's redundant shape flexibility (--fix-titer-shape): only maternal_efficacy stays free.
+FIXED_TITER_SHAPE = dict(median=20.0, gsd=2.3, half_life_days=50.0, hill=4.7)
+
+def bounds_for(model, maternal, fix_titer_shape=False):
+    mat = dict(MATERNAL_BOUNDS[maternal])
+    if fix_titer_shape and maternal == 'titer':
+        for k in ('log_titer_median', 'titer_gsd', 'titer_half_life_days', 'hill_slope'):
+            mat.pop(k, None)   # fix the shape; keep maternal_efficacy free
+    return {**TRANSMISSION_BOUNDS, **mat, **SYMPTOM_BOUNDS[model]}
 BOUNDS = {m: bounds_for(m, 'titer') for m in ('age', 'infnum')}   # back-compat default (exp 16/17 = titer)
 SYMPTOM_MODEL = {'age': 'age_only', 'infnum': 'infection_number'}
 
@@ -69,16 +77,20 @@ class CycleFeatureSelection(hm.FeatureSelectionStrategy):
         return f"Cycle 1/wave over {len(self.feats)} targets"
 
 
-def untransform(row, model, maternal='titer'):
+def untransform(row, model, maternal='titer', fix_titer_shape=False):
     s1 = float(row['sus_after_1']); s2 = s1 * float(row['sus_r2']); s3 = s2 * float(row['sus_r3'])
     p = dict(base_beta=float(np.exp(row['log_base_beta'])),
              sus_after_1=s1, sus_after_2=s2, sus_after_3plus=s3,
              maternal_immunity_efficacy=float(row['maternal_efficacy']))
     if maternal == 'titer':   # presence of maternal_titer_median triggers the titer branch in _run_one_replicate
-        p.update(maternal_titer_median=float(np.exp(row['log_titer_median'])),
-                 maternal_titer_gsd=float(row['titer_gsd']),
-                 maternal_titer_half_life_days=float(row['titer_half_life_days']),
-                 maternal_hill_slope=float(row['hill_slope']))
+        if fix_titer_shape:   # shape held at the identified curve; only efficacy fitted
+            p.update(maternal_titer_median=FIXED_TITER_SHAPE['median'], maternal_titer_gsd=FIXED_TITER_SHAPE['gsd'],
+                     maternal_titer_half_life_days=FIXED_TITER_SHAPE['half_life_days'], maternal_hill_slope=FIXED_TITER_SHAPE['hill'])
+        else:
+            p.update(maternal_titer_median=float(np.exp(row['log_titer_median'])),
+                     maternal_titer_gsd=float(row['titer_gsd']),
+                     maternal_titer_half_life_days=float(row['titer_half_life_days']),
+                     maternal_hill_slope=float(row['hill_slope']))
     else:                     # erlang (n_stages fixed in sim_config)
         p.update(maternal_immunity_mean_duration_days=float(row['maternal_mean_duration_days']))
     if model == 'age':
@@ -129,11 +141,11 @@ def make_observations():
     return obs
 
 
-def make_simulator(model, sim_config, maternal='titer'):
+def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False):
     def simulate(params_df: pd.DataFrame) -> pd.DataFrame:
         args = []
         for _, row in params_df.iterrows():
-            sp = untransform(row, model, maternal)
+            sp = untransform(row, model, maternal, fix_titer_shape)
             seed = abs(hash(tuple(np.round(row.values, 6)))) % (2**31)
             args.append((sim_config, sp, int(seed), CAL_WINDOW))
         with get_context('spawn').Pool(processes=min(N_WORKERS, len(args)), maxtasksperchild=4) as pool:
@@ -169,6 +181,10 @@ def main():
                     help='force ManualFeatureSelection over ALL 5 targets every wave (IR bins + '
                          'repeat_detected_frac + first_inf_median), so the NROY is constrained by every '
                          'target -- not just incidence (the auto selector skipped repeat/first-inf in exp 16/17).')
+    ap.add_argument('--fix-titer-shape', action='store_true',
+                    help='hold the titer SHAPE params (median/gsd/half_life/hill) at the identified curve '
+                         '(FIXED_TITER_SHAPE); fit only maternal_efficacy + transmission + symptom. Tests whether '
+                         'removing titer\'s redundant flexibility makes age+titer identifiable.')
     ap.add_argument('--smoke', action='store_true')
     a = ap.parse_args()
     n_agents = N_AGENTS
@@ -193,13 +209,14 @@ def main():
     print(f"Feature selection: {fs_desc}")
     print("Targets:", {k: (round(v[0], 3), round(v[1], 3)) for k, v in obs.items()})
     sim_config = build_sim_config(a.model, n_agents, a.maternal)
+    run_name = f'maled_{a.model}_{a.maternal}' + ('_fixedshape' if a.fix_titer_shape else '')
     engine = hm.HistoryMatching(
-        function=make_simulator(a.model, sim_config, a.maternal),
-        bounds=bounds_for(a.model, a.maternal), observations=obs,
+        function=make_simulator(a.model, sim_config, a.maternal, a.fix_titer_shape),
+        bounds=bounds_for(a.model, a.maternal, a.fix_titer_shape), observations=obs,
         emulator_type='bayes_linear', sampling_strategy='lhs',
         feature_selection=feature_selection,
         n_samples=a.n_samples, implausibility_threshold=3.0, max_iterations=a.max_iter,
-        output_dir=out_dir, run_name=f'maled_{a.model}_{a.maternal}', random_seed=20260610,
+        output_dir=out_dir, run_name=run_name, random_seed=20260610,
     )
     t0 = sc.tic()
     engine.run(resume=a.resume)
