@@ -125,14 +125,14 @@ def _score_one(args):
     return out
 
 
-def draw_nroy(model, n, cache):
+def draw_nroy(hm_dir, bounds, run_name, n, cache):
     if cache.exists():
         return pd.read_csv(cache)
-    ckpt = HM_RUN[model] / 'checkpoint.pkl'
-    tmp = hm.HistoryMatching(function=lambda df: df, bounds=cm_BOUNDS[model], observations=OBS,
+    ckpt = hm_dir / 'checkpoint.pkl'
+    tmp = hm.HistoryMatching(function=lambda df: df, bounds=bounds, observations=OBS,
                              emulator_type='bayes_linear', sampling_strategy='lhs',
                              feature_selection=hm.AutoFeatureSelection(method='mean_sq_z', max_features=1, cooldown_period=2),
-                             output_dir=str(HM_RUN[model].parent), run_name=f'maled_{model}_titer', random_seed=20260610)
+                             output_dir=str(hm_dir.parent), run_name=run_name, random_seed=20260610)
     engine = hm.HistoryMatching.load_checkpoint(ckpt, tmp.sampling_strategy, tmp.feature_selection, tmp.emulator_factory)
     nroy = engine.get_nroy_samples(n, method='lhs')
     nroy.to_csv(cache, index=False)
@@ -140,13 +140,17 @@ def draw_nroy(model, n, cache):
 
 
 # import here so the names exist for draw_nroy
-from hm_calibrate import BOUNDS as cm_BOUNDS, make_observations, build_sim_config, untransform
+from hm_calibrate import bounds_for, make_observations, build_sim_config, untransform
 OBS = make_observations()
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', required=True, choices=['age', 'infnum'])
+    ap.add_argument('--maternal', choices=['titer', 'erlang'], default='titer')
+    ap.add_argument('--fix-titer-shape', action='store_true')
+    ap.add_argument('--hm-dir', default=None, help='HM run folder with checkpoint.pkl (default: free-titer exp 16/17)')
+    ap.add_argument('--out-dir', default=None, help='where to write posterior/sir_results (default: exp 18/19)')
     ap.add_argument('--n', type=int, default=5000)
     ap.add_argument('--smoke', action='store_true')
     a = ap.parse_args()
@@ -154,21 +158,26 @@ def main():
     if a.smoke:
         a.n = 24; n_agents = 8000
 
-    out_dir = THISDIR / 'experiments' / EXP_DIR[a.model] / 'outputs'
+    hm_dir = pathlib.Path(a.hm_dir) if a.hm_dir else HM_RUN[a.model]
+    run_name = hm_dir.name
+    bounds = bounds_for(a.model, a.maternal, a.fix_titer_shape)
+    out_dir = pathlib.Path(a.out_dir) if a.out_dir else (THISDIR / 'experiments' / EXP_DIR[a.model] / 'outputs')
     out_dir.mkdir(parents=True, exist_ok=True)
     cache = out_dir / ('nroy_draw_smoke.csv' if a.smoke else 'nroy_draw.csv')
     jsonl = out_dir / ('sir_smoke.jsonl' if a.smoke else 'sir_results.jsonl')
 
-    print(f"trajectory selection model={a.model}  N={a.n}  workers={N_WORKERS}  agents={n_agents}")
+    print(f"trajectory selection model={a.model} maternal={a.maternal} fix_shape={a.fix_titer_shape}  N={a.n}  workers={N_WORKERS}  agents={n_agents}")
+    print(f"  HM dir : {hm_dir}")
+    print(f"  out dir: {out_dir}")
     print(f"likelihood: Poisson(IR {IR_BINS}) + Binomial(repeat {REPEAT_OBS}/{REPEAT_N}) + survival(first-inf, {len(FIRSTINF)} records); no ever-detected")
-    nroy = draw_nroy(a.model, a.n, cache)
+    nroy = draw_nroy(hm_dir, bounds, run_name, a.n, cache)
     print(f"NROY draw: {len(nroy)} samples (cache={cache.name})")
 
-    sim_config = build_sim_config(a.model, n_agents)
+    sim_config = build_sim_config(a.model, n_agents, a.maternal)
     done = {r['idx'] for r in _read_jsonl(jsonl)}
     if done:
         print(f"resuming: {len(done)} already scored")
-    tasks = [(i, sim_config, untransform(row, a.model), BASE_SEED + i)
+    tasks = [(i, sim_config, untransform(row, a.model, a.maternal, a.fix_titer_shape), BASE_SEED + i)
              for i, (_, row) in enumerate(nroy.iterrows()) if i not in done]
 
     t0 = sc.tic(); n_done = len(done)
