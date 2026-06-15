@@ -81,20 +81,29 @@ def main():
     b.set_xlabel('age (months)'); b.set_ylabel('protection / protection(0)'); b.set_xlim(0, 24); b.set_ylim(0, 1)
     b.legend(fontsize=8)
 
-    # C. individual-level: titer heterogeneity vs Erlang's single deterministic curve
+    # C. individual-level: titer heterogeneity vs Erlang, with the POPULATION MEANS MATCHED
+    # so the only visible difference is per-infant spread (not a location shift). Titer params
+    # = exp-07 posterior medians; Erlang (same efficacy) is fit to the titer mean curve.
     c = axs[2]
-    eff, med, gsd, hl, slope, n_st = 0.9, 20.0, 2.2, 45.0, 4.0, 3
+    eff, med, gsd, hl, slope = 0.94, 26.3, 2.23, 49.3, 5.16     # ~ exp-07 posterior medians
+    tmean = titer_curve(eff, med, gsd, hl, slope)
+    best = None                                                 # fit Erlang(n, mean_dur) to titer mean
+    for n in range(1, 7):
+        for md in np.linspace(20, 365, 300):
+            sse = float(((erlang_curve(eff, md, n) - tmean) ** 2).sum())
+            if best is None or sse < best[0]:
+                best = (sse, n, md)
+    _, n_st, md_fit = best
     rngc = np.random.default_rng(1)
-    for _ in range(25):
+    for _ in range(30):
         t0 = med * np.exp(np.log(gsd) * rngc.standard_normal())
         titer = t0 * np.exp(-LN2 * AGE_Y / (hl / 365.25)); th = np.power(np.maximum(titer, 0), slope)
-        c.plot(AGE_M, eff * th / (th + 1), color=TIT, alpha=0.30, lw=0.9)
-    c.plot(AGE_M, titer_curve(eff, med, gsd, hl, slope), color=TIT, lw=2.5, label='titer: population mean')
-    c.plot([], [], color=TIT, alpha=0.4, lw=0.9, label='titer: individual infants')
-    # Erlang matched to a similar drop age (mean_dur s.t. half-protection ~ same age)
-    c.plot(AGE_M, erlang_curve(eff, 120.0, n_st), color=ERL, lw=2.5, ls='--',
-           label=f'Erlang (n={n_st}): every infant identical')
-    c.set_title('C. individual infants — titer heterogeneity vs Erlang (deterministic)')
+        c.plot(AGE_M, eff * th / (th + 1), color=TIT, alpha=0.28, lw=0.8)
+    c.plot([], [], color=TIT, alpha=0.5, lw=1.0, label='titer: individual infants')
+    c.plot(AGE_M, tmean, color=TIT, lw=2.8, label='titer: population mean')
+    c.plot(AGE_M, erlang_curve(eff, md_fit, n_st), color=ERL, lw=2.5, ls='--',
+           label=f'Erlang (n={n_st}, mean={md_fit:.0f}d): matched mean, all infants identical')
+    c.set_title('C. SAME population mean — only difference is per-infant heterogeneity')
     c.set_xlabel('age (months)'); c.set_ylabel('maternal protection'); c.set_xlim(0, 24); c.set_ylim(0, 1)
     c.legend(fontsize=8)
 
