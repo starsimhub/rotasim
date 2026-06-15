@@ -447,7 +447,15 @@ class RotaImmunityConnector(ss.Connector):
                             self._mat_rng = np.random.default_rng(int(self.sim.pars.rand_seed or 0) + 90210)
                         sigma = np.log(max(float(self.pars.maternal_titer_gsd), 1.0 + 1e-9))
                         med = max(float(self.pars.maternal_titer_median), 1e-9)
-                        t0[need] = med * np.exp(sigma * self._mat_rng.standard_normal(int(need.sum())))
+                        drawn = med * np.exp(sigma * self._mat_rng.standard_normal(int(need.sum())))
+                        # PERSIST each infant's initial titer (drawn once at birth) into the
+                        # state array. `.values` is a copy, so we must write back through the
+                        # Arr; otherwise maternal_titer0 stays NaN and is re-drawn every step,
+                        # giving each infant a fresh random titer daily (no coherent per-infant
+                        # decay). The population-mean curve is unaffected, but per-infant
+                        # heterogeneity in protection duration is lost. See issue #37.
+                        self.maternal_titer0[self.maternal_titer0.auids[need]] = drawn
+                        t0 = self.maternal_titer0.values  # refresh with the persisted draws
                     hl_years = self.pars.maternal_titer_half_life.years
                     titer = t0 * np.exp(-np.log(2) * agent_ages_years / hl_years)
                     th = np.power(np.maximum(titer, 0.0), float(self.pars.maternal_hill_slope))
