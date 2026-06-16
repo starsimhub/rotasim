@@ -20,12 +20,14 @@ median **11.02 mo** (target 12.12) — the closest any model has come to the fir
 
 ![Posterior-predictive vs MAL-ED data — IR-by-age and repeat on target, first-infection KM tracking the data through ~15 mo](figures/predictions_vs_data_exp25.png)
 
-**But the fitted shape is quadratic-compatible — so the win may be the bug fix, not the binning.**
-The bin posterior medians are **0.48 / 0.57 / 0.31** (<6 / 6–11 / ≥12 mo): a peak at 6–11 mo,
-and a quadratic drawn through those three medians fits them almost perfectly. The binned model did
-*not* discover a non-parabolic shape the quadratic couldn't make.
+**But the fitted shape does not *rule out* a quadratic — so the win may be the bug fix, not the
+binning.** The bin posterior medians are **0.48 / 0.57 / 0.31** (<6 / 6–11 / ≥12 mo): a 6–11mo
+peak. CAVEAT: with only 3 bins, a quadratic passes through the 3 medians *exactly* (3 points fix a
+parabola), so this is **not** evidence the quadratic form is adequate — only that the binned shape
+isn't grossly non-parabolic. Whether a quadratic actually reproduces the *full* fit is what exp26
+tests; it is not shown by the overlay below.
 
-![Fitted P(symptomatic) per age bin — a 6–11mo peak that a quadratic can reproduce](figures/bin_symptom_posterior.png)
+![Fitted P(symptomatic) per age bin (6–11mo peak); dotted logit-quadratic through the 3 medians is illustrative only — 3 points fix it exactly, not a fit](figures/bin_symptom_posterior.png)
 
 ## Observations
 
@@ -44,17 +46,19 @@ and a quadratic drawn through those three medians fits them almost perfectly. Th
 4. **First-infection timing essentially resolved.** Model KM tracks the data through ~15 mo and
    crosses S=0.5 near the 12-mo target; only the 30+ mo tail slightly over-infects. This is the
    target that defeated every prior fit.
-5. **The shape is peaked and parabola-compatible** (0.48/0.57/0.31), with wide individual bin CIs
-   (the NROY constrains β×p_symp combinations, not single bins — see `constrained_dims`: PC1 60%,
-   PC2 21%).
+5. **The shape is a 6–11mo peak** (0.48/0.57/0.31) with wide individual bin CIs (the NROY
+   constrains β×p_symp combinations, not single bins — see `constrained_dims`: PC1 60%, PC2 21%).
+   With only 3 bins a quadratic trivially interpolates the 3 medians, so the *form's* adequacy is
+   not testable from this — it is deferred to exp26.
 
 ## Acceptance
 
 **Usable downstream** as the age member of the exp-20 VE comparison — the first age variant to
 fit all five MAL-ED targets with a non-degenerate ESS. But the *scientific* claim "the quadratic
 was over-constraining" is **not yet established**: exp 25 changed two things vs exp 23 (binned
-symptoms **and** the corrected maternal), and the fitted shape is quadratic-compatible, pointing
-to the maternal bug fix as the likelier driver.
+symptoms **and** the corrected maternal), and the 3-bin fitted shape does not rule out a quadratic
+(a parabola interpolates 3 medians exactly), so it carries no evidence on the form question —
+exp 26 settles that.
 
 ## Next
 
