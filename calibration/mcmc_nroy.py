@@ -18,7 +18,7 @@ import historymatching as hm
 
 THISDIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(THISDIR))
-from hm_calibrate import BOUNDS, make_observations, OBS_COLS, untransform  # noqa: E402
+from hm_calibrate import BOUNDS, bounds_for, make_observations, OBS_COLS, untransform  # noqa: E402
 
 HM_RUN = {'age':    THISDIR / 'experiments' / '16_hm_age_titer'    / 'outputs' / 'hm' / 'maled_age_titer',
           'infnum': THISDIR / 'experiments' / '17_hm_infnum_titer' / 'outputs' / 'hm' / 'maled_infnum_titer'}
@@ -26,13 +26,13 @@ EXP_DIR = {'age': '18_age_posterior', 'infnum': '19_infnum_posterior'}
 IMPL_THRESH = 3.0
 
 
-def load_emulators(model):
+def load_emulators(ckpt_dir, run_name, bounds):
     """Latest trained emulator per feature, from the HM checkpoint."""
-    ckpt = HM_RUN[model] / 'checkpoint.pkl'
-    tmp = hm.HistoryMatching(function=lambda df: df, bounds=BOUNDS[model], observations=make_observations(),
+    ckpt = ckpt_dir / 'checkpoint.pkl'
+    tmp = hm.HistoryMatching(function=lambda df: df, bounds=bounds, observations=make_observations(),
                              emulator_type='bayes_linear', sampling_strategy='lhs',
                              feature_selection=hm.AutoFeatureSelection(method='mean_sq_z', max_features=1, cooldown_period=2),
-                             output_dir=str(HM_RUN[model].parent), run_name=f'maled_{model}_titer', random_seed=20260610)
+                             output_dir=str(ckpt_dir.parent), run_name=run_name, random_seed=20260610)
     engine = hm.HistoryMatching.load_checkpoint(ckpt, tmp.sampling_strategy, tmp.feature_selection, tmp.emulator_factory)
     allem = engine.emulator_bank.get_all_emulators()         # {iter: {feat: emu}}
     latest = {}
@@ -52,16 +52,30 @@ def main():
     ap.add_argument('--step-scale', type=float, default=0.04)   # proposal sd as fraction of box width
     ap.add_argument('--seed', type=int, default=20260611)
     ap.add_argument('--smoke', action='store_true')
+    ap.add_argument('--fix-titer-shape', action='store_true',
+                    help='match a --fix-titer-shape HM run: drop the 4 titer-shape params, only maternal_efficacy free')
+    ap.add_argument('--exp-dir', default=None,
+                    help='output experiment folder under experiments/ (e.g. 23_age_titer_fixedshape); '
+                         'defaults to the canonical titer-free posterior for --model')
+    ap.add_argument('--ckpt-dir', default=None,
+                    help='HM checkpoint dir holding checkpoint.pkl (e.g. '
+                         'experiments/23_age_titer_fixedshape/outputs/hm/maled_age_titer_fixedshape); '
+                         'defaults to the exp16/17 titer run')
+    ap.add_argument('--run-name', default=None,
+                    help='HM run_name used when the checkpoint was written (e.g. maled_age_titer_fixedshape)')
     a = ap.parse_args()
     if a.smoke:
         a.n_chains, a.n_steps, a.burn, a.thin = 4, 3000, 500, 5
 
-    keys = list(BOUNDS[a.model].keys())
-    lo = np.array([BOUNDS[a.model][k][0] for k in keys]); hi = np.array([BOUNDS[a.model][k][1] for k in keys])
+    bounds = bounds_for(a.model, 'titer', fix_titer_shape=a.fix_titer_shape)
+    keys = list(bounds.keys())
+    lo = np.array([bounds[k][0] for k in keys]); hi = np.array([bounds[k][1] for k in keys])
     obs = make_observations()
     feats = OBS_COLS
     tgt = np.array([obs[f][0] for f in feats]); tgt_sd = np.array([obs[f][1] for f in feats])  # sd already includes discrepancy floor
-    emus = load_emulators(a.model)
+    ckpt_dir = pathlib.Path(a.ckpt_dir).resolve() if a.ckpt_dir else HM_RUN[a.model]
+    run_name = a.run_name or f'maled_{a.model}_titer'
+    emus = load_emulators(ckpt_dir, run_name, bounds)
     missing = [f for f in feats if f not in emus]
     if missing:
         raise SystemExit(f"no emulator for features {missing}; have {list(emus)}")
@@ -106,7 +120,7 @@ def main():
     S = np.concatenate(samples, axis=0)              # (n_samples, d)  pooled across chains
     acc_rate = acc / (a.n_steps * a.n_chains)
 
-    out_dir = THISDIR / 'experiments' / EXP_DIR[a.model] / 'outputs'; out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = THISDIR / 'experiments' / (a.exp_dir or EXP_DIR[a.model]) / 'outputs'; out_dir.mkdir(parents=True, exist_ok=True)
     suf = '_smoke' if a.smoke else ''
     post = pd.DataFrame(S, columns=keys)
     post.to_csv(out_dir / f'posterior_mcmc{suf}.csv', index=False)
@@ -121,7 +135,8 @@ def main():
     json.dump(stats, (out_dir / f'mcmc_stats{suf}.json').open('w'), indent=2)
     print(f"acceptance={acc_rate:.2f}  pooled samples={len(S)}", flush=True)
     print("posterior (median [5,95]) on key params:")
-    for k in ['log_base_beta', 'sus_after_1'] + (['beta0'] if a.model == 'age' else ['p_symp_1']):
+    show = [k for k in ['log_base_beta', 'sus_after_1', 'maternal_efficacy', 'beta0', 'p_symp_1'] if k in keys]
+    for k in show:
         i = keys.index(k); print(f"  {k:16s} {np.median(S[:,i]):.3f}  [{np.percentile(S[:,i],5):.3f}, {np.percentile(S[:,i],95):.3f}]")
     print(f"wrote posterior_mcmc{suf}.csv + mcmc_stats{suf}.json", flush=True)
 

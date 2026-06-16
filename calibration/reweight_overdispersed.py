@@ -67,12 +67,19 @@ def main():
     ap.add_argument('--model', required=True, choices=['age', 'infnum'])
     ap.add_argument('--phi', type=float, default=2.0)    # quasi-Poisson overdispersion on IR counts
     ap.add_argument('--rho', type=float, default=0.05)   # intra-cohort correlation -> survival design-effect
+    ap.add_argument('--exp-dir', default=None,
+                    help="experiment folder under experiments/ (e.g. 24_infnum_titer_fixedshape); "
+                         "defaults to the canonical titer-free posterior for --model")
+    ap.add_argument('--tag', default='',
+                    help="suffix for output filenames, e.g. _phi3_rho10 -> posterior_overdispersed_phi3_rho10.csv "
+                         "(avoids clobbering prior runs)")
     a = ap.parse_args()
     DEFF = 1.0 + (N_REC - 1) * a.rho
-    out_dir = THISDIR / 'experiments' / EXP_DIR[a.model] / 'outputs'
+    exp = a.exp_dir or EXP_DIR[a.model]
+    out_dir = THISDIR / 'experiments' / exp / 'outputs'
     nroy = pd.read_csv(out_dir / 'nroy_draw.csv').reset_index(drop=True)
     recs = _read_jsonl(out_dir / 'sir_results.jsonl')
-    print(f"{a.model}: {len(recs)} scored draws; phi={a.phi}, rho={a.rho} (N_rec={N_REC}, DEFF={DEFF:.1f})")
+    print(f"{a.model} [{exp}]: {len(recs)} scored draws; phi={a.phi}, rho={a.rho} (N_rec={N_REC}, DEFF={DEFF:.1f})")
 
     rows = []
     for r in recs:
@@ -95,7 +102,7 @@ def main():
     rng = np.random.default_rng(0)
     pick = rng.choice(len(rows), size=len(rows), replace=True, p=w)
     post = nroy.iloc[[idx[i] for i in pick]].reset_index(drop=True)
-    post.to_csv(out_dir / 'posterior_overdispersed.csv', index=False)
+    post.to_csv(out_dir / f'posterior_overdispersed{a.tag}.csv', index=False)
 
     # weighted posterior-predictive
     irw = {b: float(np.sum(w * np.array([r['ir_' + b] for _, _, r in rows]))) for b in BINS}
@@ -104,9 +111,9 @@ def main():
     stats = dict(model=a.model, phi=a.phi, rho=a.rho, deff=DEFF, finite=int(fin.sum()), ess=ess,
                  wpp_ir=irw, wpp_repeat=repw, wpp_first_inf_median=medw,
                  target_ir={b: IR_DATA[b] for b in BINS}, target_repeat=_rf['frac'], target_first_inf_median=12.12)
-    json.dump(stats, (out_dir / 'overdispersed_stats.json').open('w'), indent=2)
+    json.dump(stats, (out_dir / f'overdispersed_stats{a.tag}.json').open('w'), indent=2)
     print(f"  wPP IR: {[round(irw[b],2) for b in BINS]} (target [1.91,5.37,2.35]) | repeat {repw:.3f} (0.403) | first-inf med {medw:.2f} (12.12)")
-    print(f"  wrote posterior_overdispersed.csv ({len(post)} resamples) + overdispersed_stats.json")
+    print(f"  wrote posterior_overdispersed{a.tag}.csv ({len(post)} resamples) + overdispersed_stats{a.tag}.json")
 
 
 if __name__ == '__main__':

@@ -53,12 +53,19 @@ def main():
     ap.add_argument('--model', default='age', choices=['age', 'infnum'])
     ap.add_argument('--n', type=int, default=400)
     ap.add_argument('--n-agents', type=int, default=40000)
+    ap.add_argument('--fix-titer-shape', action='store_true',
+                    help='posterior was fit with the titer shape fixed (8 params); '
+                         'fill the 4 shape params from FIXED_TITER_SHAPE via untransform')
+    ap.add_argument('--exp-dir', default=None,
+                    help='experiment folder under experiments/ holding posterior_mcmc.csv '
+                         '(e.g. 23_age_titer_fixedshape); defaults to the canonical posterior for --model')
     a = ap.parse_args()
-    out_dir = THISDIR / 'experiments' / EXP_DIR[a.model] / 'outputs'
+    out_dir = THISDIR / 'experiments' / (a.exp_dir or EXP_DIR[a.model]) / 'outputs'
     post = pd.read_csv(out_dir / 'posterior_mcmc.csv').drop_duplicates().reset_index(drop=True)
     samp = post.sample(min(a.n, len(post)), random_state=0).reset_index(drop=True)
     sim_config = build_sim_config(a.model, a.n_agents)
-    tasks = [(i, sim_config, untransform(row, a.model), VAL_SEED + i) for i, (_, row) in enumerate(samp.iterrows())]
+    tasks = [(i, sim_config, untransform(row, a.model, fix_titer_shape=a.fix_titer_shape), VAL_SEED + i)
+             for i, (_, row) in enumerate(samp.iterrows())]
     print(f"validating {a.model} MCMC posterior: {len(tasks)} real sims, {a.n_agents} agents, {N_WORKERS} workers", flush=True)
 
     jsonl = out_dir / 'mcmc_validation.jsonl'
