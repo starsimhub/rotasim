@@ -64,7 +64,7 @@ def med_from_S(r):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', required=True, choices=['age', 'infnum'])
+    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned'])
     ap.add_argument('--phi', type=float, default=2.0)    # quasi-Poisson overdispersion on IR counts
     ap.add_argument('--rho', type=float, default=0.05)   # intra-cohort correlation -> survival design-effect
     ap.add_argument('--exp-dir', default=None,
