@@ -192,6 +192,11 @@ def main():
                          '(FIXED_TITER_SHAPE); fit only maternal_efficacy + transmission + symptom. Tests whether '
                          'removing titer\'s redundant flexibility makes age+titer identifiable.')
     ap.add_argument('--smoke', action='store_true')
+    ap.add_argument('--early-stop', action='store_true',
+                    help='abort extinct draws early (StopWhenExtinct): ~3.5x faster on the ~80%% that burn '
+                         'out, so more samples/wave for the same wall time; surviving draws are unchanged')
+    ap.add_argument('--early-stop-burn-in', type=float, default=2.0,
+                    help='years to let the epidemic establish before arming early-stop (default 2.0)')
     a = ap.parse_args()
     n_agents = N_AGENTS
     if a.smoke:
@@ -215,6 +220,8 @@ def main():
     print(f"Feature selection: {fs_desc}")
     print("Targets:", {k: (round(v[0], 3), round(v[1], 3)) for k, v in obs.items()})
     sim_config = build_sim_config(a.model, n_agents, a.maternal)
+    sim_config['early_stop_extinct'] = a.early_stop
+    sim_config['early_stop_burn_in_years'] = a.early_stop_burn_in
     run_name = f'maled_{a.model}_{a.maternal}' + ('_fixedshape' if a.fix_titer_shape else '')
     engine = hm.HistoryMatching(
         function=make_simulator(a.model, sim_config, a.maternal, a.fix_titer_shape),
