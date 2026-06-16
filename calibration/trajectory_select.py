@@ -152,6 +152,9 @@ def main():
     ap.add_argument('--hm-dir', default=None, help='HM run folder with checkpoint.pkl (default: free-titer exp 16/17)')
     ap.add_argument('--out-dir', default=None, help='where to write posterior/sir_results (default: exp 18/19)')
     ap.add_argument('--n', type=int, default=5000)
+    ap.add_argument('--early-stop', action='store_true',
+                    help='abort extinct draws early (StopWhenExtinct); ~3.5x faster on the ~80%% that burn out')
+    ap.add_argument('--early-stop-burn-in', type=float, default=2.0)
     ap.add_argument('--smoke', action='store_true')
     a = ap.parse_args()
     n_agents = N_AGENTS
@@ -174,6 +177,8 @@ def main():
     print(f"NROY draw: {len(nroy)} samples (cache={cache.name})")
 
     sim_config = build_sim_config(a.model, n_agents, a.maternal)
+    sim_config['early_stop_extinct'] = a.early_stop
+    sim_config['early_stop_burn_in_years'] = a.early_stop_burn_in
     done = {r['idx'] for r in _read_jsonl(jsonl)}
     if done:
         print(f"resuming: {len(done)} already scored")
