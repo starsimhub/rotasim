@@ -50,6 +50,16 @@ tests; it is not shown by the overlay below.
    constrains β×p_symp combinations, not single bins — see `constrained_dims`: PC1 60%, PC2 21%).
    With only 3 bins a quadratic trivially interpolates the 3 medians, so the *form's* adequacy is
    not testable from this — it is deferred to exp26.
+6. **The symptom-curve SHAPE is under-identified — only the post-12mo decline is robust.** Plotting
+   the top-10 best-fitting draws *individually* (not the median), the good fits split into two
+   shape families: ~6 peak at 6–11mo (bump/parabola-like), but ~4 — *including the single best fit*
+   (0.49/0.45/0.18, logL 39.9) — are highest at <6mo and decline monotonically. All 10 agree only
+   on a strong drop after ~12mo. So the "6–11mo peak" is an average of two clusters, not a robust
+   feature, and the expected "mild <6mo / worst 6–12mo" biology is **not reliably recovered** — the
+   data mainly constrains the post-12mo decline. Honest under-identification (the β × p_symp
+   trade-off), to carry forward as uncertainty rather than over-interpret as a clean peak.
+
+![Top-10 best-fit age-symptom curves: a mix of 6-11mo-peak and monotonic-<6mo-high shapes; only the post-12mo decline is shared](figures/top10_bin_curves.png)
 
 ## Acceptance
 
