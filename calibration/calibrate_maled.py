@@ -63,6 +63,37 @@ MALED_SITES = list(SITE_DEMOGRAPHICS.keys())
 
 
 # ---------------------------------------------------------------------------
+# Early-stop for extinct trajectories (opt-in via sim_config['early_stop_extinct']).
+# ~80% of NROY draws burn out early; running them to year 10 wastes the bulk of the
+# compute. Since 0 infected is absorbing (no reintroduction), this only ever fires on
+# truly-extinct trajectories -- which the GOF / trajectory-selection drops anyway -- so
+# surviving sims run the full plan and are bit-identical to a plain sim.run().
+# ---------------------------------------------------------------------------
+class _ExtinctStop(Exception):
+    """Internal: raised to abort a sim once the epidemic is extinct."""
+
+
+class StopWhenExtinct(ss.Intervention):
+    def __init__(self, burn_in_years=2.0, **kwargs):
+        super().__init__(**kwargs)
+        self.burn_in_years = float(burn_in_years)
+        self._start_year = None
+
+    def step(self):
+        sim = self.sim
+        yr = sim.t.year
+        if self._start_year is None:
+            self._start_year = yr
+        if yr - self._start_year < self.burn_in_years:
+            return  # let the epidemic establish (or die) before arming
+        for d in sim.diseases.values():
+            inf = getattr(d, 'infected', None)
+            if inf is not None and int(inf.sum()) > 0:
+                return  # still active -- keep running
+        raise _ExtinctStop
+
+
+# ---------------------------------------------------------------------------
 # Worker function: runs in a spawned subprocess. Must be picklable and
 # self-sufficient. Builds its own sim from `sim_config`, applies trial params,
 # runs, returns the small `model_out` dict back to the parent.
@@ -116,7 +147,8 @@ def _run_one_replicate(args):
             ss.Births(birth_rate=ss.peryear(sim_config['birth_rate'])),
             ss.Deaths(death_rate=ss.peryear(sim_config['death_rate'])),
         ],
-        interventions=[],
+        interventions=([StopWhenExtinct(burn_in_years=sim_config.get('early_stop_burn_in_years', 2.0))]
+                       if sim_config.get('early_stop_extinct', False) else []),
         connectors=[immunity_connector],
         rand_seed=rand_seed,
     )
@@ -162,7 +194,11 @@ def _run_one_replicate(args):
     ic.initialize_immunity(min_age=18, max_age=125,
                            min_exposures=5, max_exposures=15)
 
-    sim.run()
+    try:
+        sim.run()
+    except _ExtinctStop:
+        pass  # extinct trajectory aborted early; analyzers hold valid accumulated state
+              # (it's dropped downstream as extinct regardless of the truncated tail)
 
     # Reduce the sim's analyzer output to the small model_out dict we need
     # downstream. Everything large stays inside the worker process and is
