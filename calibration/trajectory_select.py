@@ -146,7 +146,7 @@ OBS = make_observations()
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', required=True, choices=['age', 'infnum'])
+    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned'])
     ap.add_argument('--maternal', choices=['titer', 'erlang'], default='titer')
     ap.add_argument('--fix-titer-shape', action='store_true')
     ap.add_argument('--hm-dir', default=None, help='HM run folder with checkpoint.pkl (default: free-titer exp 16/17)')

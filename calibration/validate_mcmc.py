@@ -50,7 +50,7 @@ def _one(args):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', default='age', choices=['age', 'infnum'])
+    ap.add_argument('--model', default='age', choices=['age', 'infnum', 'age_binned'])
     ap.add_argument('--n', type=int, default=400)
     ap.add_argument('--n-agents', type=int, default=40000)
     ap.add_argument('--fix-titer-shape', action='store_true',

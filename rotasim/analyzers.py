@@ -1282,16 +1282,20 @@ class MALEDCohort(ss.Analyzer):
 
     def __init__(self, censoring_ages, p_symp_1=1.0, p_symp_2=1.0, p_symp_3plus=1.0,
                  symptom_model='infection_number', beta0=0.0, beta1=0.0, beta2=0.0,
+                 p_symp_age_0_6=0.5, p_symp_age_6_11=0.5, p_symp_age_12plus=0.5,
                  enroll_window=(5.0, 7.5), symp_collection=0.80,
                  eia_sensitivity=0.85, shed_days=13.0, seed=0, log_events=False, **kw):
         super().__init__(**kw)
         # Symptom probability: 'infection_number' uses p_symp by infection order (1,2,3+);
         # 'age_only' uses the quadratic age logistic (beta0+beta1*(a-12)+beta2*(a-12)^2,
-        # a capped at 60mo) -- so the SAME observation (cohort + detection) can wrap either
-        # the infection-number or the age-symptom model, for a matched-pair VE comparison.
+        # a capped at 60mo); 'age_binned' uses a free P(symptomatic) per age bin
+        # (<6 / 6-11 / >=12 mo) -- a non-parametric check on whether the quadratic
+        # over-constrains the age-symptom relationship. The SAME observation (cohort +
+        # detection) wraps any of them, for a matched-pair VE comparison.
         self.symptom_model = symptom_model
         self.p_symp = [p_symp_1, p_symp_2, p_symp_3plus]   # by infection order (1,2,3+)
         self.beta0, self.beta1, self.beta2 = beta0, beta1, beta2
+        self.p_age = [p_symp_age_0_6, p_symp_age_6_11, p_symp_age_12plus]  # by age bin (<6, 6-11, >=12 mo)
         self.enroll = enroll_window
         self.capture = symp_collection      # diarrheal-stool collection completeness ("sampled")
         self.eia = eia_sensitivity          # assay sensitivity (EIA ~0.85; TAC ~1.0)
@@ -1326,6 +1330,8 @@ class MALEDCohort(ss.Analyzer):
             ac = min(age_m, 60.0) - 12.0
             lp = self.beta0 + self.beta1 * ac + self.beta2 * ac * ac
             return 1.0 / (1.0 + np.exp(-np.clip(lp, -30.0, 30.0)))
+        if self.symptom_model == 'age_binned':
+            return self.p_age[0] if age_m < 6.0 else (self.p_age[1] if age_m < 12.0 else self.p_age[2])
         return self.p_symp[min(order, 3) - 1]
 
     def _p_surv(self, age_m):

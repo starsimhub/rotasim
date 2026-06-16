@@ -44,7 +44,7 @@ def load_emulators(ckpt_dir, run_name, bounds):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', required=True, choices=['age', 'infnum'])
+    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned'])
     ap.add_argument('--n-chains', type=int, default=8)
     ap.add_argument('--n-steps', type=int, default=40000)
     ap.add_argument('--burn', type=int, default=10000)

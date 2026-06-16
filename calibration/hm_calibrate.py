@@ -46,8 +46,11 @@ MATERNAL_BOUNDS = {
     'erlang': {'maternal_efficacy': (0.5, 0.99), 'maternal_mean_duration_days': (30.0, 300.0)},  # n_stages fixed at 6
 }
 SYMPTOM_BOUNDS = {
-    'age':    {'beta0': (-5.0, 2.0), 'beta1': (-1.0, 1.0), 'beta2': (-0.5, 0.5)},
-    'infnum': {'p_symp_1': (0.4, 1.0), 'p_r2': (0.0, 1.0), 'p_r3': (0.0, 1.0)},
+    'age':        {'beta0': (-5.0, 2.0), 'beta1': (-1.0, 1.0), 'beta2': (-0.5, 0.5)},
+    'infnum':     {'p_symp_1': (0.4, 1.0), 'p_r2': (0.0, 1.0), 'p_r3': (0.0, 1.0)},
+    # Non-parametric age-symptom: free P(symptomatic) per age bin (<6, 6-11, >=12 mo).
+    # Tests whether the quadratic ('age') over-constrains the age-symptom curve.
+    'age_binned': {'p_symp_age_0_6': (0.0, 1.0), 'p_symp_age_6_11': (0.0, 1.0), 'p_symp_age_12plus': (0.0, 1.0)},
 }
 # Fixed titer-shape values (infnum posterior medians) -- the identified maternal curve, used
 # to remove titer's redundant shape flexibility (--fix-titer-shape): only maternal_efficacy stays free.
@@ -59,8 +62,8 @@ def bounds_for(model, maternal, fix_titer_shape=False):
         for k in ('log_titer_median', 'titer_gsd', 'titer_half_life_days', 'hill_slope'):
             mat.pop(k, None)   # fix the shape; keep maternal_efficacy free
     return {**TRANSMISSION_BOUNDS, **mat, **SYMPTOM_BOUNDS[model]}
-BOUNDS = {m: bounds_for(m, 'titer') for m in ('age', 'infnum')}   # back-compat default (exp 16/17 = titer)
-SYMPTOM_MODEL = {'age': 'age_only', 'infnum': 'infection_number'}
+BOUNDS = {m: bounds_for(m, 'titer') for m in ('age', 'infnum', 'age_binned')}   # back-compat default (exp 16/17 = titer)
+SYMPTOM_MODEL = {'age': 'age_only', 'infnum': 'infection_number', 'age_binned': 'age_binned'}
 
 
 class CycleFeatureSelection(hm.FeatureSelectionStrategy):
@@ -95,6 +98,9 @@ def untransform(row, model, maternal='titer', fix_titer_shape=False):
         p.update(maternal_immunity_mean_duration_days=float(row['maternal_mean_duration_days']))
     if model == 'age':
         p.update(beta0=float(row['beta0']), beta1=float(row['beta1']), beta2=float(row['beta2']))
+    elif model == 'age_binned':
+        p.update(p_symp_age_0_6=float(row['p_symp_age_0_6']), p_symp_age_6_11=float(row['p_symp_age_6_11']),
+                 p_symp_age_12plus=float(row['p_symp_age_12plus']))
     else:
         p1 = float(row['p_symp_1']); p2 = p1 * float(row['p_r2']); p3 = p2 * float(row['p_r3'])
         p.update(p_symp_1=p1, p_symp_2=p2, p_symp_3plus=p3)
@@ -166,7 +172,7 @@ def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', required=True, choices=['age', 'infnum'])
+    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned'])
     ap.add_argument('--maternal', default='titer', choices=['titer', 'erlang'])
     ap.add_argument('--n-samples', type=int, default=1500)
     ap.add_argument('--max-iter', type=int, default=1)
