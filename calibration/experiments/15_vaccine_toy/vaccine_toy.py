@@ -42,11 +42,13 @@ MODELS = {
 class VaccinePrime(ss.Intervention):
     """2-dose vaccine; each seroconversion advances num_recovered_infections by 1 (up to +2).
     Each agent crosses each dose age once (per-step age slice), so no dose-state needed."""
-    def __init__(self, response_prob, dose_ages_y=DOSE_AGES_Y, coverage=1.0, **kw):
+    def __init__(self, response_prob, dose_ages_y=DOSE_AGES_Y, coverage=1.0, moa='infection_blocking', **kw):
         super().__init__(**kw)
         self.response_prob = response_prob
         self.dose_ages = list(dose_ages_y)
         self.coverage = coverage
+        self.moa = moa                  # 'infection_blocking' (advance infection-equiv) | 'symptom_blocking'
+        self.vaccinated_uids = set()    # symptom_blocking: seroconverted agents whose infections are attenuated
 
     def init_pre(self, sim):
         super().init_pre(sim)
@@ -70,7 +72,10 @@ class VaccinePrime(ss.Intervention):
                 continue
             sero = recv[self._rng.random(len(recv)) < self.response_prob]
             if len(sero):
-                ic.num_recovered_infections[ss.uids(sero)] += 1.0
+                if self.moa == 'symptom_blocking':       # attenuate disease, do NOT block acquisition
+                    self.vaccinated_uids.update(int(u) for u in sero)
+                else:                                    # infection_blocking: advance infection-equivalents
+                    ic.num_recovered_infections[ss.uids(sero)] += 1.0
 
 
 class SympIRObserver(ss.Analyzer):
@@ -78,16 +83,19 @@ class SympIRObserver(ss.Analyzer):
     counter (num_recovered_infections + 1), so vaccine bumps flow through automatically."""
     def __init__(self, symptom_model, beta0=0, beta1=0, beta2=0,
                  p_symp_1=1.0, p_symp_2=1.0, p_symp_3plus=1.0,
-                 p_symp_age_0_6=0.5, p_symp_age_6_11=0.5, p_symp_age_12plus=0.5, window=WINDOW, seed=0, **kw):
+                 p_symp_age_0_6=0.5, p_symp_age_6_11=0.5, p_symp_age_12plus=0.5,
+                 symp_block_s=0.0, window=WINDOW, seed=0, **kw):
         super().__init__(**kw)
         self.sm = symptom_model
         self.b0, self.b1, self.b2 = beta0, beta1, beta2
         self.ps = [p_symp_1, p_symp_2, p_symp_3plus]
         self.pa = [p_symp_age_0_6, p_symp_age_6_11, p_symp_age_12plus]   # by age bin (<6, 6-11, >=12 mo)
+        self.symp_block_s = symp_block_s    # symptom_blocking MOA: P(symp) *= (1-s) for vaccinated agents
         self.window = window
         self.rng = np.random.default_rng(seed)
         self.cases = {b: 0 for b in BINS}
         self.person_years = {b: 0.0 for b in BINS}
+        self.first_age = {}                 # uid -> age (months) at first infection (age-of-infection mediator)
 
     def init_pre(self, sim, force=False):
         super().init_pre(sim, force); self._dty = self.dt.years
@@ -97,6 +105,7 @@ class SympIRObserver(ss.Analyzer):
         self._dis = [d for d in self.sim.diseases.values() if hasattr(d, 'G')]
         self._prev = {d.name: d.infected.uids for d in self._dis}
         self._ic = self.sim.connectors.rotaimmunityconnector
+        self._vax = next((iv for iv in self.sim.interventions.values() if isinstance(iv, VaccinePrime)), None)
 
     def _symp_prob(self, age_m, order):
         if self.sm == 'age_only':
@@ -116,15 +125,23 @@ class SympIRObserver(ss.Analyzer):
                 self.person_years[b] += int(((ages_y >= lo) & (ages_y < hi) & alive).sum()) * self._dty
         for d in self._dis:
             cur = d.infected.uids
-            if inw:
-                new = np.asarray(cur - self._prev[d.name])
-                if len(new):
-                    am = np.asarray(sim.people.age[ss.uids(new)]) * 12.0
+            new = np.asarray(cur - self._prev[d.name])              # newly infected this step (all ages, all-time)
+            if len(new):
+                am = np.asarray(sim.people.age[ss.uids(new)]) * 12.0
+                born = am <= (yr * 12.0 + 1e-6)                     # age <= elapsed sim time => born after start (cohort)
+                for u, a in zip(new[born], am[born]):               # record age at FIRST infection (birth cohort)
+                    iu = int(u)
+                    if iu not in self.first_age:
+                        self.first_age[iu] = float(a)
+                if inw:
                     m = am <= 36.0
                     if m.any():
                         am2 = am[m]; uu = new[m]
                         order = self._ic.num_recovered_infections[ss.uids(uu)] + 1.0
                         psymp = self._symp_prob(am2, order)
+                        if self.symp_block_s > 0 and self._vax is not None and self._vax.vaccinated_uids:
+                            vmask = np.fromiter((int(u) in self._vax.vaccinated_uids for u in uu), bool, len(uu))
+                            psymp = psymp * np.where(vmask, 1.0 - self.symp_block_s, 1.0)   # attenuate disease in vaccinated
                         symp = self.rng.random(len(am2)) < psymp
                         if symp.any():
                             idx = np.digitize(am2[symp], EDGES_M) - 1
@@ -136,14 +153,19 @@ class SympIRObserver(ss.Analyzer):
         pm = {b: self.person_years[b] * 12.0 for b in BINS}
         by = {b: (self.cases[b] / pm[b] * 100.0 if pm[b] > 0 else 0.0) for b in BINS}
         tot_c = sum(self.cases.values()); tot_pm = sum(pm.values())
-        return dict(by_age=by, overall=(tot_c / tot_pm * 100.0 if tot_pm > 0 else 0.0))
+        fa = np.fromiter(self.first_age.values(), float)
+        return dict(by_age=by, overall=(tot_c / tot_pm * 100.0 if tot_pm > 0 else 0.0),
+                    first_inf_median=(float(np.median(fa)) if fa.size else float('nan')))
 
 
 def _build_run(args):
-    model, params, base_beta, response_prob, vaccinate, seed, n_agents = args
+    model, params, base_beta, response_prob, vaccinate, seed, n_agents = args[:7]
+    moa = args[7] if len(args) > 7 else 'infection_blocking'   # 'infection_blocking' | 'symptom_blocking'
+    s = args[8] if len(args) > 8 else 1.0                      # symptom-blocking attenuation (1.0 = full)
     m = MODELS[model]
-    interventions = [VaccinePrime(response_prob=response_prob)] if vaccinate else []
-    obs = SympIRObserver(symptom_model=m['symptom_model'],
+    interventions = [VaccinePrime(response_prob=response_prob, moa=moa)] if vaccinate else []
+    sb = s if (vaccinate and moa == 'symptom_blocking') else 0.0
+    obs = SympIRObserver(symptom_model=m['symptom_model'], symp_block_s=sb,
                          beta0=params.get('beta0', 0), beta1=params.get('beta1', 0), beta2=params.get('beta2', 0),
                          p_symp_1=params.get('p_symp_1', 1.0), p_symp_2=params.get('p_symp_2', 1.0),
                          p_symp_3plus=params.get('p_symp_3plus', 0.0),

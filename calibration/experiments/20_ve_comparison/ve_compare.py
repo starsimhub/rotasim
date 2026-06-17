@@ -48,6 +48,9 @@ def main():
                          'the VE sims only, reusing the 50d-fit posterior (robustness to maternal misspecification, '
                          'NOT a re-calibration)')
     ap.add_argument('--tag', default='', help='output filename suffix, e.g. _hl35')
+    ap.add_argument('--moa', choices=['infection_blocking', 'symptom_blocking'], default='infection_blocking',
+                    help='vaccine mechanism: infection_blocking (advance infection-equiv) or symptom_blocking '
+                         '(attenuate P(symp|infection) in vaccinated; tests if the model gap is MOA-specific)')
     a = ap.parse_args()
     if a.smoke:
         a.n_ve, a.n_agents, a.n_workers = 6, 8000, 12
@@ -64,9 +67,9 @@ def main():
         p = untransform(row, a.model, 'titer', fix_titer_shape=True); seed = VE_BASE + i
         if a.maternal_half_life is not None:
             p['maternal_titer_half_life_days'] = a.maternal_half_life   # swap waning speed in the VE sims only
-        tasks.append((a.model, p, p['base_beta'], 0.0, False, seed, a.n_agents)); meta.append((i, 'novax', None))
+        tasks.append((a.model, p, p['base_beta'], 0.0, False, seed, a.n_agents, a.moa, 1.0)); meta.append((i, 'novax', None))
         for resp in a.responses:
-            tasks.append((a.model, p, p['base_beta'], resp, True, seed, a.n_agents)); meta.append((i, 'vax', resp))
+            tasks.append((a.model, p, p['base_beta'], resp, True, seed, a.n_agents, a.moa, 1.0)); meta.append((i, 'vax', resp))
 
     with get_context('spawn').Pool(processes=min(a.n_workers, len(tasks)), maxtasksperchild=4) as pool:
         outs = pool.map(vt._build_run, tasks)
