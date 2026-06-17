@@ -21,8 +21,9 @@ vt = sc.importbypath(CALIB / 'experiments' / '15_vaccine_toy' / 'vaccine_toy.py'
 from hm_calibrate import untransform   # noqa: E402
 
 BINS = vt.BINS
-POST = {'age':    CALIB / 'experiments' / '18_age_posterior'    / 'outputs' / 'posterior.csv',
-        'infnum': CALIB / 'experiments' / '19_infnum_posterior' / 'outputs' / 'posterior.csv'}
+# corrected-maternal clean pair (PR#38 fix): binned age (exp25) + infnum (exp27), overdispersed posteriors
+POST = {'age_binned': CALIB / 'experiments' / '25_age_binned_titer_fixedshape'      / 'outputs' / 'posterior_overdispersed_phi3_rho10.csv',
+        'infnum':     CALIB / 'experiments' / '27_infnum_titer_fixedshape_corrected' / 'outputs' / 'posterior_overdispersed_phi3_rho10.csv'}
 VE_BASE = 30000   # paired-seed base; novax & vax of draw i BOTH use VE_BASE + i
 
 
@@ -36,7 +37,7 @@ def _ci(x):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', required=True, choices=['age', 'infnum'])
+    ap.add_argument('--model', required=True, choices=['age_binned', 'infnum'])
     ap.add_argument('--n-ve', type=int, default=800)
     ap.add_argument('--responses', type=float, nargs='+', default=[0.63, 0.75, 0.9])  # seroconversion probs to compare (does the model gap change with efficacy?)
     ap.add_argument('--n-agents', type=int, default=40000)
@@ -55,7 +56,7 @@ def main():
     # novax once per draw (shared across responses); vax once per (draw, response). All paired on seed = VE_BASE + i.
     tasks, meta = [], []
     for i, (_, row) in enumerate(uniq.iterrows()):
-        p = untransform(row, a.model); seed = VE_BASE + i
+        p = untransform(row, a.model, 'titer', fix_titer_shape=True); seed = VE_BASE + i
         tasks.append((a.model, p, p['base_beta'], 0.0, False, seed, a.n_agents)); meta.append((i, 'novax', None))
         for resp in a.responses:
             tasks.append((a.model, p, p['base_beta'], resp, True, seed, a.n_agents)); meta.append((i, 'vax', resp))

@@ -35,6 +35,7 @@ MODELS = {
                    study='rota_maled_bangladesh_erlang6_poisson', symptom_model='age_only'),
     'infnum': dict(db='rota_maled_bangladesh_infnum_titer_poisson.db',
                    study='rota_maled_bangladesh_infnum_titer_poisson', symptom_model='infection_number'),
+    'age_binned': dict(symptom_model='age_binned'),   # corrected-pair age member (exp25)
 }
 
 
@@ -76,11 +77,13 @@ class SympIRObserver(ss.Analyzer):
     """Symptomatic IR by age over the window. Symptom number for infnum reads the connector
     counter (num_recovered_infections + 1), so vaccine bumps flow through automatically."""
     def __init__(self, symptom_model, beta0=0, beta1=0, beta2=0,
-                 p_symp_1=1.0, p_symp_2=1.0, p_symp_3plus=1.0, window=WINDOW, seed=0, **kw):
+                 p_symp_1=1.0, p_symp_2=1.0, p_symp_3plus=1.0,
+                 p_symp_age_0_6=0.5, p_symp_age_6_11=0.5, p_symp_age_12plus=0.5, window=WINDOW, seed=0, **kw):
         super().__init__(**kw)
         self.sm = symptom_model
         self.b0, self.b1, self.b2 = beta0, beta1, beta2
         self.ps = [p_symp_1, p_symp_2, p_symp_3plus]
+        self.pa = [p_symp_age_0_6, p_symp_age_6_11, p_symp_age_12plus]   # by age bin (<6, 6-11, >=12 mo)
         self.window = window
         self.rng = np.random.default_rng(seed)
         self.cases = {b: 0 for b in BINS}
@@ -99,6 +102,8 @@ class SympIRObserver(ss.Analyzer):
         if self.sm == 'age_only':
             ac = np.minimum(age_m, 60.0) - 12.0
             return 1.0 / (1.0 + np.exp(-np.clip(self.b0 + self.b1*ac + self.b2*ac*ac, -30, 30)))
+        if self.sm == 'age_binned':   # free P(symp) per age bin; ignores infection order (age-driven)
+            return np.where(age_m < 6.0, self.pa[0], np.where(age_m < 12.0, self.pa[1], self.pa[2]))
         return np.array([self.ps[min(int(o), 3) - 1] for o in order])
 
     def step(self):
@@ -141,7 +146,9 @@ def _build_run(args):
     obs = SympIRObserver(symptom_model=m['symptom_model'],
                          beta0=params.get('beta0', 0), beta1=params.get('beta1', 0), beta2=params.get('beta2', 0),
                          p_symp_1=params.get('p_symp_1', 1.0), p_symp_2=params.get('p_symp_2', 1.0),
-                         p_symp_3plus=params.get('p_symp_3plus', 0.0), seed=seed)
+                         p_symp_3plus=params.get('p_symp_3plus', 0.0),
+                         p_symp_age_0_6=params.get('p_symp_age_0_6', 0.5), p_symp_age_6_11=params.get('p_symp_age_6_11', 0.5),
+                         p_symp_age_12plus=params.get('p_symp_age_12plus', 0.5), seed=seed)
     ic = rs.RotaImmunityConnector(use_fixed_susceptibility=False)
     people = ss.People(n_agents=n_agents, age_data=AGE_DATA)
     sim = rs.Sim(n_agents=n_agents, start='2003-01-01', stop='2013-01-01', verbose=False, scenario='single',
