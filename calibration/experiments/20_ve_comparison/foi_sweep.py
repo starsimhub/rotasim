@@ -27,6 +27,8 @@ def main():
     ap.add_argument('--factors', type=float, nargs='+', default=[1.5, 1.25, 1.0, 0.85, 0.7])
     ap.add_argument('--n-agents', type=int, default=40000)
     ap.add_argument('--n-workers', type=int, default=118)
+    ap.add_argument('--moa', choices=['infection_blocking', 'symptom_blocking'], default='infection_blocking')
+    ap.add_argument('--tag', default='', help='output filename suffix, e.g. _sb')
     ap.add_argument('--smoke', action='store_true')
     a = ap.parse_args()
     if a.smoke:
@@ -42,8 +44,8 @@ def main():
         p = untransform(row, a.model, 'titer', fix_titer_shape=True)
         for k, f in enumerate(a.factors):
             seed = FOI_BASE + i * 100 + k; bb = p['base_beta'] * f
-            tasks.append((a.model, p, bb, 0.0, False, seed, a.n_agents)); meta.append((i, f, 'novax'))
-            tasks.append((a.model, p, bb, a.response, True, seed, a.n_agents)); meta.append((i, f, 'vax'))
+            tasks.append((a.model, p, bb, 0.0, False, seed, a.n_agents, a.moa, 1.0)); meta.append((i, f, 'novax'))
+            tasks.append((a.model, p, bb, a.response, True, seed, a.n_agents, a.moa, 1.0)); meta.append((i, f, 'vax'))
 
     with get_context('spawn').Pool(processes=min(a.n_workers, len(tasks)), maxtasksperchild=4) as pool:
         outs = pool.map(vt._build_run, tasks)
@@ -60,7 +62,7 @@ def main():
         rows.append(dict(model=a.model, draw=int(i), factor=float(f), age_of_inf=no['first_inf_median'],
                          novax_ir=no['overall'], vax_ir=vx['overall'], ve_overall=ve))
     df = pd.DataFrame(rows)
-    suf = '_smoke' if a.smoke else ''
+    suf = ('_smoke' if a.smoke else '') + a.tag
     df.to_csv(HERE / 'outputs' / f'{a.model}_foi_sweep{suf}.csv', index=False)
     print("\nby beta-factor (median age-of-infection, median VE; novax IR shows extinction):")
     for f in a.factors:
