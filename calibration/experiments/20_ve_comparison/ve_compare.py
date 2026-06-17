@@ -43,6 +43,11 @@ def main():
     ap.add_argument('--n-agents', type=int, default=40000)
     ap.add_argument('--n-workers', type=int, default=118)
     ap.add_argument('--smoke', action='store_true')
+    ap.add_argument('--maternal-half-life', type=float, default=None,
+                    help='QUICK maternal-sensitivity check: override the fixed titer half-life (days) in '
+                         'the VE sims only, reusing the 50d-fit posterior (robustness to maternal misspecification, '
+                         'NOT a re-calibration)')
+    ap.add_argument('--tag', default='', help='output filename suffix, e.g. _hl35')
     a = ap.parse_args()
     if a.smoke:
         a.n_ve, a.n_agents, a.n_workers = 6, 8000, 12
@@ -57,6 +62,8 @@ def main():
     tasks, meta = [], []
     for i, (_, row) in enumerate(uniq.iterrows()):
         p = untransform(row, a.model, 'titer', fix_titer_shape=True); seed = VE_BASE + i
+        if a.maternal_half_life is not None:
+            p['maternal_titer_half_life_days'] = a.maternal_half_life   # swap waning speed in the VE sims only
         tasks.append((a.model, p, p['base_beta'], 0.0, False, seed, a.n_agents)); meta.append((i, 'novax', None))
         for resp in a.responses:
             tasks.append((a.model, p, p['base_beta'], resp, True, seed, a.n_agents)); meta.append((i, 'vax', resp))
@@ -85,7 +92,7 @@ def main():
                 rec[f've_{b}'] = (1 - vb / nb) if nb > 0 else float('nan')
             rows.append(rec)
     df = pd.DataFrame(rows)
-    suf = '_smoke' if a.smoke else ''
+    suf = ('_smoke' if a.smoke else '') + a.tag
     df.to_csv(HERE / 'outputs' / f'{a.model}_ve_draws{suf}.csv', index=False)
 
     summ = dict(model=a.model, responses=a.responses, by_response={})
