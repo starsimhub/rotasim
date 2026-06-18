@@ -21,8 +21,8 @@ import matplotlib.pyplot as plt
 THISDIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(THISDIR))
 import process_surveillance_uk as PU                # noqa: E402
-from hm_calibrate import bounds_for                 # noqa: E402
 import hm_calibrate_uk as UK                         # noqa: E402
+from hm_calibrate_uk import uk_bounds                # noqa: E402
 
 EPS = 1e-9
 MIN_CASES = 50
@@ -44,6 +44,7 @@ def main():
     ap.add_argument('--maternal', default='titer', choices=['titer', 'erlang'])
     ap.add_argument('--fix-titer-shape', action='store_true')
     ap.add_argument('--cap-age-months', type=float, default=UK.DEFAULT_CAP_M)
+    ap.add_argument('--beta-max', type=float, default=UK.DEFAULT_BETA_MAX)
     ap.add_argument('--hm-dir', default=None)
     ap.add_argument('--out-dir', default=None)
     a = ap.parse_args()
@@ -54,7 +55,7 @@ def main():
     out_dir = pathlib.Path(a.out_dir) if a.out_dir else (THISDIR / 'experiments' / EXP_DIR[a.model] / 'outputs')
     fig_dir = out_dir.parent / 'figures'; out_dir.mkdir(parents=True, exist_ok=True); fig_dir.mkdir(parents=True, exist_ok=True)
 
-    bounds = bounds_for(a.model, a.maternal, a.fix_titer_shape)
+    bounds = uk_bounds(a.model, a.maternal, a.fix_titer_shape, a.beta_max)
     obs = UK.make_observations(cap)
     cols = UK.obs_cols(cap)
     tgt = PU.load_targets_uk(cap_age_m=cap)

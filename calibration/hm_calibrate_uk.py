@@ -32,9 +32,24 @@ from hm_calibrate import (untransform, bounds_for, SYMPTOM_MODEL,   # noqa: E402
                           CycleFeatureSelection)
 
 SITE = 'uk'
-N_AGENTS = 40_000
+# Shape target (case proportions) needs ~1k cases, not 40k agents; 8k sims run ~13-16s vs
+# ~60-90s at 40k. Lower default keeps the local run fast and avoids pool stalls on the slow
+# high-FOI tail. Override with --n-agents.
+N_AGENTS = 8_000
+# Cap base_beta below the cohort default (0.5): high-FOI all-age sims are both slow AND
+# irrelevant to the low-FOI UK setting. Override with --beta-max.
+DEFAULT_BETA_MAX = 0.35
 CAL_WINDOW = (5.0, 10.0)
 N_WORKERS = int(os.environ.get('HM_WORKERS', '100'))
+
+
+def uk_bounds(model, maternal='titer', fix_titer_shape=False, beta_max=DEFAULT_BETA_MAX):
+    """Cohort bounds with the base_beta upper tightened to the low-FOI UK regime."""
+    import numpy as _np
+    b = dict(bounds_for(model, maternal, fix_titer_shape))
+    lo, _ = b['log_base_beta']
+    b['log_base_beta'] = (lo, float(_np.log(beta_max)))
+    return b
 # Default: cap the observation at <3y (36 mo) to match the cohort window and avoid the
 # all-age surveillance artifact (the symptom model extrapolates poorly to adults, piling
 # cases into the open 36+ bin -- not what passive/genotyped surveillance captures).
@@ -103,6 +118,9 @@ def main():
                     help='comma-separated feature names to force every wave via ManualFeatureSelection')
     ap.add_argument('--all-targets', action='store_true',
                     help='CYCLE 1/wave over all kept bin-proportion features (every bin constrains the NROY)')
+    ap.add_argument('--n-agents', type=int, default=N_AGENTS, help='population size (default 8000; shape target')
+    ap.add_argument('--beta-max', type=float, default=DEFAULT_BETA_MAX,
+                    help='upper bound on base_beta (default 0.35; UK is low-FOI, high-beta sims are slow+irrelevant)')
     ap.add_argument('--cap-age-months', type=float, default=DEFAULT_CAP_M,
                     help='upper age cap (mo) for observed cases: 36 -> <3y/4 bins (default, matches '
                          'cohort 36mo censoring), 24 -> <2y/3 bins (matches Bangladesh IR fit bins), '
@@ -115,7 +133,7 @@ def main():
                     help='abort extinct draws early (StopWhenExtinct) for more samples/wave at fixed wall time')
     ap.add_argument('--early-stop-burn-in', type=float, default=2.0)
     a = ap.parse_args()
-    n_agents = N_AGENTS
+    n_agents = a.n_agents
     if a.smoke:
         a.n_samples = 16; a.max_iter = 1; n_agents = 8000
     cap = None if a.cap_age_months == 0 else a.cap_age_months
@@ -135,6 +153,7 @@ def main():
         fs_desc = "AUTO mean_sq_z (1/wave, cooldown 2)"
     print(f"HM-UK model={a.model}  maternal={a.maternal}  cap={cap}mo  n_samples={a.n_samples}  max_iter={a.max_iter}  workers={N_WORKERS}")
     print(f"Feature selection: {fs_desc}")
+    print(f"n_agents={n_agents}  beta_max={a.beta_max}")
     print("UK surveillance targets (bin proportions):", {k: (round(v[0], 3), round(v[1], 3)) for k, v in obs.items()})
     sim_config = build_sim_config(a.model, n_agents, a.maternal, cap_age_m=cap)
     sim_config['early_stop_extinct'] = a.early_stop
@@ -142,7 +161,7 @@ def main():
     run_name = f'uk_{a.model}_{a.maternal}' + ('_fixedshape' if a.fix_titer_shape else '')
     engine = hm.HistoryMatching(
         function=make_simulator(a.model, sim_config, a.maternal, a.fix_titer_shape),
-        bounds=bounds_for(a.model, a.maternal, a.fix_titer_shape), observations=obs,
+        bounds=uk_bounds(a.model, a.maternal, a.fix_titer_shape, a.beta_max), observations=obs,
         emulator_type='bayes_linear', sampling_strategy='lhs',
         feature_selection=feature_selection,
         n_samples=a.n_samples, implausibility_threshold=3.0, max_iterations=a.max_iter,
