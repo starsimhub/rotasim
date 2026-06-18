@@ -57,6 +57,8 @@ FIXED_CONSTANT_SEVERITY = 1.0
 SITE_DEMOGRAPHICS = {
     'bangladesh': dict(birth_rate=19, death_rate=6),
     'pakistan':   dict(birth_rate=27, death_rate=7),
+    # UK (England & Wales) pre-vaccine ~2008-2012: low-FOI surveillance anchor.
+    'uk':         dict(birth_rate=12, death_rate=9),
 }
 
 MALED_SITES = list(SITE_DEMOGRAPHICS.keys())
@@ -123,6 +125,24 @@ def _run_one_replicate(args):
             symp_collection=sim_config.get('symp_collection', 0.80),
             eia_sensitivity=sim_config.get('eia_sensitivity', 0.85),
             shed_days=sim_config.get('shed_days', 13.0),
+            seed=rand_seed,
+        )]
+    elif obs == 'surveillance':
+        # Cross-sectional surveillance (e.g. UK pre-vax): the age-DISTRIBUTION of
+        # symptomatic cases over the window (a shape; no cohort KM/repeat). Wraps the
+        # SAME symptom models so a matched age-vs-infnum pair shares one observation.
+        analyzers = [rs.Surveillance(
+            bin_edges_m=tuple(sim_config['bin_edges_m']),
+            cap_age_m=sim_config.get('cap_age_m', None),
+            symptom_model=sim_config.get('symptom_model', 'infection_number'),
+            p_symp_1=sim_pars.get('p_symp_1', 1.0), p_symp_2=sim_pars.get('p_symp_2', 1.0),
+            p_symp_3plus=sim_pars.get('p_symp_3plus', 1.0),
+            beta0=sim_pars.get('beta0', 0.0), beta1=sim_pars.get('beta1', 0.0),
+            beta2=sim_pars.get('beta2', 0.0),
+            p_symp_age_0_6=sim_pars.get('p_symp_age_0_6', 0.5),
+            p_symp_age_6_11=sim_pars.get('p_symp_age_6_11', 0.5),
+            p_symp_age_12plus=sim_pars.get('p_symp_age_12plus', 0.5),
+            window=cal_window,
             seed=rand_seed,
         )]
     else:
@@ -225,6 +245,14 @@ def _run_one_replicate(args):
             # Raw KM first-detection records for the censored-survival likelihood
             # (trajectory selection, exp 18/19); ignored by the Optuna GOF path.
             km_time=rd['km_time'], km_observed=rd['km_observed'],
+        )
+    elif obs == 'surveillance':
+        sv = sim.analyzers['surveillance']
+        rd = sv.results_dict()
+        model_out = dict(
+            case_proportions=rd['case_proportions'],   # list over the bins (sums to 1)
+            case_counts=rd['case_counts'],
+            total_cases=rd['total_cases'],
         )
     else:
         df = sim.analyzers['infectedstrainstats'].to_df()

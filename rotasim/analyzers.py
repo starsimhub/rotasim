@@ -1429,16 +1429,25 @@ class Surveillance(ss.Analyzer):
     age_binned). Read-only (no transmission effect). Counts ALL ages (the open last bin captures
     older children/adults -- a larger older share = lower FOI = older age-of-infection).
 
-    bin_edges_m = left edges in months; the final bin is [edges[-1], inf). Default matches the
-    UK pre-vax extract: [0,6,12,24,36] -> bins <6 / 6-11 / 12-23 / 24-35 / 36+ mo.
+    bin_edges_m = left edges in months. By default the final bin is open: [edges[-1], inf).
+    cap_age_m caps the observation at an upper age (cases >= cap are EXCLUDED, not counted) --
+    set it to match a cohort's observation window and avoid extrapolating the symptom model to
+    adults (under all-age surveillance a flat older-age symptom prob piles cases into adults,
+    which real passive/genotyped surveillance does not capture). With cap set, the bins are the
+    closed intervals between consecutive edges (n_bins = len(edges)-1) and proportions renormalize
+    within the capped range. Default edges [0,6,12,24,36]; with cap_age_m=36 -> 4 bins
+    <6 / 6-11 / 12-23 / 24-35 mo (matches MALEDCohort's 36mo censoring); cap_age_m=24 -> 3 bins
+    <6 / 6-11 / 12-23 mo (matches the Bangladesh IR fit bins).
     """
-    def __init__(self, bin_edges_m=(0.0, 6.0, 12.0, 24.0, 36.0), symptom_model='infection_number',
+    def __init__(self, bin_edges_m=(0.0, 6.0, 12.0, 24.0, 36.0), cap_age_m=None,
+                 symptom_model='infection_number',
                  beta0=0.0, beta1=0.0, beta2=0.0, p_symp_1=1.0, p_symp_2=1.0, p_symp_3plus=1.0,
                  p_symp_age_0_6=0.5, p_symp_age_6_11=0.5, p_symp_age_12plus=0.5,
                  window=(5.0, 10.0), seed=0, **kw):
         super().__init__(**kw)
         self.edges = np.asarray(bin_edges_m, float)
-        self.nbins = len(self.edges)                       # bins: [e0,e1)...[e_{n-1}, inf)
+        self.cap = cap_age_m                               # None -> open last bin; else exclude age >= cap
+        self.nbins = (len(self.edges) - 1) if self.cap is not None else len(self.edges)
         self.sm = symptom_model
         self.b0, self.b1, self.b2 = beta0, beta1, beta2
         self.ps = [p_symp_1, p_symp_2, p_symp_3plus]
@@ -1473,8 +1482,11 @@ class Surveillance(ss.Analyzer):
                     am = np.asarray(sim.people.age[ss.uids(new)]) * 12.0
                     order = self._ic.num_recovered_infections[ss.uids(new)] + 1.0
                     symp = self.rng.random(len(am)) < self._symp_prob(am, order)
-                    if symp.any():
-                        idx = np.clip(np.digitize(am[symp], self.edges) - 1, 0, self.nbins - 1)
+                    ams = am[symp]
+                    if self.cap is not None:
+                        ams = ams[ams < self.cap]          # cap to the cohort window; exclude older
+                    if len(ams):
+                        idx = np.clip(np.digitize(ams, self.edges) - 1, 0, self.nbins - 1)
                         for k in range(self.nbins):
                             self.cases[k] += int((idx == k).sum())
             self._prev[d.name] = cur
@@ -1486,4 +1498,4 @@ class Surveillance(ss.Analyzer):
 
 
 # Make importable from package root
-__all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats", "InfectedStrainStats", "UidTracker", "PersonTimeByAge", "MALEDTargets", "MALEDCohort"]
+__all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats", "InfectedStrainStats", "UidTracker", "PersonTimeByAge", "MALEDTargets", "MALEDCohort", "Surveillance"]
