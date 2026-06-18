@@ -1420,5 +1420,70 @@ class MALEDCohort(ss.Analyzer):
                     true_first_median=float(np.nanmedian(true_first)) if ever.any() else float('nan'))
 
 
+class Surveillance(ss.Analyzer):
+    """Cross-sectional surveillance observer (e.g. UK/Belgium sentinel data): the age-DISTRIBUTION
+    of symptomatic cases over the calibration window, in configurable age bins with an open older
+    bin. Unlike MALEDCohort (birth cohort -> first-detection KM + repeat fraction), surveillance
+    gives only the case age-distribution (a shape) -- so this reports per-bin symptomatic case
+    counts + normalized proportions. Reuses the same symptom models (infection_number / age_only /
+    age_binned). Read-only (no transmission effect). Counts ALL ages (the open last bin captures
+    older children/adults -- a larger older share = lower FOI = older age-of-infection).
+
+    bin_edges_m = left edges in months; the final bin is [edges[-1], inf). Default matches the
+    UK pre-vax extract: [0,6,12,24,36] -> bins <6 / 6-11 / 12-23 / 24-35 / 36+ mo.
+    """
+    def __init__(self, bin_edges_m=(0.0, 6.0, 12.0, 24.0, 36.0), symptom_model='infection_number',
+                 beta0=0.0, beta1=0.0, beta2=0.0, p_symp_1=1.0, p_symp_2=1.0, p_symp_3plus=1.0,
+                 p_symp_age_0_6=0.5, p_symp_age_6_11=0.5, p_symp_age_12plus=0.5,
+                 window=(5.0, 10.0), seed=0, **kw):
+        super().__init__(**kw)
+        self.edges = np.asarray(bin_edges_m, float)
+        self.nbins = len(self.edges)                       # bins: [e0,e1)...[e_{n-1}, inf)
+        self.sm = symptom_model
+        self.b0, self.b1, self.b2 = beta0, beta1, beta2
+        self.ps = [p_symp_1, p_symp_2, p_symp_3plus]
+        self.pa = [p_symp_age_0_6, p_symp_age_6_11, p_symp_age_12plus]
+        self.window = window
+        self.rng = np.random.default_rng(seed)
+        self.cases = np.zeros(self.nbins, int)
+
+    def init_results(self):
+        super().init_results()
+        self._dis = [d for d in self.sim.diseases.values() if hasattr(d, 'G')]
+        self._prev = {d.name: d.infected.uids for d in self._dis}
+        self._ic = self.sim.connectors.rotaimmunityconnector
+
+    def _symp_prob(self, age_m, order):
+        if self.sm == 'age_only':
+            ac = np.minimum(age_m, 60.0) - 12.0
+            return 1.0 / (1.0 + np.exp(-np.clip(self.b0 + self.b1 * ac + self.b2 * ac * ac, -30, 30)))
+        if self.sm == 'age_binned':
+            return np.where(age_m < 6.0, self.pa[0], np.where(age_m < 12.0, self.pa[1], self.pa[2]))
+        return np.array([self.ps[min(int(o), 3) - 1] for o in order])
+
+    def step(self):
+        sim = self.sim
+        yr = sim.t.relvec[sim.ti].years
+        inw = self.window[0] <= yr < self.window[1]
+        for d in self._dis:
+            cur = d.infected.uids
+            if inw:
+                new = np.asarray(cur - self._prev[d.name])   # newly infected this step, ALL ages
+                if len(new):
+                    am = np.asarray(sim.people.age[ss.uids(new)]) * 12.0
+                    order = self._ic.num_recovered_infections[ss.uids(new)] + 1.0
+                    symp = self.rng.random(len(am)) < self._symp_prob(am, order)
+                    if symp.any():
+                        idx = np.clip(np.digitize(am[symp], self.edges) - 1, 0, self.nbins - 1)
+                        for k in range(self.nbins):
+                            self.cases[k] += int((idx == k).sum())
+            self._prev[d.name] = cur
+
+    def results_dict(self):
+        tot = int(self.cases.sum())
+        prop = (self.cases / tot) if tot > 0 else np.zeros(self.nbins)
+        return dict(case_counts=self.cases.tolist(), case_proportions=prop.tolist(), total_cases=tot)
+
+
 # Make importable from package root
 __all__ = ["StrainStats", "StrainStatistics", "EventStats", "AgeStats", "InfectedStrainStats", "UidTracker", "PersonTimeByAge", "MALEDTargets", "MALEDCohort"]
