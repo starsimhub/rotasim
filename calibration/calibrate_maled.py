@@ -253,6 +253,9 @@ def _run_one_replicate(args):
             case_proportions=rd['case_proportions'],   # list over the bins (sums to 1)
             case_counts=rd['case_counts'],
             total_cases=rd['total_cases'],
+            person_years=rd['person_years'],           # denominator per bin
+            ir_per_100cy=rd['ir_per_100cy'],           # incidence rate per 100 child-yr (structure-independent)
+            pop_fraction=rd['pop_fraction'],           # model standing age structure (verify vs assumed)
         )
     else:
         df = sim.analyzers['infectedstrainstats'].to_df()

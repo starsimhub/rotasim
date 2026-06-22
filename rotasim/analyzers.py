@@ -1455,12 +1455,14 @@ class Surveillance(ss.Analyzer):
         self.window = window
         self.rng = np.random.default_rng(seed)
         self.cases = np.zeros(self.nbins, int)
+        self.person_years = np.zeros(self.nbins)   # denominator: standing population-time per bin
 
     def init_results(self):
         super().init_results()
         self._dis = [d for d in self.sim.diseases.values() if hasattr(d, 'G')]
         self._prev = {d.name: d.infected.uids for d in self._dis}
         self._ic = self.sim.connectors.rotaimmunityconnector
+        self._dty = self.dt.years
 
     def _symp_prob(self, age_m, order):
         if self.sm in ('age_only', 'age_and_infection'):
@@ -1477,6 +1479,15 @@ class Surveillance(ss.Analyzer):
         sim = self.sim
         yr = sim.t.relvec[sim.ti].years
         inw = self.window[0] <= yr < self.window[1]
+        if inw:
+            # Denominator: standing population-time per bin (counted ONCE per step, disease-independent).
+            aam = np.asarray(sim.people.age[sim.people.alive.uids]) * 12.0
+            if self.cap is not None:
+                aam = aam[aam < self.cap]
+            if len(aam):
+                ai = np.clip(np.digitize(aam, self.edges) - 1, 0, self.nbins - 1)
+                for k in range(self.nbins):
+                    self.person_years[k] += int((ai == k).sum()) * self._dty
         for d in self._dis:
             cur = d.infected.uids
             if inw:
@@ -1497,7 +1508,13 @@ class Surveillance(ss.Analyzer):
     def results_dict(self):
         tot = int(self.cases.sum())
         prop = (self.cases / tot) if tot > 0 else np.zeros(self.nbins)
-        return dict(case_counts=self.cases.tolist(), case_proportions=prop.tolist(), total_cases=tot)
+        py = self.person_years
+        # incidence rate per 100 child-years per bin (population-structure-independent, MAL-ED metric)
+        ir = np.where(py > 0, self.cases / np.where(py > 0, py, 1) * 100.0, 0.0)
+        # population fraction per bin (lets us verify the model's age structure vs the assumed one)
+        pop_frac = (py / py.sum()) if py.sum() > 0 else np.zeros(self.nbins)
+        return dict(case_counts=self.cases.tolist(), case_proportions=prop.tolist(), total_cases=tot,
+                    person_years=py.tolist(), ir_per_100cy=ir.tolist(), pop_fraction=pop_frac.tolist())
 
 
 # Make importable from package root
