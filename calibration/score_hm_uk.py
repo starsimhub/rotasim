@@ -45,6 +45,10 @@ def main():
     ap.add_argument('--fix-titer-shape', action='store_true')
     ap.add_argument('--cap-age-months', type=float, default=UK.DEFAULT_CAP_M)
     ap.add_argument('--beta-max', type=float, default=UK.DEFAULT_BETA_MAX)
+    ap.add_argument('--deff', type=float, default=1.0,
+                    help='overdispersion / design effect: divide the multinomial logL by deff '
+                         '(quasi-multinomial, like Bangladesh phi). deff=1 = raw (ESS collapses at '
+                         'N~3500); higher softens -> more posterior spread. Prints an ESS-vs-deff sweep.')
     ap.add_argument('--hm-dir', default=None)
     ap.add_argument('--out-dir', default=None)
     a = ap.parse_args()
@@ -70,18 +74,25 @@ def main():
     n = P.shape[0]
     print(f"{a.model}: {n} simulated samples across {len(results)} wave(s); bins={cols}")
 
-    # Multinomial logL per sample (NaN/extinct -> -inf).
+    # Raw multinomial logL per sample (NaN/extinct -> -inf).
     valid = np.isfinite(P).all(axis=1) & (np.nansum(P, axis=1) > 0)
-    logL = np.full(n, -np.inf)
-    logL[valid] = (counts * np.log(np.clip(P[valid], EPS, None))).sum(axis=1)
-    finite = np.isfinite(logL)
+    logL_raw = np.full(n, -np.inf)
+    logL_raw[valid] = (counts * np.log(np.clip(P[valid], EPS, None))).sum(axis=1)
+    finite = np.isfinite(logL_raw)
     print(f"finite-logL samples: {finite.sum()}/{n}")
-    w = np.zeros(n)
-    if finite.any():
-        w[finite] = np.exp(logL[finite] - logL[finite].max())
-    w = w / w.sum()
-    ess = float(1.0 / np.sum(w ** 2))
-    print(f"ESS = {ess:.1f}  ({100*ess/n:.1f}% of {n})")
+
+    def _ess(deff):
+        w = np.zeros(n)
+        le = logL_raw[finite] / deff          # quasi-multinomial: soften by the design effect
+        w[finite] = np.exp(le - le.max())
+        w /= w.sum()
+        return w, float(1.0 / np.sum(w ** 2))
+
+    print("ESS-vs-deff sweep:")
+    for d in (1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0):
+        print(f"  deff={d:6.1f}  ESS={_ess(d)[1]:7.1f}  ({100*_ess(d)[1]/n:.1f}% of {n})")
+    w, ess = _ess(a.deff)
+    print(f"--> using deff={a.deff}: ESS = {ess:.1f}  ({100*ess/n:.1f}% of {n})")
 
     rng = np.random.default_rng(0)
     post_idx = rng.choice(n, size=n, replace=True, p=w)
@@ -108,7 +119,7 @@ def main():
     ax.legend(frameon=False, fontsize=9); fig.tight_layout()
     figpath = fig_dir / f'uk_posterior_predictive_{a.model}.png'
     fig.savefig(figpath, dpi=140); plt.close(fig)
-    json.dump(dict(model=a.model, cap=cap, n=int(n), finite=int(finite.sum()), ess=ess,
+    json.dump(dict(model=a.model, cap=cap, deff=a.deff, n=int(n), finite=int(finite.sum()), ess=ess,
                    uk_obs=list(map(float, obs_prop)), model_med=list(map(float, med)),
                    model_lo=list(map(float, lo)), model_hi=list(map(float, hi))),
               open(out_dir / 'hmreweight_stats.json', 'w'), indent=2)
