@@ -58,7 +58,7 @@ MODELS = {
 SEED_BASE = 90000
 
 
-def run_model(label, key, post_csv, n_draws, n_agents, response, n_workers):
+def run_model(label, key, post_csv, n_draws, n_agents, response, n_workers, parallel):
     """Run no-vaccine vs vaccine for n_draws posterior parameter sets; return per-draw VE + incidence."""
     post = pd.read_csv(post_csv).drop_duplicates().reset_index(drop=True)
     if len(post) > n_draws:
@@ -70,8 +70,13 @@ def run_model(label, key, post_csv, n_draws, n_agents, response, n_workers):
         # _build_run args: (model, params, base_beta, response, vaccinate, seed, n_agents)
         tasks.append((key, p, p['base_beta'], 0.0,      False, seed, n_agents)); meta.append((i, 'novax'))
         tasks.append((key, p, p['base_beta'], response, True,  seed, n_agents)); meta.append((i, 'vax'))
-    with get_context('spawn').Pool(processes=min(n_workers, len(tasks)), maxtasksperchild=4) as pool:
-        outs = pool.map(vt._build_run, tasks)
+    if parallel and len(tasks) > 1:
+        # Faster, but multiprocessing 'spawn' can misbehave under the PyCharm Run button
+        # (sys.path/importbypath reconstruction in workers). Use from a terminal if so.
+        with get_context('spawn').Pool(processes=min(n_workers, len(tasks)), maxtasksperchild=4) as pool:
+            outs = pool.map(vt._build_run, tasks)
+    else:
+        outs = [vt._build_run(t) for t in tasks]              # serial: bulletproof everywhere (default)
     nov, vax = {}, {}
     for (i, kind), o in zip(meta, outs):
         (nov if kind == 'novax' else vax)[i] = o
@@ -89,17 +94,21 @@ def run_model(label, key, post_csv, n_draws, n_agents, response, n_workers):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--n-draws', type=int, default=20, help='posterior parameter sets per model')
-    ap.add_argument('--n-agents', type=int, default=20000)
+    ap.add_argument('--n-draws', type=int, default=8, help='posterior parameter sets per model')
+    ap.add_argument('--n-agents', type=int, default=15000)
     ap.add_argument('--response', type=float, default=0.75, help='per-dose seroconversion probability ("efficacy")')
     ap.add_argument('--n-workers', type=int, default=10)
-    ap.add_argument('--quick', action='store_true', help='fast/rough: 6 draws, 10k agents')
+    ap.add_argument('--parallel', action='store_true',
+                    help='use multiprocessing (faster). Default is serial -- robust under the PyCharm '
+                         'Run button. Use --parallel from a terminal for the full-size run.')
+    ap.add_argument('--quick', action='store_true', help='fast/rough: 4 draws, 10k agents (~few min serial)')
     a = ap.parse_args()
     if a.quick:
-        a.n_draws, a.n_agents = 6, 10000
-    print(f"Bangladesh vaccine-impact demo: {a.n_draws} draws/model, {a.n_agents} agents, seroconversion={a.response}")
+        a.n_draws, a.n_agents = 4, 10000
+    mode = 'parallel' if a.parallel else 'serial'
+    print(f"Bangladesh vaccine-impact demo: {a.n_draws} draws/model, {a.n_agents} agents, seroconversion={a.response} ({mode})")
 
-    results = {lab: run_model(lab, key, csv, a.n_draws, a.n_agents, a.response, a.n_workers)
+    results = {lab: run_model(lab, key, csv, a.n_draws, a.n_agents, a.response, a.n_workers, a.parallel)
                for lab, (key, csv) in MODELS.items()}
 
     # ---- Figure: incidence no-vax vs vax (left) + VE distribution (right), by immunity structure ----
@@ -118,7 +127,10 @@ def main():
     axA.set_ylim(0, ymax*1.18)
     axA.set_ylabel('symptomatic incidence /100 child-yr (<=36 mo)'); axA.set_title('Predicted vaccine impact')
     axA.legend(frameon=False, loc='center right')
-    axB.boxplot([results[l].ve.values for l in labels], labels=[l.split(' ')[0] for l in labels])
+    try:
+        axB.boxplot([results[l].ve.values for l in labels], tick_labels=[l.split(' ')[0] for l in labels])
+    except TypeError:   # matplotlib < 3.9
+        axB.boxplot([results[l].ve.values for l in labels], labels=[l.split(' ')[0] for l in labels])
     axB.set_ylabel('achieved VE (1 - vax/novax incidence)'); axB.set_title(f'VE across posterior draws (efficacy={a.response})')
     axB.set_ylim(0, 1)
     fig.suptitle('Same pre-vaccine data, two immunity structures -> different predicted vaccine impact (Bangladesh)')
