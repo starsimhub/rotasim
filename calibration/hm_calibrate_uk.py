@@ -50,10 +50,10 @@ def uk_bounds(model, maternal='titer', fix_titer_shape=False, beta_max=DEFAULT_B
     lo, _ = b['log_base_beta']
     b['log_base_beta'] = (lo, float(_np.log(beta_max)))
     return b
-# Default: cap the observation at <3y (36 mo) to match the cohort window and avoid the
-# all-age surveillance artifact (the symptom model extrapolates poorly to adults, piling
-# cases into the open 36+ bin -- not what passive/genotyped surveillance captures).
-DEFAULT_CAP_M = 36.0
+# Default: cap the observation at <5y (60 mo). Care-seeking is high/uniform through age 5, so
+# this stays out of the confounded adult regime while including the 2-5y bins that diagnose
+# whether infection-number symptoms overshoot older-child reinfections. (36 -> <3y, 24 -> <2y.)
+DEFAULT_CAP_M = 60.0
 MODEL_SD_PROP = 0.02   # small model-noise floor added in quadrature to the multinomial SE
 
 
@@ -122,9 +122,8 @@ def main():
     ap.add_argument('--beta-max', type=float, default=DEFAULT_BETA_MAX,
                     help='upper bound on base_beta (default 0.35; UK is low-FOI, high-beta sims are slow+irrelevant)')
     ap.add_argument('--cap-age-months', type=float, default=DEFAULT_CAP_M,
-                    help='upper age cap (mo) for observed cases: 36 -> <3y/4 bins (default, matches '
-                         'cohort 36mo censoring), 24 -> <2y/3 bins (matches Bangladesh IR fit bins), '
-                         '0 -> no cap (all ages incl. open 36+ tail)')
+                    help='upper age cap (mo) for observed cases: 60 -> <5y/6 bins (default), '
+                         '36 -> <3y/4 bins (cohort window), 24 -> <2y/3 bins (Bangladesh IR fit bins)')
     ap.add_argument('--fix-titer-shape', action='store_true',
                     help='hold titer SHAPE at the identified curve (FIXED_TITER_SHAPE); fit only maternal '
                          'efficacy + transmission + symptom. Maternal shape is setting-independent biology.')
@@ -136,7 +135,7 @@ def main():
     n_agents = a.n_agents
     if a.smoke:
         a.n_samples = 16; a.max_iter = 1; n_agents = 8000
-    cap = None if a.cap_age_months == 0 else a.cap_age_months
+    cap = a.cap_age_months
     EXP_FOLDER = {'age_binned': '28_hm_uk_age_binned', 'infnum': '28_hm_uk_infnum', 'age': '28_hm_uk_age'}
     out_dir = a.out_dir or str(THISDIR / 'experiments' / EXP_FOLDER[a.model] / 'outputs' / 'hm')
 

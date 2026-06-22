@@ -48,7 +48,7 @@ def main():
     ap.add_argument('--hm-dir', default=None)
     ap.add_argument('--out-dir', default=None)
     a = ap.parse_args()
-    cap = None if a.cap_age_months == 0 else a.cap_age_months
+    cap = a.cap_age_months
 
     run_name = f'uk_{a.model}_{a.maternal}' + ('_fixedshape' if a.fix_titer_shape else '')
     hm_dir = pathlib.Path(a.hm_dir) if a.hm_dir else (THISDIR / 'experiments' / EXP_DIR[a.model] / 'outputs' / 'hm' / run_name)

@@ -102,7 +102,7 @@ def main():
     n_agents = N_AGENTS
     if a.smoke:
         a.n = 24; n_agents = 8000
-    cap = None if a.cap_age_months == 0 else a.cap_age_months
+    cap = a.cap_age_months
 
     run_name = f'uk_{a.model}_{a.maternal}' + ('_fixedshape' if a.fix_titer_shape else '')
     hm_dir = pathlib.Path(a.hm_dir) if a.hm_dir else (THISDIR / 'experiments' / EXP_DIR[a.model] / 'outputs' / 'hm' / run_name)

@@ -20,16 +20,17 @@ import pandas as pd
 THISDIR = pathlib.Path(__file__).resolve().parent
 UK_XLSX = THISDIR / 'UK_prevax_age_2008_2012.xlsx'
 
-# Bin labels as they appear in the spreadsheet, in age order. The left edges (months)
-# define the Surveillance observer's bins; the final bin is open-ended (36+) unless capped.
-UK_BIN_LABELS = ['<6 m', '6-11 m', '12-23 m', '24-35 m', '36 m +']
-UK_BIN_EDGES_M = (0.0, 6.0, 12.0, 24.0, 36.0)
+# Bin labels as they appear in the spreadsheet, in age order. Finer bins through <5y (the
+# xlsx now resolves 36-47 / 48-59 mo instead of an open 36+ tail). All bins are CLOSED.
+# Default cap = 60 mo (<5y): keeps the high/uniform-care-seeking range while including the 2-5y
+# bins that diagnose whether infection-number symptoms overshoot older-child reinfections.
+UK_BIN_LABELS = ['<6 m', '6-11 m', '12-23 m', '24-35 m', '36-47 m', '48-59 m']
+UK_BIN_EDGES_M = (0.0, 6.0, 12.0, 24.0, 36.0, 48.0, 60.0)
 # Short feature keys used as HM column names (sanitised).
-UK_FEATURE_KEYS = ['prop_0_6', 'prop_6_11', 'prop_12_23', 'prop_24_35', 'prop_36plus']
-# Number of leading bins kept for a given upper age cap (cases >= cap are excluded). Capping
-# matches the cohort window and avoids modelling adult cases (the symptom model extrapolates
-# poorly to adults under all-age surveillance). cap None -> all 5 bins (open 36+ tail).
-_NBINS_FOR_CAP = {None: 5, 36.0: 4, 24.0: 3}
+UK_FEATURE_KEYS = ['prop_0_6', 'prop_6_11', 'prop_12_23', 'prop_24_35', 'prop_36_47', 'prop_48_59']
+# Leading bins kept for a given upper age cap (sim cases >= cap excluded; proportions renormalize
+# within the kept range). 60 -> all 6 (<5y, default), 36 -> <3y/4 bins, 24 -> <2y/3 bins.
+_NBINS_FOR_CAP = {60.0: 6, 36.0: 4, 24.0: 3}
 
 
 def load_uk_counts(years=(2008, 2009, 2010, 2011, 2012)):
@@ -42,33 +43,32 @@ def load_uk_counts(years=(2008, 2009, 2010, 2011, 2012)):
     return counts.astype(int)
 
 
-def load_targets_uk(years=(2008, 2009, 2010, 2011, 2012), cap_age_m=36.0):
+def load_targets_uk(years=(2008, 2009, 2010, 2011, 2012), cap_age_m=60.0):
     """UK surveillance target: per-bin case proportions + multinomial SEs + raw counts.
 
-    cap_age_m caps the observation at an upper age (cases >= cap excluded) to match the cohort
-    window: 36 -> 4 bins (<6,6-11,12-23,24-35; matches MALEDCohort's 36mo censoring), 24 -> 3
-    bins (<6,6-11,12-23; matches the Bangladesh IR fit bins), None -> all 5 bins (open 36+ tail).
-    Proportions/SEs renormalize within the kept bins (the total N is the kept-bin total).
+    cap_age_m caps the observation at an upper age (sim cases >= cap excluded): 60 -> 6 bins
+    (<5y; default — high/uniform care-seeking, includes the 2-5y drop-off diagnostic), 36 -> 4
+    bins (<3y; matches MALEDCohort's 36mo censoring), 24 -> 3 bins (<2y; Bangladesh IR fit bins).
+    Proportions/SEs renormalize within the kept bins (total N is the kept-bin total).
 
     Returns dict with: counts, total, proportions, se (all over the kept bins),
       bin_labels, feature_keys, bin_edges_m, cap_age_m.
     """
     if cap_age_m not in _NBINS_FOR_CAP:
-        raise ValueError(f"cap_age_m must be one of {sorted(k for k in _NBINS_FOR_CAP if k)} or None")
+        raise ValueError(f"cap_age_m must be one of {sorted(_NBINS_FOR_CAP)}")
     nb = _NBINS_FOR_CAP[cap_age_m]
-    counts = load_uk_counts(years)[:nb]                 # keep leading bins only (drop older/open tail)
+    counts = load_uk_counts(years)[:nb]                 # keep leading bins only
     total = int(counts.sum())
     prop = counts / total                               # renormalized within the capped range
     se = np.sqrt(prop * (1.0 - prop) / total)
-    # edges for the observer: leading edges; with a cap the last kept edge is the upper bound.
-    edges = (UK_BIN_EDGES_M[:nb] + ((cap_age_m,) if cap_age_m is not None else ()))
+    edges = UK_BIN_EDGES_M[:nb] + (cap_age_m,)          # leading edges + the cap as upper bound
     return dict(counts=counts, total=total, proportions=prop, se=se,
                 bin_labels=UK_BIN_LABELS[:nb], feature_keys=UK_FEATURE_KEYS[:nb],
                 bin_edges_m=edges, cap_age_m=cap_age_m)
 
 
 if __name__ == '__main__':
-    for cap in (None, 36.0, 24.0):
+    for cap in (60.0, 36.0, 24.0):
         t = load_targets_uk(cap_age_m=cap)
         print(f"\nUK pre-vax surveillance, cap={cap} mo -> {len(t['counts'])} bins, "
               f"pooled {t['total']} cases, edges={t['bin_edges_m']}")
