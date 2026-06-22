@@ -29,8 +29,26 @@ import matplotlib.pyplot as plt
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from hm_calibrate import untransform                                   # transformed posterior row -> sim params
 vt = sc.importbypath(HERE / 'experiments' / '15_vaccine_toy' / 'vaccine_toy.py')   # the single-strain engine
+
+# Convert a fitted-posterior row (transformed space) into the sim's parameter dict. Inlined here
+# (instead of importing hm_calibrate) so the tutorial only needs rotasim, not the historymatching
+# package. Maternal shape is held at the identified Bangladesh curve (fix_titer_shape).
+FIXED_TITER = dict(median=20.0, gsd=2.3, half_life_days=50.0, hill=4.7)
+def untransform(row, model):
+    s1 = float(row['sus_after_1']); s2 = s1 * float(row['sus_r2']); s3 = s2 * float(row['sus_r3'])
+    p = dict(base_beta=float(np.exp(row['log_base_beta'])),
+             sus_after_1=s1, sus_after_2=s2, sus_after_3plus=s3,
+             maternal_immunity_efficacy=float(row['maternal_efficacy']),
+             maternal_titer_median=FIXED_TITER['median'], maternal_titer_gsd=FIXED_TITER['gsd'],
+             maternal_titer_half_life_days=FIXED_TITER['half_life_days'], maternal_hill_slope=FIXED_TITER['hill'])
+    if model == 'age_binned':
+        p.update(p_symp_age_0_6=float(row['p_symp_age_0_6']), p_symp_age_6_11=float(row['p_symp_age_6_11']),
+                 p_symp_age_12plus=float(row['p_symp_age_12plus']))
+    else:  # infnum
+        p1 = float(row['p_symp_1']); p2 = p1 * float(row['p_r2']); p3 = p2 * float(row['p_r3'])
+        p.update(p_symp_1=p1, p_symp_2=p2, p_symp_3plus=p3)
+    return p
 
 # The two fitted immunity structures (calibrated to the same MAL-ED Bangladesh data).
 MODELS = {
@@ -47,7 +65,7 @@ def run_model(label, key, post_csv, n_draws, n_agents, response, n_workers):
         post = post.sample(n_draws, random_state=0).reset_index(drop=True)
     tasks, meta = [], []
     for i, (_, row) in enumerate(post.iterrows()):
-        p = untransform(row, key, 'titer', fix_titer_shape=True)
+        p = untransform(row, key)
         seed = SEED_BASE + i                                  # SAME seed for the vax/novax pair (variance reduction)
         # _build_run args: (model, params, base_beta, response, vaccinate, seed, n_agents)
         tasks.append((key, p, p['base_beta'], 0.0,      False, seed, n_agents)); meta.append((i, 'novax'))
