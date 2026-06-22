@@ -51,6 +51,9 @@ SYMPTOM_BOUNDS = {
     # Non-parametric age-symptom: free P(symptomatic) per age bin (<6, 6-11, >=12 mo).
     # Tests whether the quadratic ('age') over-constrains the age-symptom curve.
     'age_binned': {'p_symp_age_0_6': (0.0, 1.0), 'p_symp_age_6_11': (0.0, 1.0), 'p_symp_age_12plus': (0.0, 1.0)},
+    # Combined: quadratic age logit + a linear infection-order slope beta3*min(n,5). Nests 'age'
+    # (beta3=0). beta3<0 = symptoms decline with infection experience (the infnum-like effect).
+    'age_and_infection': {'beta0': (-5.0, 2.0), 'beta1': (-1.0, 1.0), 'beta2': (-0.5, 0.5), 'beta3': (-2.0, 0.5)},
 }
 # Fixed titer-shape values (infnum posterior medians) -- the identified maternal curve, used
 # to remove titer's redundant shape flexibility (--fix-titer-shape): only maternal_efficacy stays free.
@@ -62,8 +65,9 @@ def bounds_for(model, maternal, fix_titer_shape=False):
         for k in ('log_titer_median', 'titer_gsd', 'titer_half_life_days', 'hill_slope'):
             mat.pop(k, None)   # fix the shape; keep maternal_efficacy free
     return {**TRANSMISSION_BOUNDS, **mat, **SYMPTOM_BOUNDS[model]}
-BOUNDS = {m: bounds_for(m, 'titer') for m in ('age', 'infnum', 'age_binned')}   # back-compat default (exp 16/17 = titer)
-SYMPTOM_MODEL = {'age': 'age_only', 'infnum': 'infection_number', 'age_binned': 'age_binned'}
+BOUNDS = {m: bounds_for(m, 'titer') for m in ('age', 'infnum', 'age_binned', 'age_and_infection')}   # back-compat default (exp 16/17 = titer)
+SYMPTOM_MODEL = {'age': 'age_only', 'infnum': 'infection_number', 'age_binned': 'age_binned',
+                 'age_and_infection': 'age_and_infection'}
 
 
 class CycleFeatureSelection(hm.FeatureSelectionStrategy):
@@ -98,6 +102,9 @@ def untransform(row, model, maternal='titer', fix_titer_shape=False):
         p.update(maternal_immunity_mean_duration_days=float(row['maternal_mean_duration_days']))
     if model == 'age':
         p.update(beta0=float(row['beta0']), beta1=float(row['beta1']), beta2=float(row['beta2']))
+    elif model == 'age_and_infection':
+        p.update(beta0=float(row['beta0']), beta1=float(row['beta1']),
+                 beta2=float(row['beta2']), beta3=float(row['beta3']))
     elif model == 'age_binned':
         p.update(p_symp_age_0_6=float(row['p_symp_age_0_6']), p_symp_age_6_11=float(row['p_symp_age_6_11']),
                  p_symp_age_12plus=float(row['p_symp_age_12plus']))

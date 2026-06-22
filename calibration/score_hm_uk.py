@@ -26,7 +26,7 @@ from hm_calibrate_uk import uk_bounds                # noqa: E402
 
 EPS = 1e-9
 MIN_CASES = 50
-EXP_DIR = {'age_binned': '28_hm_uk_age_binned', 'infnum': '28_hm_uk_infnum', 'age': '28_hm_uk_age'}
+EXP_DIR = {'age_binned': '28_hm_uk_age_binned', 'infnum': '28_hm_uk_infnum', 'age': '28_hm_uk_age', 'age_and_infection': '28_hm_uk_age_and_infection'}
 
 
 def _load_engine(hm_dir, bounds, obs):
@@ -40,7 +40,7 @@ def _load_engine(hm_dir, bounds, obs):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned'])
+    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned', 'age_and_infection'])
     ap.add_argument('--maternal', default='titer', choices=['titer', 'erlang'])
     ap.add_argument('--fix-titer-shape', action='store_true')
     ap.add_argument('--cap-age-months', type=float, default=UK.DEFAULT_CAP_M)

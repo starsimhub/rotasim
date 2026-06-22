@@ -33,7 +33,7 @@ CAL_WINDOW = (5.0, 10.0)
 N_WORKERS = int(os.environ.get('HM_WORKERS', '118'))
 EPS = 1e-9
 MIN_CASES = 50          # too few cases -> shape too noisy to score; treat as failed draw
-EXP_DIR = {'age_binned': '28_hm_uk_age_binned', 'infnum': '28_hm_uk_infnum', 'age': '28_hm_uk_age'}
+EXP_DIR = {'age_binned': '28_hm_uk_age_binned', 'infnum': '28_hm_uk_infnum', 'age': '28_hm_uk_age', 'age_and_infection': '28_hm_uk_age_and_infection'}
 
 
 def _read_jsonl(path):
@@ -87,7 +87,7 @@ def draw_nroy(hm_dir, bounds, run_name, n, cache, obs):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned'])
+    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned', 'age_and_infection'])
     ap.add_argument('--maternal', choices=['titer', 'erlang'], default='titer')
     ap.add_argument('--fix-titer-shape', action='store_true')
     ap.add_argument('--cap-age-months', type=float, default=UK.DEFAULT_CAP_M,

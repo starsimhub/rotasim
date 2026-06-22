@@ -1441,7 +1441,7 @@ class Surveillance(ss.Analyzer):
     """
     def __init__(self, bin_edges_m=(0.0, 6.0, 12.0, 24.0, 36.0), cap_age_m=None,
                  symptom_model='infection_number',
-                 beta0=0.0, beta1=0.0, beta2=0.0, p_symp_1=1.0, p_symp_2=1.0, p_symp_3plus=1.0,
+                 beta0=0.0, beta1=0.0, beta2=0.0, beta3=0.0, p_symp_1=1.0, p_symp_2=1.0, p_symp_3plus=1.0,
                  p_symp_age_0_6=0.5, p_symp_age_6_11=0.5, p_symp_age_12plus=0.5,
                  window=(5.0, 10.0), seed=0, **kw):
         super().__init__(**kw)
@@ -1449,7 +1449,7 @@ class Surveillance(ss.Analyzer):
         self.cap = cap_age_m                               # None -> open last bin; else exclude age >= cap
         self.nbins = (len(self.edges) - 1) if self.cap is not None else len(self.edges)
         self.sm = symptom_model
-        self.b0, self.b1, self.b2 = beta0, beta1, beta2
+        self.b0, self.b1, self.b2, self.b3 = beta0, beta1, beta2, beta3
         self.ps = [p_symp_1, p_symp_2, p_symp_3plus]
         self.pa = [p_symp_age_0_6, p_symp_age_6_11, p_symp_age_12plus]
         self.window = window
@@ -1463,9 +1463,12 @@ class Surveillance(ss.Analyzer):
         self._ic = self.sim.connectors.rotaimmunityconnector
 
     def _symp_prob(self, age_m, order):
-        if self.sm == 'age_only':
+        if self.sm in ('age_only', 'age_and_infection'):
             ac = np.minimum(age_m, 60.0) - 12.0
-            return 1.0 / (1.0 + np.exp(-np.clip(self.b0 + self.b1 * ac + self.b2 * ac * ac, -30, 30)))
+            lp = self.b0 + self.b1 * ac + self.b2 * ac * ac
+            if self.sm == 'age_and_infection':          # + linear infection-order slope (capped at 5)
+                lp = lp + self.b3 * np.minimum(np.asarray(order, float), 5.0)
+            return 1.0 / (1.0 + np.exp(-np.clip(lp, -30, 30)))
         if self.sm == 'age_binned':
             return np.where(age_m < 6.0, self.pa[0], np.where(age_m < 12.0, self.pa[1], self.pa[2]))
         return np.array([self.ps[min(int(o), 3) - 1] for o in order])

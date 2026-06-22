@@ -108,7 +108,7 @@ def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned'])
+    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned', 'age_and_infection'])
     ap.add_argument('--maternal', default='titer', choices=['titer', 'erlang'])
     ap.add_argument('--n-samples', type=int, default=1500)
     ap.add_argument('--max-iter', type=int, default=1)
@@ -136,7 +136,7 @@ def main():
     if a.smoke:
         a.n_samples = 16; a.max_iter = 1; n_agents = 8000
     cap = a.cap_age_months
-    EXP_FOLDER = {'age_binned': '28_hm_uk_age_binned', 'infnum': '28_hm_uk_infnum', 'age': '28_hm_uk_age'}
+    EXP_FOLDER = {'age_binned': '28_hm_uk_age_binned', 'infnum': '28_hm_uk_infnum', 'age': '28_hm_uk_age', 'age_and_infection': '28_hm_uk_age_and_infection'}
     out_dir = a.out_dir or str(THISDIR / 'experiments' / EXP_FOLDER[a.model] / 'outputs' / 'hm')
 
     obs = make_observations(cap)

@@ -138,7 +138,7 @@ def _run_one_replicate(args):
             p_symp_1=sim_pars.get('p_symp_1', 1.0), p_symp_2=sim_pars.get('p_symp_2', 1.0),
             p_symp_3plus=sim_pars.get('p_symp_3plus', 1.0),
             beta0=sim_pars.get('beta0', 0.0), beta1=sim_pars.get('beta1', 0.0),
-            beta2=sim_pars.get('beta2', 0.0),
+            beta2=sim_pars.get('beta2', 0.0), beta3=sim_pars.get('beta3', 0.0),
             p_symp_age_0_6=sim_pars.get('p_symp_age_0_6', 0.5),
             p_symp_age_6_11=sim_pars.get('p_symp_age_6_11', 0.5),
             p_symp_age_12plus=sim_pars.get('p_symp_age_12plus', 0.5),
