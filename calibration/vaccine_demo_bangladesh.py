@@ -20,7 +20,17 @@ Run:
   PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python python vaccine_demo_bangladesh.py            # ~few min
   PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python python vaccine_demo_bangladesh.py --quick     # fast/rough
 """
-import sys, argparse, pathlib
+
+import os, sys, argparse, pathlib
+# --- Robustness for the PyCharm "Run" button ---------------------------------------------------
+# PyCharm can prepend a parent dir to sys.path so that `import rotasim` resolves to the repo
+# FOLDER (no __init__.py) as an empty namespace package, shadowing the installed rotasim package
+# (symptom: rotasim.__file__ is None / "module 'rotasim' has no attribute 'RotaImmunityConnector'").
+# Drop any sys.path entry whose rotasim/ subdir lacks __init__.py, so the real package imports.
+sys.path[:] = [p for p in sys.path
+               if not (os.path.isdir(os.path.join(p or '.', 'rotasim'))
+                       and not os.path.isfile(os.path.join(p or '.', 'rotasim', '__init__.py')))]
+# -----------------------------------------------------------------------------------------------
 from multiprocessing import get_context
 import numpy as np, pandas as pd, sciris as sc
 import matplotlib
