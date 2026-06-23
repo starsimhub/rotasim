@@ -95,6 +95,46 @@ class StopWhenExtinct(ss.Intervention):
         raise _ExtinctStop
 
 
+class VaccinePrime(ss.Intervention):
+    """Forward-prediction vaccine (matches exp15/20 vaccine_toy): 2 doses at fixed ages; each
+    seroconversion (prob response_prob, among the covered fraction) advances the agent one
+    infection-equivalent. That counter feeds BOTH acquisition (sus_after_k via the connector) AND,
+    in the infection-number symptom model, P(symptomatic) (the observer reads num_recovered_infections)
+    -- so infection_blocking reduces both. symptom_blocking (vaccinated_uids) needs observer support."""
+    def __init__(self, response_prob, dose_ages_y=(2.0/12.0, 4.0/12.0), coverage=1.0,
+                 moa='infection_blocking', **kw):
+        super().__init__(**kw)
+        self.response_prob = float(response_prob)
+        self.dose_ages = list(dose_ages_y)
+        self.coverage = float(coverage)
+        self.moa = moa
+        self.vaccinated_uids = set()
+
+    def init_pre(self, sim):
+        super().init_pre(sim)
+        self._rng = np.random.default_rng(int(sim.pars.rand_seed or 0) + 7001)
+
+    def step(self):
+        sim = self.sim
+        ic = sim.connectors.rotaimmunityconnector
+        dt_y = self.dt.years
+        au = np.asarray(sim.people.alive.uids)
+        if len(au) == 0:
+            return
+        ages = np.asarray(sim.people.age[ss.uids(au)])
+        for d_age in self.dose_ages:                       # each agent crosses each dose age once
+            cross = au[(ages >= d_age) & (ages < d_age + dt_y)]
+            if len(cross) == 0:
+                continue
+            recv = cross if self.coverage >= 1 else cross[self._rng.random(len(cross)) < self.coverage]
+            sero = recv[self._rng.random(len(recv)) < self.response_prob] if len(recv) else recv
+            if len(sero):
+                if self.moa == 'symptom_blocking':
+                    self.vaccinated_uids.update(int(u) for u in sero)
+                else:
+                    ic.num_recovered_infections[ss.uids(sero)] += 1.0
+
+
 # ---------------------------------------------------------------------------
 # Worker function: runs in a spawned subprocess. Must be picklable and
 # self-sufficient. Builds its own sim from `sim_config`, applies trial params,
@@ -157,6 +197,13 @@ def _run_one_replicate(args):
     immunity_connector = rs.RotaImmunityConnector(use_fixed_susceptibility=False)
     people = ss.People(n_agents=sim_config['n_agents'],
                        age_data=sim_config['age_data_path'])
+    # Build interventions: optional early-stop + optional vaccine (forward prediction only).
+    interventions = []
+    if sim_config.get('early_stop_extinct', False):
+        interventions.append(StopWhenExtinct(burn_in_years=sim_config.get('early_stop_burn_in_years', 2.0)))
+    vx = sim_config.get('vaccine')
+    if vx:   # dict(response_prob, coverage, dose_ages_y, moa); infection_blocking advances the
+        interventions.append(VaccinePrime(**vx))   # infection-equivalent counter (feeds sus + infnum symptoms)
     sim = rs.Sim(
         n_agents=sim_config['n_agents'],
         start=sim_config['start'],
@@ -170,8 +217,7 @@ def _run_one_replicate(args):
             ss.Births(birth_rate=ss.peryear(sim_config['birth_rate'])),
             ss.Deaths(death_rate=ss.peryear(sim_config['death_rate'])),
         ],
-        interventions=([StopWhenExtinct(burn_in_years=sim_config.get('early_stop_burn_in_years', 2.0))]
-                       if sim_config.get('early_stop_extinct', False) else []),
+        interventions=interventions,
         connectors=[immunity_connector],
         rand_seed=rand_seed,
     )
