@@ -12,9 +12,10 @@ and it characterizes the cohort-vs-surveillance observation difference flagged i
 posteriors through the `Surveillance` observer (Bangladesh demographics, icddr,b bins, no refit),
 the predicted per-child risk-by-age **peaks at 6-11mo**, matching both the icddr,b observed risk
 and the MAL-ED cohort. The residual differences — icddr,b is *sharper* (relative risk 0.72 at
-12-23mo, ~0.01 at 24-59mo) vs the model/cohort (~0.47 and ~0.18) — are the expected
-**medically-attended severity selection** (severe disease ≈ young first infections; mild older-child
-reinfections don't reach care), not a model error.
+12-23mo, ~0.01 at 24-59mo) vs the model/cohort (~0.47 and ~0.18) — reflect **medically-attended
+severity selection** (severe disease ≈ young first infections; mild older-child reinfections don't
+reach care) plus some model **over-extrapolation** of the >2y tail beyond the <2y calibration window
+(see Observation 3) — not a failure of the fitted age-of-infection.
 
 ![icddr,b validation: MAL-ED-fitted posterior risk-by-age vs observed; all peak 6-11mo, 24-59mo gap = severity selection](figures/icddrb_posterior_overlay.png)
 
@@ -28,11 +29,15 @@ reinfections don't reach care), not a model error.
 2. **Risk-adjusted, surveillance is NOT younger than the cohort** — both peak 6-11mo. The "younger
    surveillance" impression came from the count/population artifact + the severity tail being trimmed.
    If anything icddr,b has relatively *more* 12-23mo risk than the cohort.
-3. **The 24-59mo gap is severity selection, not a fixable model bias.** Medically-attended = severe
-   = first/young infections; the model counts all symptomatic episodes. We deliberately do NOT model
-   an age/order detection filter (with the denominator set it largely cancels in relative incidence,
-   and it's unidentifiable from the sparse older tail). Compare on relative incidence in the
-   well-attended young bins.
+3. **The 24-59mo gap is partly severity selection, partly model over-extrapolation.** Medically-
+   attended = severe = first/young infections; the model counts all symptomatic episodes. *But the
+   MAL-ED cohort also shows ~0 disease >2y* (rel risk 0.03 at 24-35mo; see
+   [`figures/maled_vs_icddrb_data_only.png`](figures/maled_vs_icddrb_data_only.png)), so the model
+   over-predicts the tail vs **both** data sources — partly because the cohort fit dropped 24-35mo
+   for sparsity, leaving older-child symptomatic incidence unconstrained (over-extrapolation), not
+   purely surveillance severity selection. We still deliberately do NOT add an age/order detection
+   filter (it largely cancels in relative incidence with the denominator set, and is unidentifiable
+   from the sparse older tail); compare on relative incidence in the well-attended young bins.
 4. **Policy relevance.** Severe (medically-attended) disease is the VE-relevant outcome, and it is
    concentrated in very young first infections in high-FOI Dhaka — the mechanism by which a 2+4-month
    vaccine has little window before severe disease hits → lower achieved VE.
