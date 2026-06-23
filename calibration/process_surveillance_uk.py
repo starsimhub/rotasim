@@ -19,6 +19,10 @@ import pandas as pd
 
 THISDIR = pathlib.Path(__file__).resolve().parent
 UK_XLSX = THISDIR / 'UK_prevax_age_2008_2012.xlsx'
+# Two-era file: PreVaccine (2008-2012) + PostVaccine (2014-2019; vaccine-derived strains excluded).
+UK_ERA_XLSX = THISDIR / 'UK_age_byEra.xlsx'
+UK_ERA_YEARS = {'pre': (2008, 2009, 2010, 2011, 2012),
+                'post': (2015, 2016, 2017, 2018, 2019)}   # drop 2014 (intro/ramp-up year)
 
 # Bin labels as they appear in the spreadsheet, in age order. Finer bins through <5y (the
 # xlsx now resolves 36-47 / 48-59 mo instead of an open 36+ tail). All bins are CLOSED.
@@ -67,7 +71,34 @@ def load_targets_uk(years=(2008, 2009, 2010, 2011, 2012), cap_age_m=60.0):
                 bin_edges_m=edges, cap_age_m=cap_age_m)
 
 
+def load_targets_uk_era(era='pre', cap_age_m=60.0, years=None):
+    """UK surveillance target for a given vaccine era, from UK_age_byEra.xlsx.
+    era='pre' (2008-2012, no vaccine) or 'post' (2015-2019, vaccine ~90% coverage, vaccine-derived
+    strains already excluded). Same 6-bin structure / cap semantics as load_targets_uk."""
+    if era not in ('pre', 'post'):
+        raise ValueError("era must be 'pre' or 'post'")
+    if cap_age_m not in _NBINS_FOR_CAP:
+        raise ValueError(f"cap_age_m must be one of {sorted(_NBINS_FOR_CAP)}")
+    years = years or UK_ERA_YEARS[era]
+    sheet = 'PreVaccine' if era == 'pre' else 'PostVaccine'
+    df = pd.read_excel(UK_ERA_XLSX, sheet_name=sheet, header=0)
+    df = df.rename(columns={df.columns[0]: 'bin'}).set_index('bin').reindex(UK_BIN_LABELS)
+    cols = [y for y in years if y in df.columns]
+    counts = df[cols].sum(axis=1).to_numpy().astype(int)
+    nb = _NBINS_FOR_CAP[cap_age_m]
+    counts = counts[:nb]; total = int(counts.sum()); prop = counts / total
+    se = np.sqrt(prop * (1.0 - prop) / total)
+    return dict(counts=counts, total=total, proportions=prop, se=se,
+                bin_labels=UK_BIN_LABELS[:nb], feature_keys=UK_FEATURE_KEYS[:nb],
+                bin_edges_m=UK_BIN_EDGES_M[:nb] + (cap_age_m,), cap_age_m=cap_age_m, era=era, years=tuple(cols))
+
+
 if __name__ == '__main__':
+    for era in ('pre', 'post'):
+        t = load_targets_uk_era(era)
+        print(f"\nUK {era}-vaccine ({t['years']}): N={t['total']}")
+        for lab, c, p in zip(t['bin_labels'], t['counts'], t['proportions']):
+            print(f"  {lab:8s} n={c:5d}  prop={p:.3f}")
     for cap in (60.0, 36.0, 24.0):
         t = load_targets_uk(cap_age_m=cap)
         print(f"\nUK pre-vax surveillance, cap={cap} mo -> {len(t['counts'])} bins, "
