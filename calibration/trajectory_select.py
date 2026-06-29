@@ -44,7 +44,7 @@ def _read_jsonl(path):
             pass
     return out
 
-SITE = 'bangladesh'
+SITE = os.environ.get('MALED_SITE', 'bangladesh')
 BASE_SEED = 20260611
 N_AGENTS = 40_000
 CAL_WINDOW = (5.0, 10.0)
