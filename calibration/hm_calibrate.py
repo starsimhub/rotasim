@@ -25,17 +25,30 @@ sys.path.insert(0, str(THISDIR))
 import calibrate_maled as cm
 import process_incidence_maled as P
 
-SITE = 'bangladesh'
+SITE = os.environ.get('MALED_SITE', 'bangladesh')   # 'bangladesh' (default) or 'india' (Vellore)
 N_AGENTS = 40_000
 CAL_WINDOW = (5.0, 10.0)
 N_WORKERS = int(os.environ.get('HM_WORKERS', '100'))
 IR_BINS = ['<6 m', '6-11 m', '12-23 m']            # 24-35m dropped (1 case)
+# India/Vellore: ALSO fit the ALL-infection IR (same MAL-ED population + monthly detection) to pin
+# FOI -- the symptomatic-only fit was under-determined (low IR <-> few infections OR many mild ones)
+# and mis-chose low FOI. Off for Bangladesh (its existing fit is unchanged).
+USE_IR_ALL = (SITE == 'india')
 OBS_COLS = [f'ir_symp_{b}' for b in IR_BINS] + ['repeat_detected_frac', 'first_inf_median']
+if USE_IR_ALL:
+    OBS_COLS += [f'ir_all_{b}' for b in IR_BINS]
+# Age-at-first-DETECTION feature: KM median for Bangladesh, but India/Vellore detects only ~27%
+# of children (low incidence) so KM survival never reaches 0.5 -> median undefined. Use the KM
+# Q25 (=15.1mo, defined) for India. The OBS_COLS name stays 'first_inf_median' (cosmetic scalar
+# feature); both target and model output use FIRST_INF_QUANT, so the emulator is consistent.
+FIRST_INF_QUANT = 'q25' if SITE == 'india' else 'median'
+_QI = {'q25': 0, 'median': 1, 'q75': 2}[FIRST_INF_QUANT]
 
 import numpy as _np
 LOG = _np.log
+_BETA_MAX = 1.5 if SITE == 'india' else 0.5   # India: all-infection IR needs a higher-FOI ceiling
 TRANSMISSION_BOUNDS = {
-    'log_base_beta':        (LOG(0.05), LOG(0.5)),
+    'log_base_beta':        (LOG(0.05), LOG(_BETA_MAX)),
     'sus_after_1':          (0.1, 1.0),
     'sus_r2':               (0.0, 1.0),    # sus_2 = sus_1 * r2
     'sus_r3':               (0.0, 1.0),    # sus_3 = sus_2 * r3
@@ -55,16 +68,25 @@ SYMPTOM_BOUNDS = {
     # (beta3=0). beta3<0 = symptoms decline with infection experience (the infnum-like effect).
     'age_and_infection': {'beta0': (-5.0, 2.0), 'beta1': (-1.0, 1.0), 'beta2': (-0.5, 0.5), 'beta3': (-2.0, 0.5)},
 }
+# Fixed infnum symptom parameters from Vellore biweekly cohort (near-complete detection).
+# P(symp|infected) by age bin: <6m=0.381, 6-11m=0.407, 12-23m=0.189, 24-35m=0.122.
+# Mapped to infnum order params: p_symp_1 = 6-11m fraction (mostly 1st infections);
+# p_r2 = 12-23m / 6-11m; p_r3 = 24-35m / 12-23m.
+FIXED_PSYMP = dict(p_symp_1=0.407, p_r2=round(0.189 / 0.407, 4), p_r3=round(0.122 / 0.189, 4))
 # Fixed titer-shape values (infnum posterior medians) -- the identified maternal curve, used
 # to remove titer's redundant shape flexibility (--fix-titer-shape): only maternal_efficacy stays free.
 FIXED_TITER_SHAPE = dict(median=20.0, gsd=2.3, half_life_days=50.0, hill=4.7)
 
-def bounds_for(model, maternal, fix_titer_shape=False):
+def bounds_for(model, maternal, fix_titer_shape=False, fix_psymp=False):
     mat = dict(MATERNAL_BOUNDS[maternal])
     if fix_titer_shape and maternal == 'titer':
         for k in ('log_titer_median', 'titer_gsd', 'titer_half_life_days', 'hill_slope'):
             mat.pop(k, None)   # fix the shape; keep maternal_efficacy free
-    return {**TRANSMISSION_BOUNDS, **mat, **SYMPTOM_BOUNDS[model]}
+    symp = dict(SYMPTOM_BOUNDS[model])
+    if fix_psymp and model == 'infnum':
+        for k in ('p_symp_1', 'p_r2', 'p_r3'):
+            symp.pop(k, None)  # fix at FIXED_PSYMP; only FOI + immunity free
+    return {**TRANSMISSION_BOUNDS, **mat, **symp}
 BOUNDS = {m: bounds_for(m, 'titer') for m in ('age', 'infnum', 'age_binned', 'age_and_infection')}   # back-compat default (exp 16/17 = titer)
 SYMPTOM_MODEL = {'age': 'age_only', 'infnum': 'infection_number', 'age_binned': 'age_binned',
                  'age_and_infection': 'age_and_infection'}
@@ -84,7 +106,7 @@ class CycleFeatureSelection(hm.FeatureSelectionStrategy):
         return f"Cycle 1/wave over {len(self.feats)} targets"
 
 
-def untransform(row, model, maternal='titer', fix_titer_shape=False):
+def untransform(row, model, maternal='titer', fix_titer_shape=False, fix_psymp=False):
     s1 = float(row['sus_after_1']); s2 = s1 * float(row['sus_r2']); s3 = s2 * float(row['sus_r3'])
     p = dict(base_beta=float(np.exp(row['log_base_beta'])),
              sus_after_1=s1, sus_after_2=s2, sus_after_3plus=s3,
@@ -109,8 +131,10 @@ def untransform(row, model, maternal='titer', fix_titer_shape=False):
         p.update(p_symp_age_0_6=float(row['p_symp_age_0_6']), p_symp_age_6_11=float(row['p_symp_age_6_11']),
                  p_symp_age_12plus=float(row['p_symp_age_12plus']))
     else:
-        p1 = float(row['p_symp_1']); p2 = p1 * float(row['p_r2']); p3 = p2 * float(row['p_r3'])
-        p.update(p_symp_1=p1, p_symp_2=p2, p_symp_3plus=p3)
+        p1 = FIXED_PSYMP['p_symp_1'] if fix_psymp else float(row['p_symp_1'])
+        r2 = FIXED_PSYMP['p_r2']    if fix_psymp else float(row['p_r2'])
+        r3 = FIXED_PSYMP['p_r3']    if fix_psymp else float(row['p_r3'])
+        p.update(p_symp_1=p1, p_symp_2=p1 * r2, p_symp_3plus=p1 * r2 * r3)
     return p
 
 
@@ -118,7 +142,7 @@ def build_sim_config(model, n_agents, maternal='titer'):
     demo = cm.SITE_DEMOGRAPHICS[SITE]
     fi = pd.read_csv(THISDIR / 'maled_data' / f'first_infection_{SITE}.csv')
     cens = fi.loc[(fi['event_observed'] == 0) & (fi['age_event_months'] > 0), 'age_event_months'].astype(float).tolist()
-    return dict(
+    cfg = dict(
         n_agents=n_agents, start='2003-01-01', stop='2013-01-01', n_contacts=7,
         birth_rate=demo['birth_rate'], death_rate=demo['death_rate'],
         constant_severity=cm.FIXED_CONSTANT_SEVERITY, reporting_rate=cm.FIXED_REPORTING_RATE,
@@ -127,6 +151,14 @@ def build_sim_config(model, n_agents, maternal='titer'):
         observation='cohort', censoring_ages=cens,
         symp_collection=0.80, eia_sensitivity=0.85, shed_days=13.0,
     )
+    # India/Vellore: persistent COMMUNITY neonatal strain (G10P[11], asymptomatic, ~50% of neonates,
+    # immunizing). Bangladesh's documented neonatal infections were NOSOCOMIAL (not the community
+    # cohort) -> p_neo~0 there; UK p_neo=0. p_neo FIXED from literature (not fitted).
+    # Neonatal priming OFF by default for the clean FOI test (all-infection IR alone). Enable via
+    # NEO_PRIME=1 to add the literature-set <6m correction once FOI is pinned.
+    if SITE == 'india' and os.environ.get('NEO_PRIME', '0') == '1':
+        cfg['neonatal_priming'] = dict(p_neo=0.5, age_weeks=2.0, sus_effect=0.0)  # decoupled: symptom-order only
+    return cfg
 
 
 def make_observations():
@@ -146,19 +178,24 @@ def make_observations():
     rng = np.random.default_rng(0); meds = []
     for _ in range(300):
         s = df.sample(len(df), replace=True)
-        _, m, _ = P.km_quartiles(s['age_event_months'].values, s['event_observed'].values)
+        m = P.km_quartiles(s['age_event_months'].values, s['event_observed'].values)[_QI]
         if np.isfinite(m):
             meds.append(m)
     se = float(np.std(meds)) if meds else 1.0
-    obs['first_inf_median'] = (km['median'], float(np.hypot(se, MODEL_SD_T)))
+    obs['first_inf_median'] = (km[FIRST_INF_QUANT], float(np.hypot(se, MODEL_SD_T)))
+    if USE_IR_ALL:
+        tall = P.load_ir_all_targets(SITE)
+        for b in IR_BINS:
+            ir = float(tall.loc[b, 'IR']); cases = max(int(tall.loc[b, 'cases']), 1)
+            obs[f'ir_all_{b}'] = (ir, float(np.hypot(ir / np.sqrt(cases), MODEL_SD_IR)))
     return obs
 
 
-def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False):
+def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False, fix_psymp=False):
     def simulate(params_df: pd.DataFrame) -> pd.DataFrame:
         args = []
         for _, row in params_df.iterrows():
-            sp = untransform(row, model, maternal, fix_titer_shape)
+            sp = untransform(row, model, maternal, fix_titer_shape, fix_psymp)
             seed = abs(hash(tuple(np.round(row.values, 6)))) % (2**31)
             args.append((sim_config, sp, int(seed), CAL_WINDOW))
         with get_context('spawn').Pool(processes=min(N_WORKERS, len(args)), maxtasksperchild=4) as pool:
@@ -166,11 +203,15 @@ def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False):
         rows = []
         for mo in outs:
             try:
-                ir = mo['ir_by_age']; fim = mo['first_infection']['median']
+                ir = mo['ir_by_age']; fim = mo['first_infection'][FIRST_INF_QUANT]
                 if (not np.isfinite(fim)) or float(ir['IR'].sum()) <= 0:
                     rows.append({c: np.nan for c in OBS_COLS}); continue
-                rows.append({f'ir_symp_{b}': float(ir.loc[b, 'IR']) for b in IR_BINS}
-                            | {'repeat_detected_frac': mo.get('repeat_frac'), 'first_inf_median': float(fim)})
+                row = ({f'ir_symp_{b}': float(ir.loc[b, 'IR']) for b in IR_BINS}
+                       | {'repeat_detected_frac': mo.get('repeat_frac'), 'first_inf_median': float(fim)})
+                if USE_IR_ALL:
+                    ira = mo['ir_all_by_age']
+                    row |= {f'ir_all_{b}': float(ira.loc[b, 'IR']) for b in IR_BINS}
+                rows.append(row)
             except Exception:
                 rows.append({c: np.nan for c in OBS_COLS})
         return pd.DataFrame(rows, index=params_df.index)
@@ -179,7 +220,7 @@ def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned'])
+    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned', 'age_and_infection'])
     ap.add_argument('--maternal', default='titer', choices=['titer', 'erlang'])
     ap.add_argument('--n-samples', type=int, default=1500)
     ap.add_argument('--max-iter', type=int, default=1)
@@ -198,6 +239,9 @@ def main():
                     help='hold the titer SHAPE params (median/gsd/half_life/hill) at the identified curve '
                          '(FIXED_TITER_SHAPE); fit only maternal_efficacy + transmission + symptom. Tests whether '
                          'removing titer\'s redundant flexibility makes age+titer identifiable.')
+    ap.add_argument('--fix-psymp', action='store_true',
+                    help='fix infnum symptom params (p_symp_1, p_r2, p_r3) at Vellore biweekly values '
+                         '(0.407 / 0.465 / 0.645); only valid with --model infnum')
     ap.add_argument('--smoke', action='store_true')
     ap.add_argument('--early-stop', action='store_true',
                     help='abort extinct draws early (StopWhenExtinct): ~3.5x faster on the ~80%% that burn '
@@ -229,10 +273,12 @@ def main():
     sim_config = build_sim_config(a.model, n_agents, a.maternal)
     sim_config['early_stop_extinct'] = a.early_stop
     sim_config['early_stop_burn_in_years'] = a.early_stop_burn_in
-    run_name = f'maled_{a.model}_{a.maternal}' + ('_fixedshape' if a.fix_titer_shape else '')
+    run_name = (f'maled_{a.model}_{a.maternal}'
+                + ('_fixedshape' if a.fix_titer_shape else '')
+                + ('_fixedpsymp' if a.fix_psymp else ''))
     engine = hm.HistoryMatching(
-        function=make_simulator(a.model, sim_config, a.maternal, a.fix_titer_shape),
-        bounds=bounds_for(a.model, a.maternal, a.fix_titer_shape), observations=obs,
+        function=make_simulator(a.model, sim_config, a.maternal, a.fix_titer_shape, a.fix_psymp),
+        bounds=bounds_for(a.model, a.maternal, a.fix_titer_shape, a.fix_psymp), observations=obs,
         emulator_type='bayes_linear', sampling_strategy='lhs',
         feature_selection=feature_selection,
         n_samples=a.n_samples, implausibility_threshold=3.0, max_iterations=a.max_iter,
