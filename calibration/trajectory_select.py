@@ -146,7 +146,7 @@ OBS = make_observations()
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned'])
+    ap.add_argument('--model', required=True, choices=['age', 'infnum', 'age_binned', 'age_and_infection'])
     ap.add_argument('--maternal', choices=['titer', 'erlang'], default='titer')
     ap.add_argument('--fix-titer-shape', action='store_true')
     ap.add_argument('--hm-dir', default=None, help='HM run folder with checkpoint.pkl (default: free-titer exp 16/17)')
@@ -155,6 +155,8 @@ def main():
     ap.add_argument('--early-stop', action='store_true',
                     help='abort extinct draws early (StopWhenExtinct); ~3.5x faster on the ~80%% that burn out')
     ap.add_argument('--early-stop-burn-in', type=float, default=2.0)
+    ap.add_argument('--fix-psymp', action='store_true',
+                    help='fix infnum p_symp params at Vellore biweekly values (exp32); must match the HM run flag')
     ap.add_argument('--smoke', action='store_true')
     a = ap.parse_args()
     n_agents = N_AGENTS
@@ -163,7 +165,7 @@ def main():
 
     hm_dir = pathlib.Path(a.hm_dir) if a.hm_dir else HM_RUN[a.model]
     run_name = hm_dir.name
-    bounds = bounds_for(a.model, a.maternal, a.fix_titer_shape)
+    bounds = bounds_for(a.model, a.maternal, a.fix_titer_shape, getattr(a, 'fix_psymp', False))
     out_dir = pathlib.Path(a.out_dir) if a.out_dir else (THISDIR / 'experiments' / EXP_DIR[a.model] / 'outputs')
     out_dir.mkdir(parents=True, exist_ok=True)
     cache = out_dir / ('nroy_draw_smoke.csv' if a.smoke else 'nroy_draw.csv')
@@ -182,7 +184,8 @@ def main():
     done = {r['idx'] for r in _read_jsonl(jsonl)}
     if done:
         print(f"resuming: {len(done)} already scored")
-    tasks = [(i, sim_config, untransform(row, a.model, a.maternal, a.fix_titer_shape), BASE_SEED + i)
+    tasks = [(i, sim_config, untransform(row, a.model, a.maternal, a.fix_titer_shape,
+                                         getattr(a, 'fix_psymp', False)), BASE_SEED + i)
              for i, (_, row) in enumerate(nroy.iterrows()) if i not in done]
 
     t0 = sc.tic(); n_done = len(done)
