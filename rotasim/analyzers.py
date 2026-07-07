@@ -1324,6 +1324,13 @@ class MALEDCohort(ss.Analyzer):
         super().init_results()
         self._diseases = [d for d in self.sim.diseases.values() if hasattr(d, 'G')]
         self._prev_infected = {d.name: d.infected.uids for d in self._diseases}
+        # Decoupled neonatal priming: a primed child's infections are read at symptom ORDER +1
+        # (milder/less-detected) WITHOUT a susceptibility change. Read the intervention's primed set
+        # (grows live as newborns cross the prime age).
+        ivs = self.sim.interventions
+        ivs = list(ivs.values()) if hasattr(ivs, 'values') else list(ivs)
+        nvp = next((iv for iv in ivs if iv.__class__.__name__ == 'NeonatalPriming'), None)
+        self._primed = nvp.primed_uids if nvp is not None else set()
 
     def _symp_prob(self, order, age_m):
         if self.symptom_model == 'age_only':
@@ -1379,7 +1386,7 @@ class MALEDCohort(ss.Analyzer):
                 if a > self.exit_age_m[idx]:
                     continue
                 self.n_inf[idx] += 1
-                order = self.n_inf[idx]
+                order = self.n_inf[idx] + (1 if int(u) in self._primed else 0)   # +1 if neonatally primed
                 if np.isnan(self.true_first_m[idx]):
                     self.true_first_m[idx] = a
                 symp = self.rng.random() < self._symp_prob(order, a)
@@ -1456,6 +1463,17 @@ class Surveillance(ss.Analyzer):
         self.rng = np.random.default_rng(seed)
         self.cases = np.zeros(self.nbins, int)
         self.person_years = np.zeros(self.nbins)   # denominator: standing population-time per bin
+        # Direct-VE split (only populated when a VaccinePrime intervention is present): symptomatic
+        # cases + person-time partitioned by whether the agent has RECEIVED the vaccine. Restricted
+        # to ages >= the last dose age so unvaccinated-by-age infants don't confound the contrast.
+        self.cases_vax = np.zeros(self.nbins, int);   self.cases_unvax = np.zeros(self.nbins, int)
+        self.py_vax = np.zeros(self.nbins);           self.py_unvax = np.zeros(self.nbins)
+        self._vax = None; self._min_vax_age_m = 0.0
+        self._first_inf_ages_m = []   # all order-1 infection ages (months) throughout the run
+        # Seroprevalence accumulators: cumulative numerator/denominator across all in-window steps.
+        # Bands: '2y' = [24,36)m, '5to6y' = [60,84)m. Computed before any cap_age filter.
+        self._sero_pos = {'2y': 0, '5to6y': 0}
+        self._sero_tot = {'2y': 0, '5to6y': 0}
 
     def init_results(self):
         super().init_results()
@@ -1463,6 +1481,14 @@ class Surveillance(ss.Analyzer):
         self._prev = {d.name: d.infected.uids for d in self._dis}
         self._ic = self.sim.connectors.rotaimmunityconnector
         self._dty = self.dt.years
+        # Locate an optional vaccine intervention -> enables the direct-VE (vaccinated vs
+        # unvaccinated) split. Its covered_uids set grows live as agents cross dose ages.
+        ivs = self.sim.interventions
+        ivs = list(ivs.values()) if hasattr(ivs, 'values') else list(ivs)
+        self._vax = next((iv for iv in ivs if iv.__class__.__name__ == 'VaccinePrime'), None)
+        if self._vax is not None:
+            self._min_vax_age_m = max(self._vax.dose_ages) * 12.0
+            self._vax_ndoses = getattr(self._vax, 'n_doses_target', len(self._vax.dose_ages))
 
     def _symp_prob(self, age_m, order):
         if self.sm in ('age_only', 'age_and_infection'):
@@ -1479,30 +1505,84 @@ class Surveillance(ss.Analyzer):
         sim = self.sim
         yr = sim.t.relvec[sim.ti].years
         inw = self.window[0] <= yr < self.window[1]
+        # Snapshot vaccination status once per step (membership grows over the run). The direct-VE
+        # contrast is FULLY-vaccinated (>= n_doses_target) vs ZERO-dose; partials are in neither arm.
+        full = anyd = None
+        if self._vax is not None and self._vax.dose_n:
+            full = np.fromiter((u for u, n in self._vax.dose_n.items() if n >= self._vax_ndoses), int)
+            anyd = np.fromiter(self._vax.dose_n.keys(), int)
         if inw:
             # Denominator: standing population-time per bin (counted ONCE per step, disease-independent).
-            aam = np.asarray(sim.people.age[sim.people.alive.uids]) * 12.0
+            auids = np.asarray(sim.people.alive.uids)
+            aam = np.asarray(sim.people.age[ss.uids(auids)]) * 12.0
+            # Seroprevalence by age band: fraction with num_recovered_infections >= 1.
+            # Computed before cap_age filter so the 5-6y band (60-84m) is always tracked.
+            if len(aam):
+                num_rec = np.asarray(self._ic.num_recovered_infections[ss.uids(auids)])
+                seropos = num_rec >= 1
+                for band, lo_m, hi_m in (('2y', 24.0, 36.0), ('5to6y', 60.0, 84.0)):
+                    in_band = (aam >= lo_m) & (aam < hi_m)
+                    n = int(in_band.sum())
+                    if n > 0:
+                        self._sero_pos[band] += int((seropos & in_band).sum())
+                        self._sero_tot[band] += n
             if self.cap is not None:
-                aam = aam[aam < self.cap]
+                keep = aam < self.cap
+                auids = auids[keep]; aam = aam[keep]
             if len(aam):
                 ai = np.clip(np.digitize(aam, self.edges) - 1, 0, self.nbins - 1)
                 for k in range(self.nbins):
                     self.person_years[k] += int((ai == k).sum()) * self._dty
+                if self._vax is not None:
+                    elig = aam >= self._min_vax_age_m            # past last dose age -> eligible contrast
+                    isfull = np.isin(auids, full) if (full is not None and len(full)) else np.zeros(len(auids), bool)
+                    iszero = ~np.isin(auids, anyd) if (anyd is not None and len(anyd)) else np.ones(len(auids), bool)
+                    for k in range(self.nbins):
+                        inb = (ai == k) & elig
+                        self.py_vax[k]   += int((inb & isfull).sum()) * self._dty   # fully vaccinated
+                        self.py_unvax[k] += int((inb & iszero).sum()) * self._dty   # zero-dose
         for d in self._dis:
             cur = d.infected.uids
-            if inw:
-                new = np.asarray(cur - self._prev[d.name])   # newly infected this step, ALL ages
-                if len(new):
-                    am = np.asarray(sim.people.age[ss.uids(new)]) * 12.0
-                    order = self._ic.num_recovered_infections[ss.uids(new)] + 1.0
+            new = np.asarray(cur - self._prev[d.name])   # newly infected this step, ALL ages
+            if len(new):
+                am = np.asarray(sim.people.age[ss.uids(new)]) * 12.0
+                order = self._ic.num_recovered_infections[ss.uids(new)] + 1.0
+                if inw:
+                    # Track first-infection ages for sim-born cohort during the calibration
+                    # window only. Restricting to (a) inw and (b) agents born during the sim
+                    # (ti_born >= 0) excludes the initial-population susceptible sweep: the
+                    # initial population is immunologically naive, so adults get first infected
+                    # in year 0–1 and dominate the median if included. Cohort-only tracking
+                    # matches the Hasso-Agopsowicz first-hospitalization target (median age in
+                    # a birth cohort entering an endemic population).
+                    fmask = order < 1.5   # num_recovered_infections == 0 → first infection
+                    if fmask.any():
+                        fi_new = new[fmask]; fi_am = am[fmask]
+                        try:
+                            tb = np.asarray(sim.people.ti_born[ss.uids(fi_new)])
+                            cohort = tb >= 0
+                        except Exception:
+                            cohort = np.ones(len(fi_new), bool)
+                        if cohort.any():
+                            self._first_inf_ages_m.extend(fi_am[cohort].tolist())
+                if inw:
                     symp = self.rng.random(len(am)) < self._symp_prob(am, order)
-                    ams = am[symp]
+                    cu = new[symp]; ams = am[symp]               # symptomatic case uids + ages
                     if self.cap is not None:
-                        ams = ams[ams < self.cap]          # cap to the cohort window; exclude older
+                        keepc = ams < self.cap                   # cap to the cohort window; exclude older
+                        cu = cu[keepc]; ams = ams[keepc]
                     if len(ams):
                         idx = np.clip(np.digitize(ams, self.edges) - 1, 0, self.nbins - 1)
                         for k in range(self.nbins):
                             self.cases[k] += int((idx == k).sum())
+                        if self._vax is not None:
+                            eligc = ams >= self._min_vax_age_m
+                            isfullc = np.isin(cu, full) if (full is not None and len(full)) else np.zeros(len(cu), bool)
+                            iszeroc = ~np.isin(cu, anyd) if (anyd is not None and len(anyd)) else np.ones(len(cu), bool)
+                            for k in range(self.nbins):
+                                inb = (idx == k) & eligc
+                                self.cases_vax[k]   += int((inb & isfullc).sum())   # fully vaccinated
+                                self.cases_unvax[k] += int((inb & iszeroc).sum())   # zero-dose
             self._prev[d.name] = cur
 
     def results_dict(self):
@@ -1513,8 +1593,26 @@ class Surveillance(ss.Analyzer):
         ir = np.where(py > 0, self.cases / np.where(py > 0, py, 1) * 100.0, 0.0)
         # population fraction per bin (lets us verify the model's age structure vs the assumed one)
         pop_frac = (py / py.sum()) if py.sum() > 0 else np.zeros(self.nbins)
-        return dict(case_counts=self.cases.tolist(), case_proportions=prop.tolist(), total_cases=tot,
-                    person_years=py.tolist(), ir_per_100cy=ir.tolist(), pop_fraction=pop_frac.tolist())
+        fim = float(np.median(self._first_inf_ages_m)) if self._first_inf_ages_m else float('nan')
+        sero_2y = (float(self._sero_pos['2y'] / self._sero_tot['2y'])
+                   if self._sero_tot['2y'] > 0 else float('nan'))
+        sero_5to6y = (float(self._sero_pos['5to6y'] / self._sero_tot['5to6y'])
+                      if self._sero_tot['5to6y'] > 0 else float('nan'))
+        out = dict(case_counts=self.cases.tolist(), case_proportions=prop.tolist(), total_cases=tot,
+                   person_years=py.tolist(), ir_per_100cy=ir.tolist(), pop_fraction=pop_frac.tolist(),
+                   first_inf_median_months=fim,
+                   n_first_infs=len(self._first_inf_ages_m),
+                   sero_2y=sero_2y, sero_5to6y=sero_5to6y)
+        if self._vax is not None:   # direct (test-negative-analog) VE: vaccinated vs unvaccinated IRR
+            cv, cu = self.cases_vax.astype(float), self.cases_unvax.astype(float)
+            pv, pu = self.py_vax, self.py_unvax
+            irv = np.where(pv > 0, cv / np.where(pv > 0, pv, 1), np.nan)
+            iru = np.where(pu > 0, cu / np.where(pu > 0, pu, 1), np.nan)
+            ve_dir = 1.0 - irv / iru
+            out.update(cases_vax=self.cases_vax.tolist(), cases_unvax=self.cases_unvax.tolist(),
+                       py_vax=pv.tolist(), py_unvax=pu.tolist(), ve_direct=ve_dir.tolist(),
+                       min_vax_age_m=self._min_vax_age_m)
+        return out
 
 
 # Make importable from package root

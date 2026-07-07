@@ -1,0 +1,80 @@
+2026-07-07 07:40:36 [INFO] ============================================================
+2026-07-07 07:40:36 [INFO] HISTORY MATCHING — CONFIGURATION
+2026-07-07 07:40:36 [INFO] ============================================================
+2026-07-07 07:40:36 [INFO]   Emulator type:            bayes_linear
+2026-07-07 07:40:36 [INFO]   Parameters:               8
+2026-07-07 07:40:36 [INFO]   Observation targets:      7
+2026-07-07 07:40:36 [INFO]   Samples per wave:         20
+2026-07-07 07:40:36 [INFO]   Max iterations:           1
+2026-07-07 07:40:36 [INFO]   Implausibility threshold: 3.0
+2026-07-07 07:40:36 [INFO]   Auto space reduction:     disabled
+2026-07-07 07:40:36 [INFO]   Random seed:              20260707
+2026-07-07 07:40:36 [INFO]   Oversample factor:        1.1
+2026-07-07 07:40:36 [INFO]   Max batch size:           10000
+2026-07-07 07:40:36 [INFO]   Output directory:         /Users/aliciakraay/PycharmProjects/ryan_rotasim/rotasim/calibration/experiments/38_uk_agebinned_ve_hm/outputs/hm/uk_agebinned_ve_anchor
+2026-07-07 07:40:36 [INFO]   Run log:                  /Users/aliciakraay/PycharmProjects/ryan_rotasim/rotasim/calibration/experiments/38_uk_agebinned_ve_hm/outputs/hm/uk_agebinned_ve_anchor/log.txt
+2026-07-07 07:40:36 [INFO]   Parameters: ['log_base_beta', 'sus_after_1', 'sus_r2', 'sus_r3', 'p_symp_age_0_6', 'p_symp_age_6_11', 'p_symp_age_12plus', 'maternal_efficacy']
+2026-07-07 07:40:36 [INFO]   Targets: ['prop_0_6', 'prop_6_11', 'prop_12_23', 'prop_24_35', 'prop_36_47', 'prop_48_59', 've_overall']
+2026-07-07 07:40:36 [INFO] ============================================================
+2026-07-07 07:40:36 [INFO] Starting automated run with 1 max iterations
+2026-07-07 07:40:36 [INFO] ============================================================
+2026-07-07 07:40:36 [INFO] WAVE 1 STARTING
+2026-07-07 07:40:36 [INFO] ============================================================
+2026-07-07 07:40:36 [INFO] [Wave 1] Phase 1/5 SAMPLING: generated 20 samples (acceptance rate: 1.000) [0.0s]
+2026-07-07 07:40:36 [INFO] [Wave 1] Phase 2/5 SIMULATION: running 20 simulations...
+2026-07-07 07:42:44 [INFO] [Wave 1] Phase 2/5 SIMULATION: complete — 7 outputs [128.2s]
+2026-07-07 07:42:44 [INFO] [Wave 1] Phase 3/5 FEATURE SELECTION: ['prop_0_6'] [0.0s]
+2026-07-07 07:42:44 [INFO] [Wave 1] Phase 4/5 EMULATOR TRAINING: training 1 emulators...
+2026-07-07 07:42:44 [WARNING]   Feature 'prop_0_6': dropping 9/20 NaN rows before training
+2026-07-07 07:42:44 [INFO]   Emulator 1/1 [prop_0_6]: creating (11 samples, 8 params, type=bayes_linear)...
+2026-07-07 07:42:44 [DEBUG] Created bayes_linear emulator for feature: prop_0_6
+2026-07-07 07:42:44 [INFO]   Emulator 1/1 [prop_0_6]: training...
+2026-07-07 07:42:44 [INFO]     Training Bayes Linear: 8 points, 8 dims
+2026-07-07 07:42:44 [INFO]     OLS trend fit [0.0s]
+2026-07-07 07:42:44 [INFO]     Optimizing theta (8 correlation lengths, 8x8 Cholesky per eval)...
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 19: NLL=-274.1319 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 29: NLL=-274.2616 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 39: NLL=-274.2698 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 49: NLL=-274.2758 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 59: NLL=-274.2806 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 69: NLL=-274.2881 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 97: NLL=-274.3535 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 116: NLL=-274.3819 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 126: NLL=-274.5457 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 163: NLL=-274.5888 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 200: NLL=-274.7317 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 219: NLL=-274.9552 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 238: NLL=-276.6062 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 257: NLL=-277.4127 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 267: NLL=-277.4891 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 277: NLL=-277.6068 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 287: NLL=-277.6168 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 297: NLL=-277.6356 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 307: NLL=-277.6449 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 317: NLL=-277.6491 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 327: NLL=-277.6513 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 337: NLL=-277.6541 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 347: NLL=-277.6584 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 357: NLL=-277.6599 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 376: NLL=-277.6608 [0s]
+2026-07-07 07:42:44 [INFO]     L-BFGS-B iter 386: NLL=-277.6609 [0s]
+2026-07-07 07:42:44 [INFO]     Theta optimization: 26 L-BFGS iters, 386 NLL evals, final NLL=-277.6609 [0.0s]
+2026-07-07 07:42:44 [INFO]     Building 8x8 correlation matrix and Cholesky...
+2026-07-07 07:42:44 [INFO]     Training complete — sigma²=0.0000, theta range=[0.255, 54.598] [0.0s total]
+2026-07-07 07:42:44 [INFO]   Emulator 1/1 [prop_0_6]: trained [0.0s]
+2026-07-07 07:42:44 [INFO] [Wave 1] Phase 4/5 EMULATOR TRAINING: complete [0.0s]
+2026-07-07 07:42:44 [INFO] [Wave 1] Phase 5/5 NROY SAMPLING: finding 20 plausible candidates for next wave...
+2026-07-07 07:42:44 [INFO]   LHS rejection: 0/20 (0%) — starting
+2026-07-07 07:42:44 [INFO]   LHS rejection: 10/20 (50%) | 22 tested | rate=45.4545% [0s]
+2026-07-07 07:42:44 [INFO]   LHS rejection: 18/20 (90%) | 46 tested | rate=39.1304% [0s]
+2026-07-07 07:42:44 [INFO]   LHS rejection: 20/20 (100%) | 56 tested | rate=35.7143% [0s]
+2026-07-07 07:42:44 [INFO]   LHS rejection: 20/20 [0.0s]
+2026-07-07 07:42:44 [INFO]   NROY SUMMARY: 20/20 [OK] — sources: LHS=20 [0.0s]
+2026-07-07 07:42:44 [DEBUG] NROY fraction: 0.357143
+2026-07-07 07:42:44 [INFO] [Wave 1] Phase 5/5 NROY SAMPLING: found 20 candidates [0.0s]
+2026-07-07 07:42:44 [INFO] [Wave 1] ALL PHASES COMPLETE [128.2s total]. Committing...
+2026-07-07 07:42:47 [INFO] Checkpoint saved to /Users/aliciakraay/PycharmProjects/ryan_rotasim/rotasim/calibration/experiments/38_uk_agebinned_ve_hm/outputs/hm/uk_agebinned_ve_anchor/checkpoint.pkl
+2026-07-07 07:42:47 [INFO] Wave 1 output saved to /Users/aliciakraay/PycharmProjects/ryan_rotasim/rotasim/calibration/experiments/38_uk_agebinned_ve_hm/outputs/hm/uk_agebinned_ve_anchor/wave1
+2026-07-07 07:42:47 [INFO] [Wave 1] COMMITTED — diagnostics and checkpoint saved to /Users/aliciakraay/PycharmProjects/ryan_rotasim/rotasim/calibration/experiments/38_uk_agebinned_ve_hm/outputs/hm/uk_agebinned_ve_anchor
+2026-07-07 07:42:47 [INFO] ============================================================
+2026-07-07 07:42:47 [INFO] Automated run completed. 1 iterations executed.

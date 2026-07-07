@@ -57,6 +57,9 @@ FIXED_CONSTANT_SEVERITY = 1.0
 SITE_DEMOGRAPHICS = {
     'bangladesh': dict(birth_rate=19, death_rate=6),
     'pakistan':   dict(birth_rate=27, death_rate=7),
+    # India MAL-ED = Vellore, Tamil Nadu — TN fertility is well below national (CBR ~16 vs ~21
+    # mid-2010s), CDR ~7. High-FOI LMIC #2 anchor (median 1st infection 9.4mo).
+    'india':      dict(birth_rate=16, death_rate=7),
     # UK (England & Wales) pre-vaccine ~2008-2012: low-FOI surveillance anchor.
     'uk':         dict(birth_rate=12, death_rate=9),
 }
@@ -108,7 +111,10 @@ class VaccinePrime(ss.Intervention):
         self.dose_ages = list(dose_ages_y)
         self.coverage = float(coverage)
         self.moa = moa
+        self.n_doses_target = len(self.dose_ages)   # "fully vaccinated" = received this many doses
         self.vaccinated_uids = set()
+        self.covered_uids = set()   # all who RECEIVED >=1 dose (responders + non-responders)
+        self.dose_n = {}            # uid -> doses received; full-vs-zero contrast = test-negative-analog VE
 
     def init_pre(self, sim):
         super().init_pre(sim)
@@ -127,12 +133,68 @@ class VaccinePrime(ss.Intervention):
             if len(cross) == 0:
                 continue
             recv = cross if self.coverage >= 1 else cross[self._rng.random(len(cross)) < self.coverage]
+            if len(recv):
+                for u in recv:                                   # received a dose, regardless of response
+                    u = int(u); self.covered_uids.add(u); self.dose_n[u] = self.dose_n.get(u, 0) + 1
             sero = recv[self._rng.random(len(recv)) < self.response_prob] if len(recv) else recv
             if len(sero):
                 if self.moa == 'symptom_blocking':
                     self.vaccinated_uids.update(int(u) for u in sero)
                 else:
                     ic.num_recovered_infections[ss.uids(sero)] += 1.0
+
+
+class NeonatalPriming(ss.Intervention):
+    """India/Vellore-specific community neonatal rotavirus (the persistent, nursery-adapted
+    G10P[11]/116E strain — the parent of Rotavac). ~50% of Vellore neonates are infected in the
+    first weeks, ASYMPTOMATICALLY, and the infection partially protects against later disease
+    (Gladstone et al. Vellore cohort). We represent it as a 'natural vaccine': a fraction p_neo of
+    newborns get one immunizing infection-equivalent at age ~age_weeks (advances
+    num_recovered_infections via the connector — same mechanic as VaccinePrime). It is NOT a detected
+    case (no symptomatic/stool event), so a primed child's FIRST DETECTED infection is their order-2
+    (later, milder under infnum) -> reproduces Vellore's late first-detection + low later symptomatic
+    IR while keeping infnum + fixed maternal. Bangladesh neonatal infections were NOSOCOMIAL (not the
+    community cohort) so p_neo~0 there; UK p_neo=0. p_neo fixed from literature (~0.5), not fitted
+    (the symptomatic/all-infection targets can't see these sub-monthly asymptomatic infections)."""
+    def __init__(self, p_neo, age_weeks=2.0, sus_effect=0.0, **kw):
+        super().__init__(**kw)
+        self.p_neo = float(p_neo)
+        self.prime_age = age_weeks / 52.0
+        # sus_effect: 0.0 = DECOUPLED (symptom-only) -- priming raises the symptom ORDER (milder later
+        # disease, read by MALEDCohort via primed_uids) but does NOT reduce susceptibility, so
+        # reinfection/transmission (and the repeat fraction) are preserved. 1.0 = also advance the
+        # connector's num_recovered_infections (full susceptibility cut -- the original coupled
+        # behavior that crushed repeats + over-delayed first detection). Heterotypic neonatal strain
+        # -> partial; start decoupled (0.0).
+        self.sus_effect = float(sus_effect)
+        self.primed_uids = set()
+
+    def init_pre(self, sim):
+        super().init_pre(sim)
+        self._rng = np.random.default_rng(int(sim.pars.rand_seed or 0) + 9001)
+
+    def step(self):
+        sim = self.sim
+        ic = sim.connectors.rotaimmunityconnector
+        dt_y = self.dt.years
+        au = np.asarray(sim.people.alive.uids)
+        if len(au) == 0:
+            return
+        ages = np.asarray(sim.people.age[ss.uids(au)])
+        cross = au[(ages >= self.prime_age) & (ages < self.prime_age + dt_y)]   # newborns crossing prime age
+        if len(cross) == 0:
+            return
+        primed = cross[self._rng.random(len(cross)) < self.p_neo]
+        if len(primed):
+            # symptom-order +1 for ALL primed (read by MALEDCohort) -> milder later disease.
+            self.primed_uids.update(int(u) for u in primed)
+            # sus_effect = FRACTION of primed who ALSO get a susceptibility increment (partial
+            # heterotypic protection): 0 = none (pure symptom decoupling), 1 = all (full coupling).
+            # Tunes how much the neonatal strain delays later COMMUNITY infection (the Q25 signal).
+            if self.sus_effect > 0.0:
+                sp = primed if self.sus_effect >= 1.0 else primed[self._rng.random(len(primed)) < self.sus_effect]
+                if len(sp):
+                    ic.num_recovered_infections[ss.uids(sp)] += 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -204,6 +266,9 @@ def _run_one_replicate(args):
     vx = sim_config.get('vaccine')
     if vx:   # dict(response_prob, coverage, dose_ages_y, moa); infection_blocking advances the
         interventions.append(VaccinePrime(**vx))   # infection-equivalent counter (feeds sus + infnum symptoms)
+    npr = sim_config.get('neonatal_priming')
+    if npr:   # dict(p_neo, age_weeks); India/Vellore community neonatal strain (asymptomatic, immunizing)
+        interventions.append(NeonatalPriming(**npr))
     sim = rs.Sim(
         n_agents=sim_config['n_agents'],
         start=sim_config['start'],
@@ -227,6 +292,12 @@ def _run_one_replicate(args):
     for disease in sim.pars.diseases:
         if isinstance(disease, rs.Rotavirus):
             disease.pars.beta = ss.perday(sim.pars.base_beta * disease.pars.fitness)
+            # Optional override of initial seeding (e.g. for low-FOI UK diagnostic).
+            # Pass init_prevalence_override and/or init_age_dist_override via sim_config.
+            if 'init_prevalence_override' in sim_config:
+                disease.pars.init_prevalence = sim_config['init_prevalence_override']
+            if 'init_age_dist_override' in sim_config:
+                disease.pars.init_age_dist = sim_config['init_age_dist_override']
 
     sim.init()
 
@@ -284,6 +355,13 @@ def _run_one_replicate(args):
                 'PT':    [coh.person_years[b] * 12.0 for b in bins],
                 'IR':    [rd['ir_symp'][b] for b in bins],
             }, index=bins),
+            # All-infection (all-DETECTED, monthly) IR by age -- pins FOI without the symptomatic-
+            # only under-determination (same population/detection as the MAL-ED all-infection target).
+            ir_all_by_age=pd.DataFrame({
+                'cases': [int(coh.cases_all[b]) for b in bins],
+                'PT':    [coh.person_years[b] * 12.0 for b in bins],
+                'IR':    [rd['ir_all'][b] for b in bins],
+            }, index=bins),
             first_infection=dict(zip(
                 ('q25', 'median', 'q75'),
                 (float(x) for x in process_incidence_maled.km_quartiles(rd['km_time'], rd['km_observed'])))),
@@ -302,7 +380,14 @@ def _run_one_replicate(args):
             person_years=rd['person_years'],           # denominator per bin
             ir_per_100cy=rd['ir_per_100cy'],           # incidence rate per 100 child-yr (structure-independent)
             pop_fraction=rd['pop_fraction'],           # model standing age structure (verify vs assumed)
+            first_inf_median_months=rd.get('first_inf_median_months', float('nan')),
+            sero_2y=rd.get('sero_2y', float('nan')),
+            sero_5to6y=rd.get('sero_5to6y', float('nan')),
         )
+        # Direct-VE split (present only when a vaccine intervention ran).
+        for k in ('cases_vax', 'cases_unvax', 'py_vax', 'py_unvax', 've_direct'):
+            if k in rd:
+                model_out[k] = rd[k]
     else:
         df = sim.analyzers['infectedstrainstats'].to_df()
         # Person-time denominator from the accumulator analyzer (read BEFORE shrink()).
