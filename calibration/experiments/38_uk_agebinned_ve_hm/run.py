@@ -1,7 +1,12 @@
-"""Exp 38 — UK HM (age-binned): VE + case-shape joint calibration; Bangladesh-constrained immunity.
+"""Exp 38 — UK HM (age-binned): VE + case-shape joint calibration; wide age-symptom bounds.
 
-Same design as exp37 but with the age-binned symptom model (best Bangladesh model).
-Bangladesh bounds from exp25 (age-binned, corrected maternal, ESS=61.5) posterior medians ±50%.
+Same design as exp37 but with the age-binned symptom model. First run (uk_agebinned_ve_anchor)
+used Bangladesh ±50% bounds on p_symp_age_* and NROY collapsed at wave 3: the UK case
+age-distribution cannot be fit with Bangladesh-constrained age-symptom probs. Lewnard et al.
+found setting-specific age-symptom shapes (Mexico, India differ from Bangladesh), so age-
+symptom probabilities are legitimately setting-specific. This re-run (uk_agebinned_ve_wider)
+uses (0.05, 0.99) for all p_symp_age bins — same wide range as exp37's p_symp parameters.
+sus_after bounds remain ±50% Bangladesh (exp25) medians.
 
 Run on zebra (160 cores):
   cd /home/akraay/rotasim/rotasim/calibration
@@ -28,13 +33,13 @@ N_AGENTS = 40_000
 CAL_WINDOW = (5.0, 10.0)
 N_WORKERS = int(os.environ.get('HM_WORKERS', '150'))
 
-# Bangladesh posterior medians (exp25, age-binned corrected maternal, ESS=61.5), ±50% bounds.
+# sus_after: ±50% Bangladesh exp25 medians (biologically-motivated cross-setting prior).
+# p_symp_age: wide (0.05, 0.99) — setting-specific per Lewnard et al. (India/Mexico differ).
 _BD_SUS = dict(sus_after_1=0.729, sus_r2=0.631, sus_r3=0.640)
-_BD_AGE = dict(p_symp_age_0_6=0.484, p_symp_age_6_11=0.565, p_symp_age_12plus=0.313)
 CONSTRAINED_SUS_BOUNDS = {k: (round(max(v * 0.50, 0.05), 4), round(min(v * 1.50, 0.99), 4))
                           for k, v in _BD_SUS.items()}
-CONSTRAINED_AGE_BOUNDS = {k: (round(max(v * 0.50, 0.01), 4), round(min(v * 1.50, 0.99), 4))
-                          for k, v in _BD_AGE.items()}
+WIDE_AGE_BOUNDS = dict(p_symp_age_0_6=(0.05, 0.99), p_symp_age_6_11=(0.05, 0.99),
+                       p_symp_age_12plus=(0.05, 0.99))
 
 # UK Rotarix 2-dose (2+4mo) test-negative VE target.
 VE_OBS = {'ve_overall': (0.74, 0.05)}
@@ -45,11 +50,11 @@ _VACCINE_CONFIG = dict(response_prob=0.85, coverage=0.90,
 
 
 def exp38_bounds(cap_age_m=DEFAULT_CAP_M, beta_max=0.35):
-    """Parameter bounds: sus_after + age-bin p_symp constrained to Bangladesh ±50%."""
+    """sus_after ±50% Bangladesh; p_symp_age wide (setting-specific per Lewnard et al.)."""
     return {
         'log_base_beta':      (float(np.log(0.05)), float(np.log(beta_max))),
         **CONSTRAINED_SUS_BOUNDS,
-        **CONSTRAINED_AGE_BOUNDS,
+        **WIDE_AGE_BOUNDS,
         'maternal_efficacy':  (0.50, 0.99),
     }
 
@@ -139,10 +144,10 @@ def main():
     bounds = exp38_bounds(cap, a.beta_max)
     cols   = obs_cols(cap)
 
-    print(f"Exp 38 — UK HM age-binned: VE + case-shape")
+    print(f"Exp 38 — UK HM age-binned: VE + case-shape (wider age-symptom bounds)")
     print(f"  n_agents={a.n_agents}  n_samples={a.n_samples}  max_iter={a.max_iter}  workers={N_WORKERS}")
     print(f"  sus_after bounds (±50% Bangladesh exp25): {CONSTRAINED_SUS_BOUNDS}")
-    print(f"  age-bin bounds (±50% Bangladesh exp25): {CONSTRAINED_AGE_BOUNDS}")
+    print(f"  age-bin bounds (wide, setting-specific): {WIDE_AGE_BOUNDS}")
     print(f"  vaccine: {_VACCINE_CONFIG}")
     print(f"  targets ({len(obs)}): {list(obs.keys())}")
     print(f"  obs: {[(k, round(v[0],3), round(v[1],3)) for k,v in obs.items()]}")
@@ -158,7 +163,7 @@ def main():
         implausibility_threshold=3.0,
         max_iterations=a.max_iter,
         output_dir=str(OUT_DIR),
-        run_name='uk_agebinned_ve_anchor',
+        run_name='uk_agebinned_ve_wider',
         random_seed=20260707,
     )
     t0 = sc.tic()
