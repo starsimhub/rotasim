@@ -34,9 +34,17 @@ IR_BINS = ['<6 m', '6-11 m', '12-23 m']            # 24-35m dropped (1 case)
 # FOI -- the symptomatic-only fit was under-determined (low IR <-> few infections OR many mild ones)
 # and mis-chose low FOI. Off for Bangladesh (its existing fit is unchanged).
 USE_IR_ALL = (SITE == 'india')
+# Extinction penalty: log(sum of symptomatic IRs) returned as finite log(1e-9) for extinct sims,
+# so the emulator learns the extinction zone rather than treating it as unknown/plausible.
+# Activate via EXT_PENALTY=1 env var. Target log(2)=0.69: viable sims have ir_sum~3 (z≈0.5),
+# extinct sims have log(1e-9)≈-20.7 (z≈-28) — decisively ruled out.
+USE_EXT_PENALTY = os.environ.get('EXT_PENALTY', '0') == '1'
+EXT_PENALTY_OBS = {'log_symp_ir_sum': (float(np.log(2.0)), 0.75)}
 OBS_COLS = [f'ir_symp_{b}' for b in IR_BINS] + ['repeat_detected_frac', 'first_inf_median']
 if USE_IR_ALL:
     OBS_COLS += [f'ir_all_{b}' for b in IR_BINS]
+if USE_EXT_PENALTY:
+    OBS_COLS = ['log_symp_ir_sum'] + OBS_COLS  # first in cycle → selected wave 1, cuts extinction zone immediately
 # Age-at-first-DETECTION feature: KM median for Bangladesh, but India/Vellore detects only ~27%
 # of children (low incidence) so KM survival never reaches 0.5 -> median undefined. Use the KM
 # Q25 (=15.1mo, defined) for India. The OBS_COLS name stays 'first_inf_median' (cosmetic scalar
@@ -60,7 +68,7 @@ MATERNAL_BOUNDS = {
 }
 SYMPTOM_BOUNDS = {
     'age':        {'beta0': (-5.0, 2.0), 'beta1': (-1.0, 1.0), 'beta2': (-0.5, 0.5)},
-    'infnum':     {'p_symp_1': (0.4, 1.0), 'p_r2': (0.0, 1.0), 'p_r3': (0.0, 1.0)},
+    'infnum':     {'p_symp_1': (0.20, 1.0), 'p_r2': (0.0, 1.0), 'p_r3': (0.0, 1.0)},
     # Non-parametric age-symptom: free P(symptomatic) per age bin (<6, 6-11, >=12 mo).
     # Tests whether the quadratic ('age') over-constrains the age-symptom curve.
     'age_binned': {'p_symp_age_0_6': (0.0, 1.0), 'p_symp_age_6_11': (0.0, 1.0), 'p_symp_age_12plus': (0.0, 1.0)},
@@ -73,11 +81,15 @@ SYMPTOM_BOUNDS = {
 # Mapped to infnum order params: p_symp_1 = 6-11m fraction (mostly 1st infections);
 # p_r2 = 12-23m / 6-11m; p_r3 = 24-35m / 12-23m.
 FIXED_PSYMP = dict(p_symp_1=0.407, p_r2=round(0.189 / 0.407, 4), p_r3=round(0.122 / 0.189, 4))
+# Fixed age-binned symptom parameters from Vellore biweekly cohort (Lewnard et al., near-complete detection).
+# P(symp|infected) per age bin: <6m=0.381, 6-11m=0.407, 12-23m=0.189 (24-35m=0.122 folded into 12+).
+# Used with --fix-age-psymp + --model age_binned; frees only FOI + immunity (5 params).
+FIXED_AGE_PSYMP = dict(p_symp_age_0_6=0.381, p_symp_age_6_11=0.407, p_symp_age_12plus=0.189)
 # Fixed titer-shape values (infnum posterior medians) -- the identified maternal curve, used
 # to remove titer's redundant shape flexibility (--fix-titer-shape): only maternal_efficacy stays free.
 FIXED_TITER_SHAPE = dict(median=20.0, gsd=2.3, half_life_days=50.0, hill=4.7)
 
-def bounds_for(model, maternal, fix_titer_shape=False, fix_psymp=False):
+def bounds_for(model, maternal, fix_titer_shape=False, fix_psymp=False, fix_age_psymp=False):
     mat = dict(MATERNAL_BOUNDS[maternal])
     if fix_titer_shape and maternal == 'titer':
         for k in ('log_titer_median', 'titer_gsd', 'titer_half_life_days', 'hill_slope'):
@@ -86,6 +98,9 @@ def bounds_for(model, maternal, fix_titer_shape=False, fix_psymp=False):
     if fix_psymp and model == 'infnum':
         for k in ('p_symp_1', 'p_r2', 'p_r3'):
             symp.pop(k, None)  # fix at FIXED_PSYMP; only FOI + immunity free
+    if fix_age_psymp and model == 'age_binned':
+        for k in ('p_symp_age_0_6', 'p_symp_age_6_11', 'p_symp_age_12plus'):
+            symp.pop(k, None)  # fix at FIXED_AGE_PSYMP; only FOI + immunity free
     return {**TRANSMISSION_BOUNDS, **mat, **symp}
 BOUNDS = {m: bounds_for(m, 'titer') for m in ('age', 'infnum', 'age_binned', 'age_and_infection')}   # back-compat default (exp 16/17 = titer)
 SYMPTOM_MODEL = {'age': 'age_only', 'infnum': 'infection_number', 'age_binned': 'age_binned',
@@ -106,7 +121,7 @@ class CycleFeatureSelection(hm.FeatureSelectionStrategy):
         return f"Cycle 1/wave over {len(self.feats)} targets"
 
 
-def untransform(row, model, maternal='titer', fix_titer_shape=False, fix_psymp=False):
+def untransform(row, model, maternal='titer', fix_titer_shape=False, fix_psymp=False, fix_age_psymp=False):
     s1 = float(row['sus_after_1']); s2 = s1 * float(row['sus_r2']); s3 = s2 * float(row['sus_r3'])
     p = dict(base_beta=float(np.exp(row['log_base_beta'])),
              sus_after_1=s1, sus_after_2=s2, sus_after_3plus=s3,
@@ -128,8 +143,11 @@ def untransform(row, model, maternal='titer', fix_titer_shape=False, fix_psymp=F
         p.update(beta0=float(row['beta0']), beta1=float(row['beta1']),
                  beta2=float(row['beta2']), beta3=float(row['beta3']))
     elif model == 'age_binned':
-        p.update(p_symp_age_0_6=float(row['p_symp_age_0_6']), p_symp_age_6_11=float(row['p_symp_age_6_11']),
-                 p_symp_age_12plus=float(row['p_symp_age_12plus']))
+        if fix_age_psymp:
+            p.update(**FIXED_AGE_PSYMP)
+        else:
+            p.update(p_symp_age_0_6=float(row['p_symp_age_0_6']), p_symp_age_6_11=float(row['p_symp_age_6_11']),
+                     p_symp_age_12plus=float(row['p_symp_age_12plus']))
     else:
         p1 = FIXED_PSYMP['p_symp_1'] if fix_psymp else float(row['p_symp_1'])
         r2 = FIXED_PSYMP['p_r2']    if fix_psymp else float(row['p_r2'])
@@ -188,32 +206,46 @@ def make_observations():
         for b in IR_BINS:
             ir = float(tall.loc[b, 'IR']); cases = max(int(tall.loc[b, 'cases']), 1)
             obs[f'ir_all_{b}'] = (ir, float(np.hypot(ir / np.sqrt(cases), MODEL_SD_IR)))
+    if USE_EXT_PENALTY:
+        obs.update(EXT_PENALTY_OBS)
     return obs
 
 
-def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False, fix_psymp=False):
+def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False, fix_psymp=False, fix_age_psymp=False):
     def simulate(params_df: pd.DataFrame) -> pd.DataFrame:
         args = []
         for _, row in params_df.iterrows():
-            sp = untransform(row, model, maternal, fix_titer_shape, fix_psymp)
+            sp = untransform(row, model, maternal, fix_titer_shape, fix_psymp, fix_age_psymp)
             seed = abs(hash(tuple(np.round(row.values, 6)))) % (2**31)
             args.append((sim_config, sp, int(seed), CAL_WINDOW))
         with get_context('spawn').Pool(processes=min(N_WORKERS, len(args)), maxtasksperchild=4) as pool:
             outs = pool.map(cm._run_one_replicate, args)
+        _EXT_LOG = float(np.log(1e-9))  # sentinel for extinct: ≈-20.7, far below target log(2)=0.69
         rows = []
         for mo in outs:
             try:
-                ir = mo['ir_by_age']; fim = mo['first_infection'][FIRST_INF_QUANT]
-                if (not np.isfinite(fim)) or float(ir['IR'].sum()) <= 0:
-                    rows.append({c: np.nan for c in OBS_COLS}); continue
+                ir = mo['ir_by_age']
+                ir_sum = float(ir['IR'].sum())
+                log_ir_sum = float(np.log(max(ir_sum, 1e-9)))
+                fim = mo['first_infection'][FIRST_INF_QUANT]
+                if (not np.isfinite(fim)) or ir_sum <= 0:
+                    row_out = {c: np.nan for c in OBS_COLS}
+                    if USE_EXT_PENALTY:
+                        row_out['log_symp_ir_sum'] = _EXT_LOG  # finite, not NaN — extinction signal
+                    rows.append(row_out); continue
                 row = ({f'ir_symp_{b}': float(ir.loc[b, 'IR']) for b in IR_BINS}
                        | {'repeat_detected_frac': mo.get('repeat_frac'), 'first_inf_median': float(fim)})
                 if USE_IR_ALL:
                     ira = mo['ir_all_by_age']
                     row |= {f'ir_all_{b}': float(ira.loc[b, 'IR']) for b in IR_BINS}
+                if USE_EXT_PENALTY:
+                    row['log_symp_ir_sum'] = log_ir_sum
                 rows.append(row)
             except Exception:
-                rows.append({c: np.nan for c in OBS_COLS})
+                row_out = {c: np.nan for c in OBS_COLS}
+                if USE_EXT_PENALTY:
+                    row_out['log_symp_ir_sum'] = _EXT_LOG
+                rows.append(row_out)
         return pd.DataFrame(rows, index=params_df.index)
     return simulate
 
@@ -242,6 +274,9 @@ def main():
     ap.add_argument('--fix-psymp', action='store_true',
                     help='fix infnum symptom params (p_symp_1, p_r2, p_r3) at Vellore biweekly values '
                          '(0.407 / 0.465 / 0.645); only valid with --model infnum')
+    ap.add_argument('--fix-age-psymp', action='store_true',
+                    help='fix age_binned p_symp per-bin at Vellore biweekly values '
+                         '(<6m=0.381, 6-11m=0.407, 12+m=0.189); only valid with --model age_binned')
     ap.add_argument('--smoke', action='store_true')
     ap.add_argument('--early-stop', action='store_true',
                     help='abort extinct draws early (StopWhenExtinct): ~3.5x faster on the ~80%% that burn '
@@ -275,10 +310,11 @@ def main():
     sim_config['early_stop_burn_in_years'] = a.early_stop_burn_in
     run_name = (f'maled_{a.model}_{a.maternal}'
                 + ('_fixedshape' if a.fix_titer_shape else '')
-                + ('_fixedpsymp' if a.fix_psymp else ''))
+                + ('_fixedpsymp' if a.fix_psymp else '')
+                + ('_fixedagepsymp' if a.fix_age_psymp else ''))
     engine = hm.HistoryMatching(
-        function=make_simulator(a.model, sim_config, a.maternal, a.fix_titer_shape, a.fix_psymp),
-        bounds=bounds_for(a.model, a.maternal, a.fix_titer_shape, a.fix_psymp), observations=obs,
+        function=make_simulator(a.model, sim_config, a.maternal, a.fix_titer_shape, a.fix_psymp, a.fix_age_psymp),
+        bounds=bounds_for(a.model, a.maternal, a.fix_titer_shape, a.fix_psymp, a.fix_age_psymp), observations=obs,
         emulator_type='bayes_linear', sampling_strategy='lhs',
         feature_selection=feature_selection,
         n_samples=a.n_samples, implausibility_threshold=3.0, max_iterations=a.max_iter,
