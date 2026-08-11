@@ -53,6 +53,13 @@ does not duplicate it): `../39_india_age_binned_fixed/outputs/ts/posterior_ve50.
 
 ## Next
 
+[Done — see `../43_india_neonatal_detected/SUMMARY.md`.] That experiment found
+`NeonatalPriming` had actually been a silent no-op under `age_binned` in exp39-42
+(the order-bump it applied has zero effect on an age-only symptom model), fixed
+that, and made priming a real detectable event — but the fix overshot Q25 in
+the opposite direction and did not touch the underlying &lt;6m/6-11m tension this
+experiment was trying to resolve. The Pareto tension remains open.
+
 The standing hypothesis from the exp31-35 arc, not yet attempted in 39-42: let
 FOI go higher and **decouple neonatal priming's `sus_effect`** into a true
 early asymptomatic infection event (rather than a symptom-flag-only
