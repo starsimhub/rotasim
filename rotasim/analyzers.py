@@ -1324,13 +1324,17 @@ class MALEDCohort(ss.Analyzer):
         super().init_results()
         self._diseases = [d for d in self.sim.diseases.values() if hasattr(d, 'G')]
         self._prev_infected = {d.name: d.infected.uids for d in self._diseases}
-        # Decoupled neonatal priming: a primed child's infections are read at symptom ORDER +1
-        # (milder/less-detected) WITHOUT a susceptibility change. Read the intervention's primed set
-        # (grows live as newborns cross the prime age).
+        # Neonatal priming: a REAL early asymptomatic infection (the persistent community
+        # strain, e.g. G10P[11]) -- counts toward true infection order (n_inf) and is
+        # detectable via the same asymptomatic-surveillance pathway as any other subclinical
+        # infection (never symptomatic: cases_symp is never incremented for it). Read the
+        # intervention's primed set (grows live as newborns cross the prime age) and diff it
+        # each step to catch newly-primed children exactly once.
         ivs = self.sim.interventions
         ivs = list(ivs.values()) if hasattr(ivs, 'values') else list(ivs)
         nvp = next((iv for iv in ivs if iv.__class__.__name__ == 'NeonatalPriming'), None)
         self._primed = nvp.primed_uids if nvp is not None else set()
+        self._primed_seen = set()
 
     def _symp_prob(self, order, age_m):
         if self.symptom_model == 'age_only':
@@ -1375,6 +1379,25 @@ class MALEDCohort(ss.Analyzer):
         la = np.array(self.last_age_m)
         la[eu_idx[in_fu]] = np.maximum(la[eu_idx[in_fu]], eu_age_m[in_fu])
         self.last_age_m = la.tolist()
+        new_primed = self._primed - self._primed_seen
+        if new_primed:
+            for u in new_primed:
+                idx = self.uid2idx.get(int(u))
+                if idx is not None:
+                    a = float(sim.people.age[ss.uids(np.array([int(u)]))][0]) * 12.0
+                    if a <= self.exit_age_m[idx]:
+                        self.n_inf[idx] += 1
+                        if np.isnan(self.true_first_m[idx]):
+                            self.true_first_m[idx] = a
+                        detected = self.rng.random() < (self._p_surv(a) * self.eia)
+                        if detected:
+                            self.n_det[idx] += 1
+                            k = int(np.digitize(a, self.EDGES_M) - 1)
+                            if 0 <= k < 4:
+                                self.cases_all[self.LABELS[k]] += 1   # asymptomatic: cases_symp untouched
+                            if np.isnan(self.det_first_m[idx]):
+                                self.det_first_m[idx] = a
+            self._primed_seen |= new_primed
         for d in self._diseases:
             cur = d.infected.uids
             new = cur - self._prev_infected[d.name]
@@ -1386,7 +1409,7 @@ class MALEDCohort(ss.Analyzer):
                 if a > self.exit_age_m[idx]:
                     continue
                 self.n_inf[idx] += 1
-                order = self.n_inf[idx] + (1 if int(u) in self._primed else 0)   # +1 if neonatally primed
+                order = self.n_inf[idx]   # neonatal priming (if any) already counted in n_inf above
                 if np.isnan(self.true_first_m[idx]):
                     self.true_first_m[idx] = a
                 symp = self.rng.random() < self._symp_prob(order, a)

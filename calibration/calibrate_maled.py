@@ -147,15 +147,21 @@ class VaccinePrime(ss.Intervention):
 class NeonatalPriming(ss.Intervention):
     """India/Vellore-specific community neonatal rotavirus (the persistent, nursery-adapted
     G10P[11]/116E strain — the parent of Rotavac). ~50% of Vellore neonates are infected in the
-    first weeks, ASYMPTOMATICALLY, and the infection partially protects against later disease
-    (Gladstone et al. Vellore cohort). We represent it as a 'natural vaccine': a fraction p_neo of
-    newborns get one immunizing infection-equivalent at age ~age_weeks (advances
-    num_recovered_infections via the connector — same mechanic as VaccinePrime). It is NOT a detected
-    case (no symptomatic/stool event), so a primed child's FIRST DETECTED infection is their order-2
-    (later, milder under infnum) -> reproduces Vellore's late first-detection + low later symptomatic
-    IR while keeping infnum + fixed maternal. Bangladesh neonatal infections were NOSOCOMIAL (not the
-    community cohort) so p_neo~0 there; UK p_neo=0. p_neo fixed from literature (~0.5), not fitted
-    (the symptomatic/all-infection targets can't see these sub-monthly asymptomatic infections)."""
+    first weeks, ASYMPTOMATICALLY. Titer does not block this strain (narrow reading, 2026-08-11:
+    it's specific to this antigenically-distinct community strain, not a general statement about
+    maternal titer failing against ordinary community strains) -- so this event is NOT gated by
+    the connector's maternal-titer susceptibility mechanism at all; it fires at a fixed
+    literature-set rate regardless of the child's current rel_sus. Because it occurs while
+    maternal titer is typically still high, it does not confer strong future protection against
+    the (antigenically different) wild-type strains that drive later disease -- hence sus_effect
+    stays fixed near 0 (decoupled), not fitted upward.
+    A fraction p_neo of newborns get one such event at age ~age_weeks. It is a REAL infection
+    (MALEDCohort.step() counts it toward true infection order n_inf and detects it via the same
+    asymptomatic-surveillance pathway as any other subclinical infection) but is NEVER a
+    symptomatic case. Bangladesh neonatal infections were NOSOCOMIAL (not the community cohort)
+    so p_neo~0 there; UK p_neo=0. p_neo fixed from literature (~0.5), not fitted (the
+    symptomatic/all-infection targets can't see these sub-monthly asymptomatic infections
+    directly enough to identify p_neo itself)."""
     def __init__(self, p_neo, age_weeks=2.0, sus_effect=0.0, **kw):
         super().__init__(**kw)
         self.p_neo = float(p_neo)
