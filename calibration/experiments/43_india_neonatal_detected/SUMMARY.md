@@ -57,6 +57,14 @@ posterior, not a better-constrained one.
 
 ## Next
 
+[Done — see `../44_india_order_effect_infnum/SUMMARY.md` and
+`../44_india_order_effect_age_inf/SUMMARY.md`.] A third candidate (not listed
+below at the time): AK's discussion with a separate Claude instance raised
+fractional/absent order-crediting as a lever under order-sensitive symptom
+models. Tried under both `infnum` and (newly bug-fixed) `age_and_infection` —
+both negative, and both show WORSE joint identifiability than this
+experiment's `age_binned`. The two candidates below remain untried.
+
 Two candidate follow-ups, not mutually exclusive:
 - **Lower the priming event's detection probability below the general
   asymptomatic rate** (a new, small, literature-justifiable parameter or a

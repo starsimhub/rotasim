@@ -34,6 +34,10 @@ IR_BINS = ['<6 m', '6-11 m', '12-23 m']            # 24-35m dropped (1 case)
 # FOI -- the symptomatic-only fit was under-determined (low IR <-> few infections OR many mild ones)
 # and mis-chose low FOI. Off for Bangladesh (its existing fit is unchanged).
 USE_IR_ALL = (SITE == 'india')
+# India + NeonatalPriming active (NEO_PRIME=1): exp44 fits order_effect (fraction of primed
+# children whose next real infection is order-credited) -- only meaningful under order-sensitive
+# symptom models (infnum, age_and_infection); age_binned ignores order entirely (see exp39-43).
+NEO_PRIME_ACTIVE = (SITE == 'india' and os.environ.get('NEO_PRIME', '0') == '1')
 # Extinction penalty: log(sum of symptomatic IRs) returned as finite log(1e-9) for extinct sims,
 # so the emulator learns the extinction zone rather than treating it as unknown/plausible.
 # Activate via EXT_PENALTY=1 env var. Target log(2)=0.69: viable sims have ir_sum~3 (z≈0.5),
@@ -88,6 +92,10 @@ FIXED_AGE_PSYMP = dict(p_symp_age_0_6=0.381, p_symp_age_6_11=0.407, p_symp_age_1
 # Fixed titer-shape values (infnum posterior medians) -- the identified maternal curve, used
 # to remove titer's redundant shape flexibility (--fix-titer-shape): only maternal_efficacy stays free.
 FIXED_TITER_SHAPE = dict(median=20.0, gsd=2.3, half_life_days=50.0, hill=4.7)
+# exp44: fraction of neonatally-primed children whose next real infection is order-credited.
+# Only added to order-sensitive models (infnum, age_and_infection) when NEO_PRIME is active --
+# a no-op parameter under age_binned, so not offered there (avoids wasting a search dimension).
+NEONATAL_BOUNDS = {'neonatal_order_effect': (0.0, 1.0)}
 
 def bounds_for(model, maternal, fix_titer_shape=False, fix_psymp=False, fix_age_psymp=False):
     mat = dict(MATERNAL_BOUNDS[maternal])
@@ -101,7 +109,8 @@ def bounds_for(model, maternal, fix_titer_shape=False, fix_psymp=False, fix_age_
     if fix_age_psymp and model == 'age_binned':
         for k in ('p_symp_age_0_6', 'p_symp_age_6_11', 'p_symp_age_12plus'):
             symp.pop(k, None)  # fix at FIXED_AGE_PSYMP; only FOI + immunity free
-    return {**TRANSMISSION_BOUNDS, **mat, **symp}
+    neo = dict(NEONATAL_BOUNDS) if (NEO_PRIME_ACTIVE and model in ('infnum', 'age_and_infection')) else {}
+    return {**TRANSMISSION_BOUNDS, **mat, **symp, **neo}
 BOUNDS = {m: bounds_for(m, 'titer') for m in ('age', 'infnum', 'age_binned', 'age_and_infection')}   # back-compat default (exp 16/17 = titer)
 SYMPTOM_MODEL = {'age': 'age_only', 'infnum': 'infection_number', 'age_binned': 'age_binned',
                  'age_and_infection': 'age_and_infection'}
@@ -137,6 +146,8 @@ def untransform(row, model, maternal='titer', fix_titer_shape=False, fix_psymp=F
                      maternal_hill_slope=float(row['hill_slope']))
     else:                     # erlang (n_stages fixed in sim_config)
         p.update(maternal_immunity_mean_duration_days=float(row['maternal_mean_duration_days']))
+    if 'neonatal_order_effect' in row.index:   # exp44: only present when bounds_for added it
+        p['neonatal_order_effect'] = float(row['neonatal_order_effect'])
     if model == 'age':
         p.update(beta0=float(row['beta0']), beta1=float(row['beta1']), beta2=float(row['beta2']))
     elif model == 'age_and_infection':

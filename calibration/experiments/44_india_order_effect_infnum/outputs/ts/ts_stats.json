@@ -1,0 +1,10 @@
+{
+  "model": "infnum",
+  "n": 3000,
+  "finite": 372,
+  "ess": 2.980168483794702,
+  "max_logL": -285.83358289656394,
+  "ve_target": null,
+  "ve_sigma": 0.07,
+  "ve_take": 0.74
+}

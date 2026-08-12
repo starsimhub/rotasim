@@ -36,3 +36,24 @@ badly overshooting), repeat_frac 0.103 (target 0.138), Q25 20.0mo (target
 
 - `age_binned` (exp39) carries forward into VE validation:
   `../41_india_ve_validation/SUMMARY.md`.
+
+## CORRECTION (2026-08-11)
+
+**This experiment did not actually test `age_and_infection`.** Found while scoping
+exp44: `MALEDCohort` (the cohort observer used for every India experiment) never had
+a `beta3` parameter and its `_symp_prob` only branched on `'age_only'`/`'age_binned'`
+— anything else, including `'age_and_infection'`, silently fell through to a plain
+order-based `p_symp[order]` lookup with `p_symp` defaulting to `[1.0, 1.0, 1.0]`
+(since `age_and_infection`'s `untransform()` branch never populates
+`p_symp_1/2/3plus`). So this run actually simulated **every infection as 100%
+symptomatic**, unrelated to the intended age+order quadratic-logit model — that
+also parsimoniously explains the across-the-board overshoot above (IR&lt;6m 1.12,
+IR12-23m 1.32 — consistent with symptomatic IR collapsing toward the *all-infection*
+IR once nothing suppresses it). `Surveillance` (used for UK, exp28) implemented
+`age_and_infection` correctly the whole time — `MALEDCohort` was simply never
+updated to match. Fixed in `rotasim/analyzers.py` (`MALEDCohort.__init__` +
+`_symp_prob` now mirror `Surveillance`'s formula) and `calibrate_maled.py`
+(`beta3` now passed through). The observations above describing "ESS=1.25,
+under-identified" are still true of *what actually ran*, but the conclusion
+"`age_and_infection` loses the India comparison" is **not established** —
+`age_and_infection` has not yet been validly tested against the Vellore cohort.

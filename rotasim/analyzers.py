@@ -1281,20 +1281,21 @@ class MALEDCohort(ss.Analyzer):
     QUARTERLY_INTERVAL_D = 91.3125
 
     def __init__(self, censoring_ages, p_symp_1=1.0, p_symp_2=1.0, p_symp_3plus=1.0,
-                 symptom_model='infection_number', beta0=0.0, beta1=0.0, beta2=0.0,
+                 symptom_model='infection_number', beta0=0.0, beta1=0.0, beta2=0.0, beta3=0.0,
                  p_symp_age_0_6=0.5, p_symp_age_6_11=0.5, p_symp_age_12plus=0.5,
                  enroll_window=(5.0, 7.5), symp_collection=0.80,
                  eia_sensitivity=0.85, shed_days=13.0, seed=0, log_events=False, **kw):
         super().__init__(**kw)
         # Symptom probability: 'infection_number' uses p_symp by infection order (1,2,3+);
         # 'age_only' uses the quadratic age logistic (beta0+beta1*(a-12)+beta2*(a-12)^2,
-        # a capped at 60mo); 'age_binned' uses a free P(symptomatic) per age bin
-        # (<6 / 6-11 / >=12 mo) -- a non-parametric check on whether the quadratic
-        # over-constrains the age-symptom relationship. The SAME observation (cohort +
-        # detection) wraps any of them, for a matched-pair VE comparison.
+        # a capped at 60mo); 'age_and_infection' = 'age_only' + a linear order slope
+        # beta3*min(order,5) (mirrors Surveillance._symp_prob); 'age_binned' uses a free
+        # P(symptomatic) per age bin (<6 / 6-11 / >=12 mo) -- a non-parametric check on
+        # whether the quadratic over-constrains the age-symptom relationship. The SAME
+        # observation (cohort + detection) wraps any of them, for a matched-pair VE comparison.
         self.symptom_model = symptom_model
         self.p_symp = [p_symp_1, p_symp_2, p_symp_3plus]   # by infection order (1,2,3+)
-        self.beta0, self.beta1, self.beta2 = beta0, beta1, beta2
+        self.beta0, self.beta1, self.beta2, self.beta3 = beta0, beta1, beta2, beta3
         self.p_age = [p_symp_age_0_6, p_symp_age_6_11, p_symp_age_12plus]  # by age bin (<6, 6-11, >=12 mo)
         self.enroll = enroll_window
         self.capture = symp_collection      # diarrheal-stool collection completeness ("sampled")
@@ -1324,22 +1325,23 @@ class MALEDCohort(ss.Analyzer):
         super().init_results()
         self._diseases = [d for d in self.sim.diseases.values() if hasattr(d, 'G')]
         self._prev_infected = {d.name: d.infected.uids for d in self._diseases}
-        # Neonatal priming: a REAL early asymptomatic infection (the persistent community
-        # strain, e.g. G10P[11]) -- counts toward true infection order (n_inf) and is
-        # detectable via the same asymptomatic-surveillance pathway as any other subclinical
-        # infection (never symptomatic: cases_symp is never incremented for it). Read the
-        # intervention's primed set (grows live as newborns cross the prime age) and diff it
-        # each step to catch newly-primed children exactly once.
+        # Neonatal priming: UNDETECTED (exp43 tried making it a real detected event and found
+        # that overshoots Q25 the opposite way, regardless of the other 9 parameters -- reverted).
+        # Its only effect here is a symptom-ORDER credit (+1) for a primed child's next REAL
+        # infection, applied to a FRACTION of primed children (order_primed_uids, sized by the
+        # intervention's order_effect) rather than exp31's all-or-nothing full credit. Only bears
+        # on order-sensitive symptom models (infnum, age_and_infection); a no-op under age_binned.
         ivs = self.sim.interventions
         ivs = list(ivs.values()) if hasattr(ivs, 'values') else list(ivs)
         nvp = next((iv for iv in ivs if iv.__class__.__name__ == 'NeonatalPriming'), None)
-        self._primed = nvp.primed_uids if nvp is not None else set()
-        self._primed_seen = set()
+        self._order_primed = nvp.order_primed_uids if nvp is not None else set()
 
     def _symp_prob(self, order, age_m):
-        if self.symptom_model == 'age_only':
+        if self.symptom_model in ('age_only', 'age_and_infection'):
             ac = min(age_m, 60.0) - 12.0
             lp = self.beta0 + self.beta1 * ac + self.beta2 * ac * ac
+            if self.symptom_model == 'age_and_infection':   # + linear infection-order slope (capped at 5)
+                lp = lp + self.beta3 * min(float(order), 5.0)
             return 1.0 / (1.0 + np.exp(-np.clip(lp, -30.0, 30.0)))
         if self.symptom_model == 'age_binned':
             return self.p_age[0] if age_m < 6.0 else (self.p_age[1] if age_m < 12.0 else self.p_age[2])
@@ -1379,25 +1381,6 @@ class MALEDCohort(ss.Analyzer):
         la = np.array(self.last_age_m)
         la[eu_idx[in_fu]] = np.maximum(la[eu_idx[in_fu]], eu_age_m[in_fu])
         self.last_age_m = la.tolist()
-        new_primed = self._primed - self._primed_seen
-        if new_primed:
-            for u in new_primed:
-                idx = self.uid2idx.get(int(u))
-                if idx is not None:
-                    a = float(sim.people.age[ss.uids(np.array([int(u)]))][0]) * 12.0
-                    if a <= self.exit_age_m[idx]:
-                        self.n_inf[idx] += 1
-                        if np.isnan(self.true_first_m[idx]):
-                            self.true_first_m[idx] = a
-                        detected = self.rng.random() < (self._p_surv(a) * self.eia)
-                        if detected:
-                            self.n_det[idx] += 1
-                            k = int(np.digitize(a, self.EDGES_M) - 1)
-                            if 0 <= k < 4:
-                                self.cases_all[self.LABELS[k]] += 1   # asymptomatic: cases_symp untouched
-                            if np.isnan(self.det_first_m[idx]):
-                                self.det_first_m[idx] = a
-            self._primed_seen |= new_primed
         for d in self._diseases:
             cur = d.infected.uids
             new = cur - self._prev_infected[d.name]
@@ -1409,7 +1392,7 @@ class MALEDCohort(ss.Analyzer):
                 if a > self.exit_age_m[idx]:
                     continue
                 self.n_inf[idx] += 1
-                order = self.n_inf[idx]   # neonatal priming (if any) already counted in n_inf above
+                order = self.n_inf[idx] + (1 if int(u) in self._order_primed else 0)   # +1 if order-credited
                 if np.isnan(self.true_first_m[idx]):
                     self.true_first_m[idx] = a
                 symp = self.rng.random() < self._symp_prob(order, a)

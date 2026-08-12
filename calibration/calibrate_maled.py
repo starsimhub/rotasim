@@ -155,25 +155,41 @@ class NeonatalPriming(ss.Intervention):
     maternal titer is typically still high, it does not confer strong future protection against
     the (antigenically different) wild-type strains that drive later disease -- hence sus_effect
     stays fixed near 0 (decoupled), not fitted upward.
-    A fraction p_neo of newborns get one such event at age ~age_weeks. It is a REAL infection
-    (MALEDCohort.step() counts it toward true infection order n_inf and detects it via the same
-    asymptomatic-surveillance pathway as any other subclinical infection) but is NEVER a
-    symptomatic case. Bangladesh neonatal infections were NOSOCOMIAL (not the community cohort)
-    so p_neo~0 there; UK p_neo=0. p_neo fixed from literature (~0.5), not fitted (the
-    symptomatic/all-infection targets can't see these sub-monthly asymptomatic infections
-    directly enough to identify p_neo itself)."""
-    def __init__(self, p_neo, age_weeks=2.0, sus_effect=0.0, **kw):
+    A fraction p_neo of newborns get one such event at age ~age_weeks. exp43 (2026-08-11) made
+    this a REAL detected infection in MALEDCohort -- found NEGATIVE: the guaranteed early-detected
+    floor (p_neo x asymptomatic-detection-rate) overshot Q25 in the opposite direction from exp39's
+    miss, regardless of the other 9 parameters. Reverted here (exp44): priming is back to
+    UNDETECTED (no contribution to n_inf, cases_all, or Q25/det_first_m) -- its only remaining
+    channel is a per-child, PROBABILISTIC credit toward the symptom-order counter read by
+    MALEDCohort (order_primed_uids, a sub-fraction of primed_uids sized by order_effect), which
+    only has any effect at all under order-sensitive symptom models (infnum, age_and_infection --
+    age_binned ignores order entirely, confirmed inert in exp39-43). order_effect is FITTED
+    (exp44), not fixed -- operationalizes "what if the neonatal infection didn't count as much
+    toward the counter" as a literal fraction, rather than exp31's all-or-nothing full credit
+    (hm_neoprime), which helped but did not resolve the <6m/6-11m tension on its own.
+    Bangladesh neonatal infections were NOSOCOMIAL (not the community cohort) so p_neo~0 there;
+    UK p_neo=0. p_neo fixed from literature (~0.5), not fitted (the symptomatic/all-infection
+    targets can't see these sub-monthly asymptomatic infections directly enough to identify
+    p_neo itself)."""
+    def __init__(self, p_neo, age_weeks=2.0, sus_effect=0.0, order_effect=1.0, **kw):
         super().__init__(**kw)
         self.p_neo = float(p_neo)
         self.prime_age = age_weeks / 52.0
         # sus_effect: 0.0 = DECOUPLED (symptom-only) -- priming raises the symptom ORDER (milder later
-        # disease, read by MALEDCohort via primed_uids) but does NOT reduce susceptibility, so
+        # disease, read by MALEDCohort via order_primed_uids) but does NOT reduce susceptibility, so
         # reinfection/transmission (and the repeat fraction) are preserved. 1.0 = also advance the
         # connector's num_recovered_infections (full susceptibility cut -- the original coupled
-        # behavior that crushed repeats + over-delayed first detection). Heterotypic neonatal strain
-        # -> partial; start decoupled (0.0).
+        # behavior that crushed repeats + over-delayed first detection). Fixed near 0 per the narrow
+        # biological reading (2026-08-11): this event occurs under high maternal titer, so it doesn't
+        # confer strong future protection against the (antigenically different) wild-type strains.
         self.sus_effect = float(sus_effect)
+        # order_effect: FRACTION of primed children whose subsequent REAL infection is credited as
+        # order+1 for symptom-severity lookup (order-sensitive models only). 1.0 = exp31's
+        # hm_neoprime (full credit, tried already); 0.0 = no-priming baseline (also tried). FITTED
+        # in exp44 to search the untested interior.
+        self.order_effect = float(order_effect)
         self.primed_uids = set()
+        self.order_primed_uids = set()
 
     def init_pre(self, sim):
         super().init_pre(sim)
@@ -192,8 +208,13 @@ class NeonatalPriming(ss.Intervention):
             return
         primed = cross[self._rng.random(len(cross)) < self.p_neo]
         if len(primed):
-            # symptom-order +1 for ALL primed (read by MALEDCohort) -> milder later disease.
             self.primed_uids.update(int(u) for u in primed)
+            # order_effect = FRACTION of primed who get the order-credit (drawn independently of
+            # sus_effect's subset -- these are two separate biological questions).
+            if self.order_effect > 0.0:
+                op = primed if self.order_effect >= 1.0 else primed[self._rng.random(len(primed)) < self.order_effect]
+                if len(op):
+                    self.order_primed_uids.update(int(u) for u in op)
             # sus_effect = FRACTION of primed who ALSO get a susceptibility increment (partial
             # heterotypic protection): 0 = none (pure symptom decoupling), 1 = all (full coupling).
             # Tunes how much the neonatal strain delays later COMMUNITY infection (the Q25 signal).
@@ -225,7 +246,7 @@ def _run_one_replicate(args):
             p_symp_1=sim_pars.get('p_symp_1', 1.0), p_symp_2=sim_pars.get('p_symp_2', 1.0),
             p_symp_3plus=sim_pars.get('p_symp_3plus', 1.0),
             beta0=sim_pars.get('beta0', 0.0), beta1=sim_pars.get('beta1', 0.0),
-            beta2=sim_pars.get('beta2', 0.0),
+            beta2=sim_pars.get('beta2', 0.0), beta3=sim_pars.get('beta3', 0.0),
             p_symp_age_0_6=sim_pars.get('p_symp_age_0_6', 0.5),
             p_symp_age_6_11=sim_pars.get('p_symp_age_6_11', 0.5),
             p_symp_age_12plus=sim_pars.get('p_symp_age_12plus', 0.5),
@@ -274,6 +295,9 @@ def _run_one_replicate(args):
         interventions.append(VaccinePrime(**vx))   # infection-equivalent counter (feeds sus + infnum symptoms)
     npr = sim_config.get('neonatal_priming')
     if npr:   # dict(p_neo, age_weeks); India/Vellore community neonatal strain (asymptomatic, immunizing)
+        npr = dict(npr)   # copy -- don't mutate the shared sim_config dict across replicates
+        if 'neonatal_order_effect' in sim_pars:   # exp44: per-sample fitted override
+            npr['order_effect'] = sim_pars['neonatal_order_effect']
         interventions.append(NeonatalPriming(**npr))
     sim = rs.Sim(
         n_agents=sim_config['n_agents'],
