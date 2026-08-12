@@ -399,6 +399,10 @@ def _run_one_replicate(args):
             # Raw KM first-detection records for the censored-survival likelihood
             # (trajectory selection, exp 18/19); ignored by the Optuna GOF path.
             km_time=rd['km_time'], km_observed=rd['km_observed'],
+            # Per-child TRUE cumulative infection count (diagnostic: distribution shape,
+            # e.g. checking for a bimodal low/high-exposure split vs one pool). Ignored
+            # by the GOF/HM path; not part of any calibration target.
+            n_inf=[int(x) for x in coh.n_inf],
         )
     elif obs == 'surveillance':
         sv = sim.analyzers['surveillance']
