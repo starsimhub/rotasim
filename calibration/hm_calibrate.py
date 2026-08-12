@@ -89,6 +89,14 @@ FIXED_PSYMP = dict(p_symp_1=0.407, p_r2=round(0.189 / 0.407, 4), p_r3=round(0.12
 # P(symp|infected) per age bin: <6m=0.381, 6-11m=0.407, 12-23m=0.189 (24-35m=0.122 folded into 12+).
 # Used with --fix-age-psymp + --model age_binned; frees only FOI + immunity (5 params).
 FIXED_AGE_PSYMP = dict(p_symp_age_0_6=0.381, p_symp_age_6_11=0.407, p_symp_age_12plus=0.189)
+# exp46 (2026-08-12): AK recalculated P(symp|infected) DIRECTLY from MAL-ED India (not the slum
+# cohort) with the asymptomatic-ascertainment correction applied (~50% under-detection, the same
+# correction identified in exp35 but never carried into FIXED_AGE_PSYMP above). Result is close to
+# a FLIP of the slum-derived <6m/12-23m values: 0-6m 0.172 (vs 0.381), 6-11m 0.511 (vs 0.407),
+# 12-23m 0.444 (vs 0.189). Directly targets the persistent <6m-overshoot/6-11m-undershoot tension:
+# lower <6m and higher 6-11m are exactly the directions needed. Selected via AGE_PSYMP_SOURCE=maled.
+FIXED_AGE_PSYMP_MALED = dict(p_symp_age_0_6=0.172, p_symp_age_6_11=0.511, p_symp_age_12plus=0.444)
+AGE_PSYMP_SOURCE = os.environ.get('AGE_PSYMP_SOURCE', 'slum')   # 'slum' (default, exp32/39) or 'maled' (exp46)
 # Fixed titer-shape values (infnum posterior medians) -- the identified maternal curve, used
 # to remove titer's redundant shape flexibility (--fix-titer-shape): only maternal_efficacy stays free.
 FIXED_TITER_SHAPE = dict(median=20.0, gsd=2.3, half_life_days=50.0, hill=4.7)
@@ -155,7 +163,7 @@ def untransform(row, model, maternal='titer', fix_titer_shape=False, fix_psymp=F
                  beta2=float(row['beta2']), beta3=float(row['beta3']))
     elif model == 'age_binned':
         if fix_age_psymp:
-            p.update(**FIXED_AGE_PSYMP)
+            p.update(**(FIXED_AGE_PSYMP_MALED if AGE_PSYMP_SOURCE == 'maled' else FIXED_AGE_PSYMP))
         else:
             p.update(p_symp_age_0_6=float(row['p_symp_age_0_6']), p_symp_age_6_11=float(row['p_symp_age_6_11']),
                      p_symp_age_12plus=float(row['p_symp_age_12plus']))
