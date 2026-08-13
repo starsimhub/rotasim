@@ -93,14 +93,22 @@ all (parameters, extinct/not) pairs accumulated across waves — borrows
 information across nearby already-sampled points the way logistic regression
 normally does. Smoke-tested clean; staged to run automatically after exp47.
 
-### Where things stand right now (updated 10:58am EST, before the meeting)
+### Where things stand right now (updated 11:51am EST, before the meeting)
 
 - **exp47 finished** — result above (best joint fit yet, ESS still ~1/3000).
+  Extinction rate 79.0% (2371/3000) — notably lower than exp39 (84.8%) and
+  exp46 (87.0%): freeing p_symp modestly widens the viable region too, not
+  just the point estimate.
 - **exp48 (exp47's design + the classifier-based extinction fix) is running
-  now** on zebra (auto-launched the moment exp47 finished, wave 1 in
-  progress) — result not available yet, likely after the meeting.
-- Both use the same free-parameter set otherwise (`base_beta`, `sus_after_*`,
-  maternal titer params) as exp39.
+  now**, wave 3/6 as of 11:51am — will not finish before the meeting.
+- **A second correction found (AK, this morning):** the slum-cohort 6-11m
+  p_symp value used throughout exp31-48 (0.407) had a calculation error —
+  corrected value is **0.593**, above the MAL-ED anchor (0.511), flipping
+  which anchor is higher for this bin. exp47's fit landed at 0.548, pinned
+  against its old upper bound (0.55) — consistent with the search wanting to
+  reach 0.593. **exp49 staged** (not yet run): widens the 6-11m bracket to
+  (0.40, 0.60) to test this directly. exp47/48 deliberately not rerun with
+  the correction, kept as-is for clean comparability.
 
 ### Open questions for discussion
 

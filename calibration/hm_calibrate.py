@@ -121,8 +121,18 @@ NEONATAL_BOUNDS = {'neonatal_order_effect': (0.0, 1.0)}
 # MAL-ED-derived) rather than the uninformed (0,1) default -- exp46 showed both <6m's and
 # 6-11m's targets sit BETWEEN these two anchors, so let HM search that bracket directly
 # instead of re-discovering it from a flat prior. Small margin added on each side.
+# CORRECTION (AK, 2026-08-14): FIXED_AGE_PSYMP's slum-derived 6-11m value (0.407) had a
+# calculation error -- the corrected slum estimate is 0.593, ABOVE FIXED_AGE_PSYMP_MALED's
+# 0.511 (flips which anchor is higher for this bin). exp47's fit landed at 0.548, pinned
+# against the old (0.35,0.55) bound -- consistent with the search wanting to reach the
+# corrected 0.593 anchor, which the old bracket didn't cover at all. exp47/48 deliberately
+# NOT rerun with this correction (kept as-is for clean comparability); AGE_PSYMP_INTERP_V=2
+# widens 6-11m to (0.40, 0.60) for any follow-up (see exp49) -- v1 (default) reproduces
+# exp47/48 exactly.
+AGE_PSYMP_INTERP_V = os.environ.get('AGE_PSYMP_INTERP_V', '1')
 AGE_PSYMP_INTERP = os.environ.get('AGE_PSYMP_INTERP', '0') == '1'
-AGE_PSYMP_INTERP_BOUNDS = {'p_symp_age_0_6': (0.15, 0.40), 'p_symp_age_6_11': (0.35, 0.55),
+AGE_PSYMP_INTERP_BOUNDS = {'p_symp_age_0_6': (0.15, 0.40),
+                           'p_symp_age_6_11': ((0.40, 0.60) if AGE_PSYMP_INTERP_V == '2' else (0.35, 0.55)),
                            'p_symp_age_12plus': (0.15, 0.50)}
 
 def bounds_for(model, maternal, fix_titer_shape=False, fix_psymp=False, fix_age_psymp=False):
