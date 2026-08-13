@@ -19,6 +19,9 @@ import os, sys, argparse, pathlib
 from multiprocessing import get_context
 import numpy as np, pandas as pd, sciris as sc
 import historymatching as hm
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
 
 THISDIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(THISDIR))
@@ -43,7 +46,16 @@ NEO_PRIME_ACTIVE = (SITE == 'india' and os.environ.get('NEO_PRIME', '0') == '1')
 # Activate via EXT_PENALTY=1 env var. Target log(2)=0.69: viable sims have ir_sum~3 (z≈0.5),
 # extinct sims have log(1e-9)≈-20.7 (z≈-28) — decisively ruled out.
 USE_EXT_PENALTY = os.environ.get('EXT_PENALTY', '0') == '1'
-EXT_PENALTY_OBS = {'log_symp_ir_sum': (float(np.log(2.0)), 0.75)}
+# exp48: the raw sentinel-mixed regression above scores extinction from a SINGLE seed per
+# parameter point -- near the ~85-87% extinction boundary this India fit sits at, a low-
+# extinction-risk region can get randomly ruled out by one unlucky draw. Fix (AK + browser-Claude,
+# 2026-08-13): fit a logistic classifier on ALL (params, extinct 0/1) pairs accumulated across
+# waves so far -- it borrows information across nearby already-sampled points (the way logistic
+# regression normally does), giving a smoothed P(extinct) surface instead of one noisy draw per
+# point. No new simulations needed; same wave budget. Activate via EXT_CLASSIFIER=1 (requires
+# EXT_PENALTY=1). Target rescaled to (0.0, 0.15) since the feature is now a probability, not log(ir_sum).
+USE_EXT_CLASSIFIER = USE_EXT_PENALTY and os.environ.get('EXT_CLASSIFIER', '0') == '1'
+EXT_PENALTY_OBS = {'log_symp_ir_sum': ((0.0, 0.15) if USE_EXT_CLASSIFIER else (float(np.log(2.0)), 0.75))}
 OBS_COLS = [f'ir_symp_{b}' for b in IR_BINS] + ['repeat_detected_frac', 'first_inf_median']
 if USE_IR_ALL:
     OBS_COLS += [f'ir_all_{b}' for b in IR_BINS]
@@ -104,6 +116,14 @@ FIXED_TITER_SHAPE = dict(median=20.0, gsd=2.3, half_life_days=50.0, hill=4.7)
 # Only added to order-sensitive models (infnum, age_and_infection) when NEO_PRIME is active --
 # a no-op parameter under age_binned, so not offered there (avoids wasting a search dimension).
 NEONATAL_BOUNDS = {'neonatal_order_effect': (0.0, 1.0)}
+# exp47: free p_symp_age_* under age_binned, but bounded to the interval spanned by the two
+# fixed anchors already tried (FIXED_AGE_PSYMP = slum-derived, FIXED_AGE_PSYMP_MALED =
+# MAL-ED-derived) rather than the uninformed (0,1) default -- exp46 showed both <6m's and
+# 6-11m's targets sit BETWEEN these two anchors, so let HM search that bracket directly
+# instead of re-discovering it from a flat prior. Small margin added on each side.
+AGE_PSYMP_INTERP = os.environ.get('AGE_PSYMP_INTERP', '0') == '1'
+AGE_PSYMP_INTERP_BOUNDS = {'p_symp_age_0_6': (0.15, 0.40), 'p_symp_age_6_11': (0.35, 0.55),
+                           'p_symp_age_12plus': (0.15, 0.50)}
 
 def bounds_for(model, maternal, fix_titer_shape=False, fix_psymp=False, fix_age_psymp=False):
     mat = dict(MATERNAL_BOUNDS[maternal])
@@ -117,6 +137,8 @@ def bounds_for(model, maternal, fix_titer_shape=False, fix_psymp=False, fix_age_
     if fix_age_psymp and model == 'age_binned':
         for k in ('p_symp_age_0_6', 'p_symp_age_6_11', 'p_symp_age_12plus'):
             symp.pop(k, None)  # fix at FIXED_AGE_PSYMP; only FOI + immunity free
+    elif AGE_PSYMP_INTERP and model == 'age_binned':
+        symp.update(AGE_PSYMP_INTERP_BOUNDS)  # exp47: free, but bounded to the slum<->MAL-ED bracket
     neo = dict(NEONATAL_BOUNDS) if (NEO_PRIME_ACTIVE and model in ('infnum', 'age_and_infection')) else {}
     return {**TRANSMISSION_BOUNDS, **mat, **symp, **neo}
 BOUNDS = {m: bounds_for(m, 'titer') for m in ('age', 'infnum', 'age_binned', 'age_and_infection')}   # back-compat default (exp 16/17 = titer)
@@ -231,6 +253,7 @@ def make_observations():
 
 
 def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False, fix_psymp=False, fix_age_psymp=False):
+    _ext_hist = []   # exp48: (params array, extinct 0/1) accumulated across ALL waves of this run
     def simulate(params_df: pd.DataFrame) -> pd.DataFrame:
         args = []
         for _, row in params_df.iterrows():
@@ -240,14 +263,16 @@ def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False, f
         with get_context('spawn').Pool(processes=min(N_WORKERS, len(args)), maxtasksperchild=4) as pool:
             outs = pool.map(cm._run_one_replicate, args)
         _EXT_LOG = float(np.log(1e-9))  # sentinel for extinct: ≈-20.7, far below target log(2)=0.69
-        rows = []
+        rows, is_extinct = [], []
         for mo in outs:
             try:
                 ir = mo['ir_by_age']
                 ir_sum = float(ir['IR'].sum())
                 log_ir_sum = float(np.log(max(ir_sum, 1e-9)))
                 fim = mo['first_infection'][FIRST_INF_QUANT]
-                if (not np.isfinite(fim)) or ir_sum <= 0:
+                extinct = (not np.isfinite(fim)) or ir_sum <= 0
+                is_extinct.append(1 if extinct else 0)
+                if extinct:
                     row_out = {c: np.nan for c in OBS_COLS}
                     if USE_EXT_PENALTY:
                         row_out['log_symp_ir_sum'] = _EXT_LOG  # finite, not NaN — extinction signal
@@ -261,10 +286,24 @@ def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False, f
                     row['log_symp_ir_sum'] = log_ir_sum
                 rows.append(row)
             except Exception:
+                is_extinct.append(1)
                 row_out = {c: np.nan for c in OBS_COLS}
                 if USE_EXT_PENALTY:
                     row_out['log_symp_ir_sum'] = _EXT_LOG
                 rows.append(row_out)
+        if USE_EXT_CLASSIFIER:
+            param_cols = list(params_df.columns)
+            X_wave = params_df[param_cols].to_numpy(dtype=float)
+            _ext_hist.extend(zip(X_wave, is_extinct))
+            y_all = np.array([e for _, e in _ext_hist], dtype=int)
+            if len(_ext_hist) >= 20 and y_all.min() != y_all.max():
+                X_all = np.array([x for x, _ in _ext_hist])
+                clf = make_pipeline(StandardScaler(), LogisticRegression(max_iter=500)).fit(X_all, y_all)
+                p_ext = clf.predict_proba(X_wave)[:, 1]
+            else:
+                p_ext = np.full(len(params_df), float(y_all.mean()))   # too little/uniform data yet
+            for row, p in zip(rows, p_ext):
+                row['log_symp_ir_sum'] = float(p)   # now a smoothed P(extinct), not log(ir_sum)
         return pd.DataFrame(rows, index=params_df.index)
     return simulate
 
