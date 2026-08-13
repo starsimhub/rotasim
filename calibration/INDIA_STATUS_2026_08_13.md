@@ -52,13 +52,29 @@ structure found — ESS 9.15/3000, but that pair remains off:
 | 43 | Make neonatal priming a real, detected infection | &lt;6m/6-11m untouched; overshoots Q25 the *other* direction; ESS→4.73 |
 | 44 | Fractional neonatal order-crediting, under `infnum` and (bug-fixed) `age_and_infection` | Both negative; `age_and_infection`'s ESS collapsed to 1.9/3000 (14 free params — too many for 44 cases) |
 | 45 | Per-agent infection-count distribution check | One homogeneous exposure pool, not two risk groups — rules out simple agent heterogeneity as the explanation. Separately: ~85-87% of sampled parameter space goes fully extinct, consistent across every model tried |
-| **46** | **Swap p_symp source: MAL-ED-derived (ascertainment-corrected) instead of slum-cohort-derived** | **First lever with correctly-signed effect on both &lt;6m and 6-11m** — overshot past target on both sides, but in the *right direction*. ESS→1.26 |
+| 46 | Swap p_symp source: MAL-ED-derived (ascertainment-corrected) instead of slum-cohort-derived | First lever with correctly-signed effect on both &lt;6m and 6-11m — overshot past target on both sides, but in the *right direction*. ESS→1.26 |
+| **47** | **Free p_symp between the slum and MAL-ED anchors (not fixed at either)** | **Best joint fit in the whole India arc.** IR 6-11m = 1.75 vs target 1.71 (essentially exact); IR &lt;6m = 0.48 vs target 0.40 (closest yet). ESS still ~1/3000 — see below |
 
-**Every other lever failed outright. exp46 is the first to move the actual
-problem in the correct direction at all** — it just overshot. Both targets
-(&lt;6m=0.40, 6-11m=1.71) sit *between* the slum-derived and MAL-ED-derived
-p_symp anchors for their bins, which is why exp47 (below) frees p_symp
-between those two anchors rather than fixing it at either endpoint.
+**exp47 update (result landed this morning, before the meeting):**
+
+![exp39 vs 46 vs 47](experiments/47_india_age_psymp_interp/figures/exp39_46_47_comparison.png)
+
+| Metric | exp39 (fixed slum) | exp46 (fixed MAL-ED) | **exp47 (free)** | Target |
+|---|---|---|---|---|
+| IR &lt;6m | 0.59 | 0.23 | **0.48** | 0.40 |
+| IR 6-11m | 1.39 | 1.96 | **1.75** | **1.71** |
+| IR 12-23m | 0.60 | 0.66 | 0.57 | 0.61 |
+| repeat_frac | 0.12 | 0.12 | 0.10 | 0.14 |
+| Q25 (mo) | 17.5 | 13.9 | 18.0 | 15.1 |
+| ESS (/3000) | 9.15 | 1.26 | 1.02 |
+
+Freeing p_symp between the two anchors (rather than fixing at either) finds
+a point that nails the 6-11m peak and gets far closer on &lt;6m than anything
+tried before — by far the best result on the actual persistent problem. But
+ESS is still ~1/3000 (the fitted posterior has literally zero spread across
+resamples) — same degenerate pattern as everything since exp39. One
+actionable detail: `p_symp_age_6_11` landed at 0.548, pinned against its
+upper bound (0.55) — the search wants to go higher than we allowed it to.
 
 ### A separate, structural issue found today: single-seed extinction scoring
 
@@ -77,24 +93,25 @@ all (parameters, extinct/not) pairs accumulated across waves — borrows
 information across nearby already-sampled points the way logistic regression
 normally does. Smoke-tested clean; staged to run automatically after exp47.
 
-### Where things stand right now (as of this morning)
+### Where things stand right now (updated 10:58am EST, before the meeting)
 
-- **exp47** (p_symp freed between the two exp39/46 anchors) — running on
-  zebra, staged to finish around midday.
-- **exp48** (exp47's design + the classifier-based extinction fix) — staged
-  to launch automatically the moment exp47 finishes, no manual step needed.
+- **exp47 finished** — result above (best joint fit yet, ESS still ~1/3000).
+- **exp48 (exp47's design + the classifier-based extinction fix) is running
+  now** on zebra (auto-launched the moment exp47 finished, wave 1 in
+  progress) — result not available yet, likely after the meeting.
 - Both use the same free-parameter set otherwise (`base_beta`, `sus_after_*`,
   maternal titer params) as exp39.
 
 ### Open questions for discussion
 
 1. **Is the &lt;6m/6-11m tension a p_symp-calibration problem (exp46/47 line) or
-   a deeper structural one (two-strain population, not yet tried)?** exp46
-   is the first evidence for "calibration problem" — worth seeing exp47/48
-   out before concluding either way.
+   a deeper structural one (two-strain population, not yet tried)?** exp47
+   is the strongest evidence yet for "calibration problem" — the joint fit
+   on the persistent targets is now good. Worth seeing exp48 out before
+   fully concluding, since ESS is still degenerate.
 2. **Is ESS collapsing because the joint constraint is genuinely tight, or
    because single-seed extinction noise has been distorting the search this
-   whole time?** exp48 is a direct test of the second hypothesis.
+   whole time?** exp48 (running now) is a direct test of this.
 3. If exp47/48 don't resolve it: pursue a two-strain structural model
    (the persistent Vellore community strain vs. wild-type, weakly
    cross-protective), or lean on the larger-N Tamil Nadu surveillance data
