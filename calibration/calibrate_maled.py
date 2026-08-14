@@ -403,6 +403,10 @@ def _run_one_replicate(args):
             # e.g. checking for a bimodal low/high-exposure split vs one pool). Ignored
             # by the GOF/HM path; not part of any calibration target.
             n_inf=[int(x) for x in coh.n_inf],
+            # Population-level infection time series (diagnostic: time-to-extinction for
+            # trajectories that die out). Ignored by the GOF/HM path; not a calibration target.
+            n_infected_series=[int(x) for x in sim.results[
+                next(d.name for d in sim.diseases.values() if isinstance(d, rs.Rotavirus))]['n_infected']],
         )
     elif obs == 'surveillance':
         sv = sim.analyzers['surveillance']
