@@ -42,6 +42,18 @@ a properly-specified mechanistic model rather than a hand calculation.
 
 ![ODE prevalence over time, and the deterministic beta-threshold sweep](figures/ode_threshold.png)
 
+The initial wave (up to ~70%) dominates the y-scale above; zooming in from
+year 0.5 makes the damped post-wave oscillations and equilibrium levels
+actually legible:
+
+![ODE prevalence zoomed from year 0.5 -- post-wave secondary peaks and equilibrium levels by point](figures/ode_prevalence_zoomed.png)
+
+`1072` and the `MLE` converge to almost the same equilibrium (~1.8% and
+~1.6%) and their secondary peaks nearly overlap (the MLE's is slightly
+later and lower) — a clean visual confirmation that the MLE sits in
+`1072`'s healthier regime, not `1720`'s fragile one, despite matching
+`1720`'s beta almost exactly.
+
 ## Observations
 
 1. **The post-peak trough is where extinction risk actually lives, and it

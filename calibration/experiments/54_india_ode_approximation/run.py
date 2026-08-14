@@ -68,6 +68,7 @@ def naive_r0_formula(base_beta):
 print("=== R0 consistency check (NGM ODE formula vs exp51/53 discrete-hazard formula) ===")
 fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
 results = []
+timeseries = {}   # idx -> (t_years, prev_pct), reused for the zoomed-in figure below
 all_points = list(POINTS.items()) + [('MLE', "India MLE (exp47, base_beta=%.3f)" % MLE_ROW['base_beta'])]
 for idx, label in all_points:
     row = nroy.loc[idx] if idx != 'MLE' else MLE_ROW
@@ -80,6 +81,7 @@ for idx, label in all_points:
     prev = prevalence(sol)
     t_years = sol.t / 365.25
     axes[0].plot(t_years, prev * 100, label=f"idx={idx} (R0={r0_ode:.1f})")
+    timeseries[idx] = (t_years, prev * 100, r0_ode)
     eq_prev = prev[-1]
     n_infected = prev * 40_000
     # post-peak trough: minimum infected count after the initial wave's peak, before
@@ -141,6 +143,22 @@ axes[1].set_title('Deterministic threshold: where does eq. prevalence hit 0?')
 plt.tight_layout()
 plt.savefig(FIG_DIR / 'ode_threshold.png', dpi=150)
 print(f"\nSaved figures/ode_threshold.png")
+
+# ---- Standalone zoomed prevalence figure: cut off the huge initial wave (up to ~70%)
+# so the damped post-wave oscillations, their timing/height, and the equilibrium level
+# are actually visible on a sensible y-scale ----
+ZOOM_START_YEARS = 0.5
+fig2, ax2 = plt.subplots(figsize=(7, 5))
+for idx, (t_years, prev_pct, r0_ode) in timeseries.items():
+    mask = t_years >= ZOOM_START_YEARS
+    ax2.plot(t_years[mask], prev_pct[mask], label=f"idx={idx} (R0={r0_ode:.1f})")
+ax2.set_xlabel('years')
+ax2.set_ylabel('prevalence (%)')
+ax2.set_title(f'ODE prevalence, zoomed (from year {ZOOM_START_YEARS}) -- post-wave dynamics')
+ax2.legend(fontsize=9)
+plt.tight_layout()
+plt.savefig(FIG_DIR / 'ode_prevalence_zoomed.png', dpi=150)
+print(f"Saved figures/ode_prevalence_zoomed.png")
 
 sweep_df = pd.DataFrame(dict(base_beta=betas, equilibrium_prevalence_pct=eq_prevs))
 sweep_df.to_csv(OUT_DIR / 'beta_sweep.csv', index=False)
