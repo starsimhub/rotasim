@@ -99,3 +99,7 @@ any tested N; every run survived the full 10-year window.
   birth-rate susceptible replenishment) rather than relying on the naive
   fully-susceptible R0 used here — that's the number that actually governs
   trough-survival, and it may sharpen the threshold estimate further.
+  [Done — see `../53_india_effective_r/SUMMARY.md`: Re after the wave is
+  comfortably >1 for all three points (1.6-2.0), so the mechanism is a
+  near-critical *stochastic* branching-process extinction risk, not a
+  deterministic viability threshold.]
