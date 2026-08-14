@@ -31,8 +31,8 @@ project.
 the magnitude.** Both the ODE and the real MAL-ED target peak at 6-11m and
 decline afterward, but the ODE's equilibrium rate runs ~2-5x higher across
 every bin (model 4.7/6.2/5.5/4.8 vs target 1.3/2.5/1.0/0.0 per 100
-person-months). This is a real, honestly-reported discrepancy, not
-swept under the rug — see Observations.
+person-months). **This is expected, not a modeling error** — see
+Observations for why.
 
 ## Observations
 
@@ -44,26 +44,37 @@ swept under the rug — see Observations.
    even before the magnitude gap is resolved (rescaling the whole system's
    throughput doesn't change *how* immune status accumulates with age, only
    *how fast*).
-2. **Most likely explanation for the magnitude gap: the real ABM's 5-10
-   year calibration window may not actually be at this ODE's true infinite-
-   time equilibrium.** exp54 already showed order-dynamics take several
-   years of damped oscillation to settle; the age-structured version adds a
-   second, slower equilibration timescale (the "36m+" bucket absorbs
-   everyone for the rest of their life, and its internal order-composition
-   depends on decades of accumulated history in the full ABM, not just the
-   first 5-10 years). If the ABM is still relaxing toward a higher endemic
-   level than what's observed at year 5-10, that alone could produce
-   exactly this kind of "right shape, inflated magnitude" mismatch.
-3. **Alternative/additional explanation: approximation error in this
-   reduction.** The per-age-bin single-exponential exit-rate approximation,
-   the Erlang-chain maternal approximation, and the omission of any
-   between-individual heterogeneity (everyone in a compartment is treated as
-   identical) could each contribute some inflation. Not disentangled from
-   observation 2 here.
+2. **"Still equilibrating" was checked directly and ruled out.** AK asked
+   the sharp, correct question: shouldn't incidence *fall* toward
+   equilibrium (after the initial oversized wave), not rise toward it — and
+   if the ABM's 5-10y window isn't yet converged, comparing the ODE's OWN
+   value at year 10 (not its asymptotic equilibrium) against the ABM should
+   narrow the gap. Checked directly: the age-structured ODE's IR-by-age at
+   year 10 (4.70/6.25/5.52/4.78) is within <1% of its 60-year asymptotic
+   equilibrium (4.69/6.24/5.52/4.80) — the model is fully converged well
+   before year 10 even starts. This rules out equilibration timing as the
+   explanation entirely (an earlier draft of this SUMMARY proposed it; it
+   was wrong, and the correction is left here rather than silently editing
+   it away).
+3. **The real explanation: this ODE computes the TRUE infection incidence;
+   the target is a DETECTED-infection rate.** Confirmed directly:
+   `process_incidence_maled.py`'s own docstring calls `ir_all` "the model's
+   all-DETECTED output," and `rotasim/analyzers.py` gives the detection
+   probabilities explicitly — symptomatic infections are captured with
+   probability `symp_collection x eia_sensitivity` = 0.80x0.85 = 0.68;
+   asymptomatic infections only via monthly stool sampling,
+   `(shed_days/30) x eia_sensitivity` = (13/30)x0.85 ~ 0.37. This ODE has no
+   detection layer at all (100% of true infections counted), so it should
+   run higher than a detection-filtered target by roughly the inverse of the
+   blended detection probability — predicting a ~2-2.5x true:detected ratio,
+   which matches the 6-11m bin almost exactly (6.24/2.52 ~ 2.5x) and is the
+   right order of magnitude everywhere else. The gap is doing exactly what
+   it should; comparing this ODE's output to `ir_all` needs a detection
+   discount, not a bigger/longer ODE run.
 4. **This does NOT change exp53/54's extinction-mechanism conclusions.**
    Those relied on relative comparisons across parameter points (R0, Re at
-   the trough, trough case counts) that are far more robust to a uniform
-   scaling error than an absolute-magnitude claim would be.
+   the trough, trough case counts) that are unaffected by a detection-layer
+   question that doesn't exist in that framing.
 
 ## Next
 
@@ -75,11 +86,11 @@ swept under the rug — see Observations.
   post-wave trough exp50/51/53/54 identified — directly testable by
   comparing extinction rates with vs. without equilibrium-initialization at
   the same N=40,000.
-- **Resolve the magnitude gap** before trusting the IR-by-age numbers
-  quantitatively: run the actual ABM (not the ODE) at the MLE parameters out
-  to, say, 30-40 years and check whether its own symptomatic/all-infection
-  IR keeps drifting upward past year 10, which would directly support
-  observation 2.
+- **If a quantitative (not just shape) IR-by-age check is wanted**, apply
+  the same detection-probability discount used by the real observation layer
+  (symptomatic vs. asymptomatic-via-monthly-stool) to this ODE's true
+  incidence before comparing to `ir_all` targets, rather than comparing raw
+  incidence directly.
 - Sweep this age-structured equilibrium across more of the posterior (not
   just the single MLE point) to see how sensitive the age-composition
   picture is to the parameters that remain uncertain.
