@@ -19,9 +19,6 @@ import os, sys, argparse, pathlib
 from multiprocessing import get_context
 import numpy as np, pandas as pd, sciris as sc
 import historymatching as hm
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import make_pipeline
 
 THISDIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(THISDIR))
@@ -41,26 +38,25 @@ USE_IR_ALL = (SITE == 'india')
 # children whose next real infection is order-credited) -- only meaningful under order-sensitive
 # symptom models (infnum, age_and_infection); age_binned ignores order entirely (see exp39-43).
 NEO_PRIME_ACTIVE = (SITE == 'india' and os.environ.get('NEO_PRIME', '0') == '1')
-# Extinction penalty: log(sum of symptomatic IRs) returned as finite log(1e-9) for extinct sims,
-# so the emulator learns the extinction zone rather than treating it as unknown/plausible.
-# Activate via EXT_PENALTY=1 env var. Target log(2)=0.69: viable sims have ir_sum~3 (z≈0.5),
-# extinct sims have log(1e-9)≈-20.7 (z≈-28) — decisively ruled out.
-USE_EXT_PENALTY = os.environ.get('EXT_PENALTY', '0') == '1'
-# exp48: the raw sentinel-mixed regression above scores extinction from a SINGLE seed per
-# parameter point -- near the ~85-87% extinction boundary this India fit sits at, a low-
-# extinction-risk region can get randomly ruled out by one unlucky draw. Fix (AK + browser-Claude,
-# 2026-08-13): fit a logistic classifier on ALL (params, extinct 0/1) pairs accumulated across
-# waves so far -- it borrows information across nearby already-sampled points (the way logistic
-# regression normally does), giving a smoothed P(extinct) surface instead of one noisy draw per
-# point. No new simulations needed; same wave budget. Activate via EXT_CLASSIFIER=1 (requires
-# EXT_PENALTY=1). Target rescaled to (0.0, 0.15) since the feature is now a probability, not log(ir_sum).
-USE_EXT_CLASSIFIER = USE_EXT_PENALTY and os.environ.get('EXT_CLASSIFIER', '0') == '1'
-EXT_PENALTY_OBS = {'log_symp_ir_sum': ((0.0, 0.15) if USE_EXT_CLASSIFIER else (float(np.log(2.0)), 0.75))}
+# Extinction handling: multi-seed survival vote (replaces the single-seed log_symp_ir_sum
+# sentinel and exp48's logistic-classifier smoothing -- both scored extinction from ONE seed
+# per parameter point, so near a threshold a viable point could be randomly ruled out by one
+# unlucky draw; see experiments/50/51's finding that extinction is a sharp near-critical-R0
+# threshold, not noise, but still genuinely seed-dependent right at that threshold). Instead:
+# run N_SURVIVAL_SEEDS independent seeds per parameter draw, use the (Laplace-smoothed) SURVIVING
+# fraction directly as a new HM target with an honest target of 1.0 (a fully viable point should
+# survive every seed). The other targets (IR, repeat fraction, first-infection quantile) are
+# averaged across the surviving replicates only, which also cuts single-seed simulation noise in
+# those targets as a side effect. Activate via SURVIVAL_VOTE=1 (replaces EXT_PENALTY=1/
+# EXT_CLASSIFIER=1). See experiments/51_india_population_size/SUMMARY.md.
+USE_SURVIVAL_VOTE = os.environ.get('SURVIVAL_VOTE', '0') == '1'
+N_SURVIVAL_SEEDS = int(os.environ.get('N_SURVIVAL_SEEDS', '5'))
+SURVIVAL_OBS = {'frac_survived': (1.0, 0.15)}
 OBS_COLS = [f'ir_symp_{b}' for b in IR_BINS] + ['repeat_detected_frac', 'first_inf_median']
 if USE_IR_ALL:
     OBS_COLS += [f'ir_all_{b}' for b in IR_BINS]
-if USE_EXT_PENALTY:
-    OBS_COLS = ['log_symp_ir_sum'] + OBS_COLS  # first in cycle → selected wave 1, cuts extinction zone immediately
+if USE_SURVIVAL_VOTE:
+    OBS_COLS = ['frac_survived'] + OBS_COLS  # first in cycle → selected wave 1, cuts extinction zone immediately
 # Age-at-first-DETECTION feature: KM median for Bangladesh, but India/Vellore detects only ~27%
 # of children (low incidence) so KM survival never reaches 0.5 -> median undefined. Use the KM
 # Q25 (=15.1mo, defined) for India. The OBS_COLS name stays 'first_inf_median' (cosmetic scalar
@@ -257,63 +253,58 @@ def make_observations():
         for b in IR_BINS:
             ir = float(tall.loc[b, 'IR']); cases = max(int(tall.loc[b, 'cases']), 1)
             obs[f'ir_all_{b}'] = (ir, float(np.hypot(ir / np.sqrt(cases), MODEL_SD_IR)))
-    if USE_EXT_PENALTY:
-        obs.update(EXT_PENALTY_OBS)
+    if USE_SURVIVAL_VOTE:
+        obs.update(SURVIVAL_OBS)
     return obs
 
 
+def _extinct(mo):
+    try:
+        ir_sum = float(mo['ir_by_age']['IR'].sum())
+        fim = mo['first_infection'][FIRST_INF_QUANT]
+        return (not np.isfinite(fim)) or ir_sum <= 0
+    except Exception:
+        return True
+
+
 def make_simulator(model, sim_config, maternal='titer', fix_titer_shape=False, fix_psymp=False, fix_age_psymp=False):
-    _ext_hist = []   # exp48: (params array, extinct 0/1) accumulated across ALL waves of this run
+    n_seeds = N_SURVIVAL_SEEDS if USE_SURVIVAL_VOTE else 1
     def simulate(params_df: pd.DataFrame) -> pd.DataFrame:
-        args = []
-        for _, row in params_df.iterrows():
+        args, owner = [], []
+        for ridx, row in params_df.iterrows():
             sp = untransform(row, model, maternal, fix_titer_shape, fix_psymp, fix_age_psymp)
-            seed = abs(hash(tuple(np.round(row.values, 6)))) % (2**31)
-            args.append((sim_config, sp, int(seed), CAL_WINDOW))
+            base = tuple(np.round(row.values, 6))
+            for j in range(n_seeds):
+                seed = abs(hash((base, j))) % (2**31)
+                args.append((sim_config, sp, int(seed), CAL_WINDOW))
+                owner.append(ridx)
         with get_context('spawn').Pool(processes=min(N_WORKERS, len(args)), maxtasksperchild=4) as pool:
             outs = pool.map(cm._run_one_replicate, args)
-        _EXT_LOG = float(np.log(1e-9))  # sentinel for extinct: ≈-20.7, far below target log(2)=0.69
-        rows, is_extinct = [], []
-        for mo in outs:
-            try:
-                ir = mo['ir_by_age']
-                ir_sum = float(ir['IR'].sum())
-                log_ir_sum = float(np.log(max(ir_sum, 1e-9)))
-                fim = mo['first_infection'][FIRST_INF_QUANT]
-                extinct = (not np.isfinite(fim)) or ir_sum <= 0
-                is_extinct.append(1 if extinct else 0)
-                if extinct:
-                    row_out = {c: np.nan for c in OBS_COLS}
-                    if USE_EXT_PENALTY:
-                        row_out['log_symp_ir_sum'] = _EXT_LOG  # finite, not NaN — extinction signal
-                    rows.append(row_out); continue
-                row = ({f'ir_symp_{b}': float(ir.loc[b, 'IR']) for b in IR_BINS}
-                       | {'repeat_detected_frac': mo.get('repeat_frac'), 'first_inf_median': float(fim)})
-                if USE_IR_ALL:
-                    ira = mo['ir_all_by_age']
-                    row |= {f'ir_all_{b}': float(ira.loc[b, 'IR']) for b in IR_BINS}
-                if USE_EXT_PENALTY:
-                    row['log_symp_ir_sum'] = log_ir_sum
-                rows.append(row)
-            except Exception:
-                is_extinct.append(1)
-                row_out = {c: np.nan for c in OBS_COLS}
-                if USE_EXT_PENALTY:
-                    row_out['log_symp_ir_sum'] = _EXT_LOG
-                rows.append(row_out)
-        if USE_EXT_CLASSIFIER:
-            param_cols = list(params_df.columns)
-            X_wave = params_df[param_cols].to_numpy(dtype=float)
-            _ext_hist.extend(zip(X_wave, is_extinct))
-            y_all = np.array([e for _, e in _ext_hist], dtype=int)
-            if len(_ext_hist) >= 20 and y_all.min() != y_all.max():
-                X_all = np.array([x for x, _ in _ext_hist])
-                clf = make_pipeline(StandardScaler(), LogisticRegression(max_iter=500)).fit(X_all, y_all)
-                p_ext = clf.predict_proba(X_wave)[:, 1]
-            else:
-                p_ext = np.full(len(params_df), float(y_all.mean()))   # too little/uniform data yet
-            for row, p in zip(rows, p_ext):
-                row['log_symp_ir_sum'] = float(p)   # now a smoothed P(extinct), not log(ir_sum)
+
+        by_row = {ridx: [] for ridx in params_df.index}
+        for ridx, mo in zip(owner, outs):
+            by_row[ridx].append(mo)
+
+        rows = []
+        for ridx in params_df.index:
+            reps = by_row[ridx]
+            survivors = [mo for mo in reps if not _extinct(mo)]
+            n, k = len(reps), len(survivors)
+            row_out = {}
+            if USE_SURVIVAL_VOTE:
+                row_out['frac_survived'] = (k + 1.0) / (n + 2.0)   # Laplace-smoothed vote
+            if not survivors:
+                for c in OBS_COLS:
+                    row_out.setdefault(c, np.nan)
+                rows.append(row_out); continue
+            for b in IR_BINS:
+                row_out[f'ir_symp_{b}'] = float(np.mean([mo['ir_by_age'].loc[b, 'IR'] for mo in survivors]))
+            row_out['repeat_detected_frac'] = float(np.mean([mo.get('repeat_frac') for mo in survivors]))
+            row_out['first_inf_median'] = float(np.mean([mo['first_infection'][FIRST_INF_QUANT] for mo in survivors]))
+            if USE_IR_ALL:
+                for b in IR_BINS:
+                    row_out[f'ir_all_{b}'] = float(np.mean([mo['ir_all_by_age'].loc[b, 'IR'] for mo in survivors]))
+            rows.append(row_out)
         return pd.DataFrame(rows, index=params_df.index)
     return simulate
 
