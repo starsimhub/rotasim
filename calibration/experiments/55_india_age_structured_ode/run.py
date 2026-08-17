@@ -77,13 +77,38 @@ pd.set_option('display.width', 160)
 print(df.to_string(index=False))
 
 # ---- Compare model-implied all-infection IR-by-age against the real targets ----
+# This ODE has no detection layer -- it counts every TRUE infection. The real ir_all
+# target is explicitly a DETECTED-infection rate (process_incidence_maled.py's own
+# docstring; rotasim/analyzers.py's MALEDCohort). Detection probabilities, age-
+# dependent for the asymptomatic pathway (monthly surveillance <12mo, quarterly
+# >=12mo -- a 3x drop, MALEDCohort._p_surv):
+SYMP_COLLECTION, EIA_SENS, SHED_DAYS = 0.80, 0.85, 13.0
+MONTHLY_D, QUARTERLY_D = 30.4375, 91.3125
+DET_SYMP = SYMP_COLLECTION * EIA_SENS                              # 0.68, age-independent
+DET_ASYMP = {'<6m': (SHED_DAYS / MONTHLY_D) * EIA_SENS,            # ~0.363
+             '6-11m': (SHED_DAYS / MONTHLY_D) * EIA_SENS,
+             '12-23m': (SHED_DAYS / QUARTERLY_D) * EIA_SENS,       # ~0.121
+             '24-35m': (SHED_DAYS / QUARTERLY_D) * EIA_SENS}
+# Use the MLE's own fitted p_symp (age_binned: <6m / 6-11m / 12m+ -- the same value
+# applies to both 12-23m and 24-35m, since the fitted symptom model doesn't split them).
+P_SYMP_AGE = {'<6m': float(MLE_ROW['p_symp_age_0_6']), '6-11m': float(MLE_ROW['p_symp_age_6_11']),
+              '12-23m': float(MLE_ROW['p_symp_age_12plus']), '24-35m': float(MLE_ROW['p_symp_age_12plus'])}
+
 target = P.load_ir_all_targets('india')
-print("\n=== Model-implied ir_all_per_100pm vs real ir_all targets ===")
+print("\n=== Model TRUE incidence vs. detection-adjusted vs. real (detected) target, ir per 100pm ===")
+detected_vals = {}
 for _, r in df.iterrows():
     b = r['age_bin']
-    tgt_label = {'<6m': '<6 m', '6-11m': '6-11 m', '12-23m': '12-23 m', '24-35m': '24-35 m'}.get(b)
-    tgt = target.loc[tgt_label, 'IR'] if tgt_label in target.index else float('nan')
-    print(f"  {b:8s}  model={r['ir_all_per_100pm']:.3f}  target={tgt:.3f}")
+    if b == '36m+':
+        continue
+    tgt_label = {'<6m': '<6 m', '6-11m': '6-11 m', '12-23m': '12-23 m', '24-35m': '24-35 m'}[b]
+    tgt = target.loc[tgt_label, 'IR']
+    psymp = P_SYMP_AGE[b]
+    det_prob = psymp * DET_SYMP + (1 - psymp) * DET_ASYMP[b]
+    detected = r['ir_all_per_100pm'] * det_prob
+    detected_vals[b] = detected
+    print(f"  {b:8s}  true={r['ir_all_per_100pm']:.3f}  det_prob={det_prob:.3f}  "
+          f"detected={detected:.3f}  target={tgt:.3f}  ratio={detected/tgt if tgt>0 else float('nan'):.2f}")
 
 # ---- Figure 1: stacked compartment shares by age bin ----
 fig, axes = plt.subplots(1, 2, figsize=(13, 5))
@@ -104,17 +129,20 @@ axes[0].set_title("Equilibrium immune-status composition by age (India MLE)")
 axes[0].legend(fontsize=7, loc='upper right', bbox_to_anchor=(1.02, 1.0))
 axes[0].set_ylim(0, 100)
 
-# ---- Figure 2: model-implied all-infection IR-by-age vs real targets ----
+# ---- Figure 2: TRUE model incidence vs. detection-adjusted vs. real (detected) target ----
+age_order = ['<6m', '6-11m', '12-23m', '24-35m']
 tgt_labels_ordered = ['<6 m', '6-11 m', '12-23 m', '24-35 m']
 tgt_vals = [target.loc[t, 'IR'] for t in tgt_labels_ordered]
-model_vals = df[df.age_bin != '36m+']['ir_all_per_100pm'].tolist()
+true_vals = [df.set_index('age_bin').loc[b, 'ir_all_per_100pm'] for b in age_order]
+det_vals = [detected_vals[b] for b in age_order]
 x = np.arange(4)
-axes[1].bar(x - 0.15, model_vals, width=0.3, label='ODE (equilibrium)', color='#4C72B0')
-axes[1].bar(x + 0.15, tgt_vals, width=0.3, label='real MAL-ED target', color='#DD8452')
+axes[1].bar(x - 0.25, true_vals, width=0.25, label='ODE, true incidence', color='#4C72B0')
+axes[1].bar(x, det_vals, width=0.25, label='ODE, detection-adjusted', color='#55A868')
+axes[1].bar(x + 0.25, tgt_vals, width=0.25, label='real MAL-ED target (detected)', color='#DD8452')
 axes[1].set_xticks(x); axes[1].set_xticklabels(tgt_labels_ordered)
 axes[1].set_ylabel('all-infection IR (per 100 person-months)')
-axes[1].set_title('Model-implied vs. real all-infection IR-by-age')
-axes[1].legend(fontsize=9)
+axes[1].set_title('True vs. detection-adjusted vs. real all-infection IR-by-age')
+axes[1].legend(fontsize=8)
 
 plt.tight_layout()
 plt.savefig(FIG_DIR / 'age_structured_equilibrium.png', dpi=150)
