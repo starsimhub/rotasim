@@ -109,7 +109,12 @@ def simulate_age(p: ODEParams, n_agents=40_000, years=40, n_eval=1000):
     y0 = initial_state_age(n_agents)
     t_span = (0, years * 365.25)
     t_eval = np.linspace(*t_span, n_eval)
-    sol = solve_ivp(rhs_age, t_span, y0, args=(p,), method='LSODA',
+    # BDF (not LSODA): matches LSODA to ~13-14 sig figs on typical draws, same
+    # speed, but LSODA's Fortran/ODEPACK callback bridge can drive step size to
+    # underflow and hang indefinitely on some parameter corners (found during
+    # exp57's differential_evolution search); BDF is a pure-Python solve_ivp
+    # method with no such failure mode and resolved the same corner in ~1s.
+    sol = solve_ivp(rhs_age, t_span, y0, args=(p,), method='BDF',
                      t_eval=t_eval, rtol=1e-8, atol=1e-6, max_step=10.0)
     return sol
 

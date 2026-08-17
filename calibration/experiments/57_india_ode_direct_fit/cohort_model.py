@@ -135,7 +135,10 @@ def simulate_cohort(p: CohortParams, max_age_months=40.0, n_eval=800):
     y0[0] = 1.0  # entire (unit-mass) cohort starts in M_0 at birth
     t_span = (0, max_age_months * 30.4375)
     t_eval = np.linspace(*t_span, n_eval)
-    sol = solve_ivp(rhs_cohort, t_span, y0, args=(p,), method='LSODA',
+    # BDF, not LSODA -- see ode_model_age.py's simulate_age for why (LSODA's
+    # Fortran callback bridge hangs/can't be safely interrupted on some
+    # parameter corners; BDF matches it to ~13-14 sig figs and has no such issue).
+    sol = solve_ivp(rhs_cohort, t_span, y0, args=(p,), method='BDF',
                      t_eval=t_eval, rtol=1e-9, atol=1e-10, max_step=1.0)
     return sol
 

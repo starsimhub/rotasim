@@ -20,7 +20,7 @@ titer maternal, matching hm_calibrate.py's bounds_for('age_binned','titer')) via
 differential evolution (global, gradient-free -- appropriate given HM's own
 experience of a possibly multimodal/degenerate likelihood surface).
 """
-import sys, pathlib, time
+import sys, pathlib, time, signal
 import numpy as np, pandas as pd
 from scipy.optimize import differential_evolution
 import matplotlib
@@ -128,11 +128,33 @@ def model_predict(x):
     return dict(ir_symp=ir_symp, repeat_frac=repeat_frac, S=S, foi_eq=foi_eq)
 
 
+# Per-evaluation wall-clock guard: some parameter draws drive LSODA's adaptive
+# step size to underflow (repeated "t+h=t" warnings) and grind for minutes+
+# without erroring -- since rhs_age/rhs_cohort are Python callables LSODA calls
+# back into every internal step, a SIGALRM reliably gets delivered and raises
+# here (unlike a pure-Fortran-loop timeout, which wouldn't). Caught below by
+# the existing `except Exception` and scored as -1e6, same as any other failure.
+EVAL_TIMEOUT_S = 20.0
+
+
+class _EvalTimeout(Exception):
+    pass
+
+
+def _alarm_handler(signum, frame):
+    raise _EvalTimeout(f"model_predict exceeded {EVAL_TIMEOUT_S}s")
+
+
 def composite_logL(x):
+    old_handler = signal.signal(signal.SIGALRM, _alarm_handler)
+    signal.setitimer(signal.ITIMER_REAL, EVAL_TIMEOUT_S)
     try:
         pred = model_predict(x)
     except Exception:
         return -1e6
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0.0)
+        signal.signal(signal.SIGALRM, old_handler)
     ll = 0.0
     for b in IR_BINS:
         label = {'<6 m': '<6m', '6-11 m': '6-11m', '12-23 m': '12-23m'}[b]
