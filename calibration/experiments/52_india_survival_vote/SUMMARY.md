@@ -16,7 +16,7 @@ rate drops to **75.8%** (vs exp39's single-seed 84.8%). But the posterior-weight
 fit itself is essentially unchanged from exp39: the same &lt;6m/6-11m tension
 persists.
 
-| Metric | exp39 (single-seed) | exp47 (freed p_symp) | exp48 (classifier) | **exp52 (survival vote)** | Target |
+| Metric | exp39 (single-seed, p_symp fixed) | exp47 (freed p_symp) | exp48 (classifier, freed p_symp) | **exp52 (survival vote, p_symp fixed)** | Target |
 |---|---|---|---|---|---|
 | ESS (fraction of pool) | 9.15/3000 (0.305%) | 1.02/3000 (0.034%) | 2.39/3000 (0.080%) | **20.96/5000 (0.419%)** | — |
 | "Extinct" rate | 84.8% | 79.0% | 63.8% | **75.8%**† | — |
@@ -30,6 +30,21 @@ persists.
 extinct (Laplace-smoothed `frac_survived` < 0.15); exp39/47/48's rates are
 single-seed extinction fractions — related but not identical definitions,
 included for a rough sense of scale rather than an exact comparison.
+
+**p_symp caveat:** exp52 re-runs exp39's config exactly, including
+`--fix-age-psymp` — confirmed directly from the pulled `run_config.json`,
+whose 9-parameter list (`log_base_beta, sus_after_1, sus_r2, sus_r3,
+log_titer_median, titer_gsd, titer_half_life_days, hill_slope,
+maternal_efficacy`) has no `p_symp_age_*` entries. So exp52 vs exp39 is a
+clean apples-to-apples isolation of the extinction-scoring change (both
+fixed p_symp at the same biweekly-derived values). exp47/48 froze the
+*other* variable instead (freed p_symp, single-seed/classifier scoring) —
+their numbers in this table are useful context but aren't a controlled
+comparison against exp52 on either axis simultaneously. No India run to
+date has combined freed p_symp with the survival vote; exp57 (ODE
+direct-fit) is the first to free p_symp while also being unaffected by
+the seed-noise issue (it optimizes the deterministic ODE, not the
+stochastic ABM).
 
 All exp52 values above are importance-weighted posterior means over the
 1211/5000 finite-logL resampled draws (`outputs/ts/sir_results.jsonl`,
