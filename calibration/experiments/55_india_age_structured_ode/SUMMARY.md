@@ -19,7 +19,7 @@ susceptibility at all:
 | 24-35m | 0.2% | 8.7% | 31.2% | 23.2% | 19.9% | 1.58 |
 | 36m+ | 0.0% | 0.1% | 1.1% | 1.9% | 84.3% | 2.95 |
 
-![Equilibrium immune-status composition by age, and true vs detection-adjusted vs real all-infection IR-by-age](figures/age_structured_equilibrium.png)
+![Equilibrium immune-status composition by age, and detection-adjusted vs real all-infection IR-by-age with 95% Poisson CIs on the target](figures/age_structured_equilibrium.png)
 ![Equilibrium mean infection count by age](figures/mean_prior_infections_by_age.png)
 
 By age 3, nearly everyone (97%, and 84% specifically at the "3+" floor
@@ -40,12 +40,23 @@ asymptomatic 0.363 for `<12mo` monthly surveillance, dropping to 0.121 for
 `>=12mo` quarterly surveillance — see Observations) to the ODE's true
 incidence, using the MLE's own fitted `p_symp` by age, shrinks the ratio
 from 2.5-5.6x down to **1.3-1.7x** (detection-adjusted 2.18/3.35/1.64/1.43
-vs target 1.35/2.52/0.99/0.00). **That's a real, substantial narrowing, not
-a close match** — every bin is still 30-70% too high, and the 24-35m bin is
-qualitatively wrong in a different way (target is 0 cases; the ODE predicts
-a still-substantial 1.4 detection-adjusted rate there). The detection
-adjustment identifies a genuine, correctly-signed piece of the gap; it is
-not the whole explanation.
+vs target 1.35/2.52/0.99/0.00).
+
+**Adding exact Poisson confidence intervals on the target** (from its raw
+case counts — 17/34/26/0 cases in 1264/1348/2629/746 person-months; the
+Garwood exact method, which handles the 0-count bin correctly) sharpens
+this further: the `6-11m` detection-adjusted value (3.35) is **inside** the
+target's 95% CI ([1.75, 3.53]); `<6m` (2.18) sits just barely outside its CI
+upper bound (2.15); `12-23m` (1.64) is moderately outside ([0.65, 1.45]);
+`24-35m` (1.43) is clearly outside its (necessarily very tight, 0-count) CI
+([0, 0.49]) — but AK's read is that `24-35m` should largely be discounted
+regardless: only 746 person-months of data (the smallest of the four bins,
+roughly half `<6m`'s and a third `6-11m`'s), so this bin has little power to
+distinguish models in the first place, independent of the CI math. Treating
+`24-35m` as low-information rather than a real target, the picture is: 2 of
+the remaining 3 bins (`<6m`, `6-11m`) are at or inside the plausible range
+once sampling noise is accounted for, and `12-23m` is the one bin with a
+real, moderate, unresolved discrepancy.
 
 ## Observations
 
@@ -83,19 +94,23 @@ not the whole explanation.
    overall detection probabilities of 0.465/0.537/0.297/0.297 for the four
    bins, and applying those to the ODE's true incidence is what produces the
    1.3-1.7x (not 2-5x) residual ratio above.
-4. **The remaining 1.3-1.7x gap is NOT resolved by this experiment** — it
-   is smaller than the raw mismatch, correctly signed, and worth reporting,
-   but calling it "close" (an earlier draft of this SUMMARY did) overstated
-   it, per AK's direct pushback on the figure. Candidates for the remaining
-   gap, not disentangled here: (a) genuine approximation error in this ODE
-   reduction (the per-age-bin single-exponential exit rate, the Erlang-chain
-   maternal approximation, no between-individual heterogeneity); (b) the
-   24-35m bin's real target is based on a very small sample (0 cases in 746
-   person-months per `load_ir_all_targets`), so a real-vs-model comparison
-   there may just be dominated by sampling noise rather than a genuine
-   model gap; (c) some other simplification in how this ODE's order/age
-   dynamics interact with the true ABM's discrete, individual-level process
-   that a mean-field reduction can't capture exactly.
+4. **With Poisson sampling error on the target included, plus discounting
+   `24-35m` as low-power (only 746 person-months, the least of the four
+   bins), the picture is: 2 of 3 informative bins check out.** `<6m` and
+   `6-11m` are at-or-inside the target's 95% exact CI — not distinguishable
+   from the data given how few cases the sparse MAL-ED cohort actually
+   observed. `12-23m` remains genuinely, moderately outside its CI — a real
+   discrepancy, not sampling noise. Calling the pre-CI comparison "close"
+   (an earlier draft of this SUMMARY did) overstated it at the time, per
+   AK's direct pushback on the figure; the CI-corrected, `24-35m`-discounted
+   version is a more defensible characterization, but `12-23m` is still
+   unresolved. Candidates for that remaining `12-23m` gap, not disentangled
+   here: (a) genuine approximation error in this ODE reduction (the
+   per-age-bin single-exponential exit rate, the Erlang-chain maternal
+   approximation, no between-individual
+   heterogeneity); (b) some other simplification in how this ODE's
+   order/age dynamics interact with the true ABM's discrete, individual-
+   level process that a mean-field reduction can't capture exactly.
 5. **This does NOT change exp53/54's extinction-mechanism conclusions.**
    Those relied on relative comparisons across parameter points (R0, Re at
    the trough, trough case counts) that are unaffected by a detection-layer
@@ -111,8 +126,8 @@ not the whole explanation.
   post-wave trough exp50/51/53/54 identified — directly testable by
   comparing extinction rates with vs. without equilibrium-initialization at
   the same N=40,000.
-- **Pin down the remaining 1.3-1.7x gap** (observation 4) before treating
-  the detection-adjusted IR-by-age numbers as quantitatively validated —
+- **Pin down the `12-23m` gap** (observation 4) before treating the
+  detection-adjusted IR-by-age numbers as quantitatively validated there —
   e.g. run the real ABM at the MLE parameters and directly tabulate its own
   `ir_all_by_age` output for comparison, rather than relying solely on this
   reduction's approximation.

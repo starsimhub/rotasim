@@ -18,6 +18,7 @@ ode_model_age.py for the age-structured mechanics.
 """
 import sys, pathlib
 import numpy as np, pandas as pd
+from scipy.stats import chi2
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -94,21 +95,35 @@ DET_ASYMP = {'<6m': (SHED_DAYS / MONTHLY_D) * EIA_SENS,            # ~0.363
 P_SYMP_AGE = {'<6m': float(MLE_ROW['p_symp_age_0_6']), '6-11m': float(MLE_ROW['p_symp_age_6_11']),
               '12-23m': float(MLE_ROW['p_symp_age_12plus']), '24-35m': float(MLE_ROW['p_symp_age_12plus'])}
 
+def poisson_exact_ci(cases, pt, scale=100.0, alpha=0.05):
+    """Exact ("Garwood") Poisson CI on a rate cases/pt * scale, from the count alone --
+    handles cases=0 correctly (lower=0, finite upper), unlike a sqrt(cases) Wald SE."""
+    lo = 0.5 * chi2.ppf(alpha / 2, 2 * cases) if cases > 0 else 0.0
+    hi = 0.5 * chi2.ppf(1 - alpha / 2, 2 * (cases + 1))
+    return lo / pt * scale, hi / pt * scale
+
+
 target = P.load_ir_all_targets('india')
 print("\n=== Model TRUE incidence vs. detection-adjusted vs. real (detected) target, ir per 100pm ===")
 detected_vals = {}
+target_ci = {}
 for _, r in df.iterrows():
     b = r['age_bin']
     if b == '36m+':
         continue
     tgt_label = {'<6m': '<6 m', '6-11m': '6-11 m', '12-23m': '12-23 m', '24-35m': '24-35 m'}[b]
     tgt = target.loc[tgt_label, 'IR']
+    cases = int(target.loc[tgt_label, 'cases']); pt = float(target.loc[tgt_label, 'PT'])
+    ci_lo, ci_hi = poisson_exact_ci(cases, pt)
+    target_ci[b] = (ci_lo, ci_hi)
     psymp = P_SYMP_AGE[b]
     det_prob = psymp * DET_SYMP + (1 - psymp) * DET_ASYMP[b]
     detected = r['ir_all_per_100pm'] * det_prob
     detected_vals[b] = detected
+    in_ci = ci_lo <= detected <= ci_hi
     print(f"  {b:8s}  true={r['ir_all_per_100pm']:.3f}  det_prob={det_prob:.3f}  "
-          f"detected={detected:.3f}  target={tgt:.3f}  ratio={detected/tgt if tgt>0 else float('nan'):.2f}")
+          f"detected={detected:.3f}  target={tgt:.3f} (95% exact CI [{ci_lo:.3f}, {ci_hi:.3f}], "
+          f"n={cases} cases/{pt:.0f}pm)  model_in_CI={in_ci}")
 
 # ---- Figure 1: stacked compartment shares by age bin ----
 fig, axes = plt.subplots(1, 2, figsize=(13, 5))
@@ -129,19 +144,23 @@ axes[0].set_title("Equilibrium immune-status composition by age (India MLE)")
 axes[0].legend(fontsize=7, loc='upper right', bbox_to_anchor=(1.02, 1.0))
 axes[0].set_ylim(0, 100)
 
-# ---- Figure 2: TRUE model incidence vs. detection-adjusted vs. real (detected) target ----
+# ---- Figure 2: detection-adjusted ODE vs. real (detected) target, with Poisson error
+# bars on the target. Raw ODE true-incidence bars dropped (AK: distracting -- the
+# comparison that actually matters is detection-adjusted vs. target); still printed
+# above and in outputs/equilibrium_by_age.csv for anyone who wants them.
 age_order = ['<6m', '6-11m', '12-23m', '24-35m']
 tgt_labels_ordered = ['<6 m', '6-11 m', '12-23 m', '24-35 m']
 tgt_vals = [target.loc[t, 'IR'] for t in tgt_labels_ordered]
-true_vals = [df.set_index('age_bin').loc[b, 'ir_all_per_100pm'] for b in age_order]
 det_vals = [detected_vals[b] for b in age_order]
 x = np.arange(4)
-axes[1].bar(x - 0.25, true_vals, width=0.25, label='ODE, true incidence', color='#4C72B0')
-axes[1].bar(x, det_vals, width=0.25, label='ODE, detection-adjusted', color='#55A868')
-axes[1].bar(x + 0.25, tgt_vals, width=0.25, label='real MAL-ED target (detected)', color='#DD8452')
+tgt_err_lo = [tgt_vals[i] - target_ci[b][0] for i, b in enumerate(age_order)]
+tgt_err_hi = [target_ci[b][1] - tgt_vals[i] for i, b in enumerate(age_order)]
+axes[1].bar(x - 0.175, det_vals, width=0.35, label='ODE, detection-adjusted', color='#55A868')
+axes[1].bar(x + 0.175, tgt_vals, width=0.35, label='real MAL-ED target (detected)', color='#DD8452',
+            yerr=[tgt_err_lo, tgt_err_hi], capsize=4, ecolor='black', error_kw=dict(elinewidth=1.2))
 axes[1].set_xticks(x); axes[1].set_xticklabels(tgt_labels_ordered)
 axes[1].set_ylabel('all-infection IR (per 100 person-months)')
-axes[1].set_title('True vs. detection-adjusted vs. real all-infection IR-by-age')
+axes[1].set_title('Detection-adjusted ODE vs. real all-infection IR-by-age\n(error bars: exact 95% Poisson CI on the target)')
 axes[1].legend(fontsize=8)
 
 plt.tight_layout()
