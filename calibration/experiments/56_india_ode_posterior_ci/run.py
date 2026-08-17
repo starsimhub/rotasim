@@ -93,6 +93,35 @@ pd.set_option('display.width', 200)
 print("\n=== Median [min, max] across 10 high-likelihood draws ===")
 print(summary.to_string())
 
+# ---- Figure 0: equilibrium COMPARTMENT FRACTIONS by age, median + range across
+# the 10 draws -- this is the actual quantity needed to initialize an ABM
+# population (draw each agent's starting compartment from these fractions,
+# conditional on age), so it's the one AK actually wants uncertainty bounds on.
+comp_cols = ['pct_maternal', 'pct_susceptible_order0', 'pct_susceptible_order1',
+             'pct_susceptible_order2', 'pct_susceptible_order3plus',
+             'pct_currently_infected', 'pct_recently_immune']
+comp_labels = ['maternally\nprotected', 'susceptible\n(naive)', 'susceptible\n(1 prior inf)',
+               'susceptible\n(2 prior inf)', 'susceptible\n(3+ prior inf)',
+               'currently\ninfected', 'recently immune\n(post-recovery)']
+comp_colors = plt.cm.tab10(np.linspace(0, 1, len(comp_cols)))
+
+fig0, axes0 = plt.subplots(1, 5, figsize=(22, 5), sharey=True)
+for ax, age_bin in zip(axes0, AGE_BIN_LABELS):
+    sub = df[df.age_bin == age_bin]
+    meds = [sub[c].median() for c in comp_cols]
+    los = [meds[i] - sub[c].min() for i, c in enumerate(comp_cols)]
+    his = [sub[c].max() - meds[i] for i, c in enumerate(comp_cols)]
+    ax.bar(range(len(comp_cols)), meds, yerr=[los, his], color=comp_colors,
+           capsize=4, ecolor='black', error_kw=dict(elinewidth=1.2))
+    ax.set_xticks(range(len(comp_cols))); ax.set_xticklabels(comp_labels, rotation=60, ha='right', fontsize=8)
+    ax.set_title(age_bin)
+    ax.set_ylim(0, 100)
+axes0[0].set_ylabel('% of age-bin population\n(median, range across 10 draws)')
+fig0.suptitle('Equilibrium compartment composition by age -- for ABM initialization', y=1.02)
+plt.tight_layout()
+plt.savefig(FIG_DIR / 'compartment_fractions_ci.png', dpi=150, bbox_inches='tight')
+print("Saved figures/compartment_fractions_ci.png")
+
 # ---- Figure 1: IR-by-age with model spread (median/range across 10 draws) vs
 # target with Poisson CI ----
 def poisson_exact_ci(cases, pt, scale=100.0, alpha=0.05):
