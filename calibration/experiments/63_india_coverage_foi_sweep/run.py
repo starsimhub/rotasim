@@ -6,6 +6,22 @@ Runs the full grid via one multiprocessing.Pool (not the repeated-pool-
 creation pattern that caused exp58's file-descriptor bug -- this creates
 the pool exactly once for the whole grid).
 """
+import os
+# MUST be set before numpy is imported anywhere (including transitively via
+# pandas/scipy below): the vax model's ~440-state Jacobian is large enough to
+# cross OpenBLAS's internal auto-threading threshold (unlike the ~110-state
+# unvax model, which stays single-threaded and never hit this). A forked
+# multiprocessing worker that later performs its OWN first large BLAS
+# operation can deadlock initializing its per-process thread pool post-fork
+# -- a well-known threaded-BLAS + fork() gotcha. Confirmed by direct
+# reproduction on zebra: compute_vax hung indefinitely via Pool.imap_unordered
+# (even as the first and only pool usage) without this, and completed in ~3s
+# with it. Forcing single-threaded BLAS also avoids core oversubscription
+# now that the OS-level Pool already parallelizes across all cores.
+for _v in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
+           'VECLIB_MAXIMUM_THREADS', 'NUMEXPR_NUM_THREADS'):
+    os.environ[_v] = '1'
+
 import sys, pathlib, json, time
 import numpy as np, pandas as pd
 import multiprocessing as mp
