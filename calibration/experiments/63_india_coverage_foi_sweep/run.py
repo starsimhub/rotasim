@@ -63,7 +63,8 @@ def compute_unvax(args):
     p = params_from_seed(SEED_PARAMS[seed], foi_scale)
     sol = base.simulate_age(p, n_agents=40_000, years=60, n_eval=400)
     rows = base.summarize_by_age(sol, p)
-    return (seed, foi_scale), ([r['ir_all_per_100pm'] for r in rows], [r['pct_of_pop'] for r in rows])
+    ir = [r['ir_all_per_100pm'] for r in rows]; pct = [r['pct_of_pop'] for r in rows]
+    return dict(seed=seed, foi_scale=foi_scale, ir=ir, pct=pct)
 
 
 def compute_vax(args):
@@ -71,20 +72,56 @@ def compute_vax(args):
     p = params_from_seed(SEED_PARAMS[seed], foi_scale)
     sol = vax.simulate_age_vax(p, take=take, coverage3=coverage, n_agents=40_000, years=60, n_eval=400)
     ir, pct = ir_agg(vax.summarize_by_age_vax(sol, p))
-    return (seed, foi_scale, coverage, take), (ir, pct)
+    return dict(seed=seed, foi_scale=foi_scale, coverage=coverage, take=take, ir=ir, pct=pct)
+
+
+UNVAX_RAW = OUT_DIR / 'unvax_raw.jsonl'
+VAX_RAW = OUT_DIR / 'vax_raw.jsonl'
+
+
+def _load_done(path, keys):
+    if not path.exists():
+        return {}
+    out = {}
+    for line in path.open():
+        d = json.loads(line)
+        out[tuple(d[k] for k in keys)] = d
+    return out
 
 
 if __name__ == '__main__':
     unvax_tasks = [(seed, foi) for seed in SEED_PARAMS for foi in FOI_SCALES]
     vax_tasks = [(seed, foi, cov, take) for seed in SEED_PARAMS for foi in FOI_SCALES
                  for cov in COVERAGE_LEVELS for take in TAKE_VALUES]
-    print(f"Running {len(unvax_tasks)} unvax + {len(vax_tasks)} vax sims via multiprocessing.Pool "
-          f"({mp.cpu_count()} cores)...")
+
+    # resumable: skip tasks already written to the raw JSONL files (so a kill
+    # + relaunch, e.g. to move machines, doesn't lose completed work)
+    done_unvax = _load_done(UNVAX_RAW, ['seed', 'foi_scale'])
+    done_vax = _load_done(VAX_RAW, ['seed', 'foi_scale', 'coverage', 'take'])
+    unvax_todo = [t for t in unvax_tasks if t not in done_unvax]
+    vax_todo = [t for t in vax_tasks if t not in done_vax]
+    print(f"Resuming: {len(done_unvax)}/{len(unvax_tasks)} unvax and {len(done_vax)}/{len(vax_tasks)} "
+          f"vax tasks already done.")
+    print(f"Running {len(unvax_todo)} unvax + {len(vax_todo)} vax sims via multiprocessing.Pool "
+          f"({mp.cpu_count()} cores), writing incrementally...")
     t0 = time.time()
     with mp.Pool(processes=mp.cpu_count()) as pool:
-        unvax_results = dict(pool.map(compute_unvax, unvax_tasks))
-        vax_results = dict(pool.map(compute_vax, vax_tasks))
+        with UNVAX_RAW.open('a') as f:
+            for i, res in enumerate(pool.imap_unordered(compute_unvax, unvax_todo)):
+                f.write(json.dumps(res) + '\n'); f.flush()
+                if (i + 1) % 5 == 0 or i + 1 == len(unvax_todo):
+                    print(f"  unvax {i+1}/{len(unvax_todo)}  [{time.time()-t0:.0f}s]")
+        with VAX_RAW.open('a') as f:
+            for i, res in enumerate(pool.imap_unordered(compute_vax, vax_todo)):
+                f.write(json.dumps(res) + '\n'); f.flush()
+                if (i + 1) % 20 == 0 or i + 1 == len(vax_todo):
+                    print(f"  vax {i+1}/{len(vax_todo)}  [{time.time()-t0:.0f}s]")
     print(f"Done in {time.time()-t0:.0f}s")
+
+    unvax_results = {(d['seed'], d['foi_scale']): (d['ir'], d['pct'])
+                      for d in _load_done(UNVAX_RAW, ['seed', 'foi_scale']).values()}
+    vax_results = {(d['seed'], d['foi_scale'], d['coverage'], d['take']): (d['ir'], d['pct'])
+                    for d in _load_done(VAX_RAW, ['seed', 'foi_scale', 'coverage', 'take']).values()}
 
     rows_out = []
     for (seed, foi, cov, take), (ir_vax, pct_vax) in vax_results.items():
