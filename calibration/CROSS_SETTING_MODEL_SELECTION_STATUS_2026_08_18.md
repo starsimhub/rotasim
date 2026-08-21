@@ -31,61 +31,115 @@ India.
 
 ## Fitted parameters across sites
 
+**Updated 2026-08-21** to replace the original ODE-vs-ABM/HM comparison
+below with a clean ODE-vs-ODE comparison, now that Bangladesh has its own
+fast ODE fit (exp64 age_binned, exp65 infnum) using the identical method,
+code, and freed-titer convention as India's (exp58/59) — the two sites are
+now directly comparable for the first time, on both symptom structures.
+
 All models share one parameterization convention: susceptibility and
 symptom probability after the 2nd/3rd+ infection are fit as **ratios**
 relative to the previous order (`sus_after_2 = sus_after_1 × sus_r2`,
 `sus_after_3plus = sus_after_2 × sus_r3`, and identically for `p_symp`
-under infnum) — confirmed identical in the underlying code
-(`hm_calibrate.py`'s `untransform()` for Bangladesh/UK, `ode_model.py`'s
-`sigma_from_params()` for India), so the derived values below are directly
-comparable across sites.
+under infnum), confirmed identical in `ode_model.py`'s
+`sigma_from_params()` for both sites, so the derived values below are
+directly comparable.
 
-### India vs Bangladesh, both under `age_binned` (the comparison you asked about)
+**A caveat before the tables: `base_beta` is not independently
+identified, and comparing it site-to-site at face value is misleading.**
+In every one of the four site/model fits below, `log_base_beta` is
+strongly anti-correlated (r = −0.70 to −1.00 against whichever of
+`sus_r2`/`sus_r3` dominates) with the same known compensating ridge
+documented in exp58 onward: a fit that lands on a point with less
+susceptibility drop after reinfection (high `sus_r2`/`sus_r3`) needs a
+*lower* `base_beta` to reproduce the same observed incidence, and vice
+versa. Because that ridge is a near-flat plateau in the likelihood, a
+single optimization run can land on either side of it — which is exactly
+why `base_beta`'s apparent direction of difference **flips between the two
+symptom structures** for the same site pair (age_binned: India > Bangladesh;
+infnum: Bangladesh > India) even though nothing is wrong with either fit.
+The quantity that *is* well identified and directly comparable is the
+**equilibrium force of infection** (`foi_eq`, computed downstream of
+`base_beta` and the susceptibility ratios together) — it stays tight
+within each site/model despite `base_beta` swinging 2-7x across the same
+seeds, and it does **not** flip direction: Bangladesh's is consistently
+~2x higher than India's in both models, matching the sharper, earlier
+Bangladesh incidence peak. `base_beta` is kept in the tables for
+completeness, but `foi_eq` is the row to trust for a cross-site
+transmission-intensity comparison.
 
-| Parameter | **India** (ODE, exp58, median [range across 6 seeds]) | **Bangladesh** (ABM/HM, exp25, posterior median) |
+### India vs Bangladesh, `age_binned` (both ODE, exp58 vs exp64, median [range across 6 seeds])
+
+| Parameter | India (exp58) | Bangladesh (exp64) |
 |---|---|---|
-| `base_beta` | 0.233 [0.140, 0.360] | 0.153 |
-| `sus_after_1` (residual susceptibility after 1st infection) | **0.918** [0.865, 0.962] | **0.729** |
-| `sus_after_2` (derived) | 0.290 [0.008, 0.662]† | 0.382 |
-| `sus_after_3plus` (derived) | **0.023** [0.001, 0.101]† | **0.185** |
-| `maternal_efficacy` | **0.508** [0.502, 0.518] | **0.805** |
-| `maternal_titer_median` | 4.07 [4.00, 4.26]‡ | 20.0 (fixed, not fitted) |
-| `maternal_titer_half_life_days` | 25.4 [25.0, 27.8]‡ | 50.0 (fixed, not fitted) |
-| `titer_gsd` / `hill_slope` | 2.78 [1.42, 3.24] / 4.33 [2.80, 5.38] | 2.3 / 4.7 (both fixed, not fitted) |
-| `p_symp_age_<6m` | **0.177** [0.150, 0.193] | **0.484** |
-| `p_symp_age_6-11m` (the peak bin) | **0.785** [0.734, 0.814] | **0.566** |
-| `p_symp_age_12m+` | 0.261 [0.251, 0.286] | 0.313 |
+| `base_beta` (derived, see caveat above) | 0.233 [0.139, 0.360] | 0.100 [0.062, 0.206] |
+| **`foi_eq`** (derived — the trustworthy comparison) | **0.0019 [0.0018, 0.0020]** | **0.0041 [0.0040, 0.0045]** |
+| `sus_after_1` (residual susceptibility after 1st infection) | **0.918** [0.865, 0.962] | **1.000** [0.971, 1.000] |
+| `sus_after_2` (derived)† | 0.290 [0.008, 0.661] | 0.845 [0.491, 1.000] |
+| `sus_after_3plus` (derived)† | **0.023** [0.001, 0.101] | **0.273** [0.096, 0.464] |
+| `maternal_efficacy` | 0.508 [0.502, 0.518] | 0.502 [0.500, 0.530] |
+| `maternal_titer_median` (derived)‡ | 4.07 [4.00, 4.26] | 4.00 [4.00, 4.85] |
+| `titer_half_life_days`‡ | 25.4 [25.0, 27.8] | 26.7 [25.0, 30.5] |
+| `titer_gsd` / `hill_slope` | 2.78 / 4.33 | 2.87 / 5.37 |
+| `p_symp_age_<6m` | **0.177** [0.150, 0.193] | **0.328** [0.283, 0.331] |
+| `p_symp_age_6-11m` (the peak bin) | **0.785** [0.734, 0.814] | **0.999** [0.961, 1.000] |
+| `p_symp_age_12m+` | 0.261 [0.251, 0.286] | 0.457 [0.436, 0.493] |
 
-† These two rows carry exp58's ridge — the 6 seeds agree tightly on logL
-(within 0.45 units) and on `p_symp`, but scatter widely on
-`sus_after_2`/`sus_after_3plus`. Read India's range here as "not well
-constrained by this cohort's data," not as "0.29 with meaningful
-precision."
+### India vs Bangladesh, `infnum` (both ODE, exp59 vs exp65, median [range across 6 seeds])
 
-‡ Bangladesh's titer *shape* (median/half-life/gsd/hill) was held **fixed**
-at literature-informed values (`--fix-titer-shape`; only `maternal_efficacy`
-was fitted) — only India's ODE fit freed all four. India's fitted values
-also sit at or near the floor of their allowed search range
-(`titer_median` bounded ≥4, `half_life_days` bounded ≥25), so treat them as
-"the data wants this as short/weak as the search space allows," not a
-precisely pinned-down curve.
+| Parameter | India (exp59) | Bangladesh (exp65) |
+|---|---|---|
+| `base_beta` (derived, see caveat above) | 0.244 [0.166, 0.344] | 0.455 [0.084, 0.589] |
+| **`foi_eq`** (derived — the trustworthy comparison) | **0.0020 [0.0019, 0.0021]** | **0.0047 [0.0045, 0.0049]** |
+| `sus_after_1` | 0.942 [0.823, 0.968] | **1.000** [0.980, 1.000] |
+| `sus_after_2` (derived)† | 0.118 [0.015, 0.276] | 0.325 [0.254, 0.516] |
+| `sus_after_3plus` (derived)† | 0.028 [0.005, 0.076] | 0.025 [0.011, 0.326] |
+| `maternal_efficacy` | 0.505 [0.501, 0.529] | 0.531 [0.517, 0.582] |
+| `maternal_titer_median` (derived)‡ | 4.06 [4.01, 4.31] | 4.76 [4.14, 4.96] |
+| `titer_half_life_days`‡ | 25.4 [25.0, 26.6] | 26.8 [25.4, 29.0] |
+| `titer_gsd` / `hill_slope` | 2.21 / 3.41 | 2.23 / 5.52 |
+| `p_symp_order1` | 0.331 [0.302, 0.345] | 0.376 [0.345, 0.395] |
+| `p_symp_order2` | 0.379 [0.335, 0.406] | **0.790** [0.734, 0.904] |
+| `p_symp_order3plus` | 0.381 [0.111, 0.848] | 0.643 [0.391, 0.925] |
 
-**The two most interpretable, best-supported differences** (tightly
-estimated on both sides, not ridge-affected):
-1. **Maternal protection is much weaker in the India fit** (efficacy 0.51
-   vs Bangladesh's 0.81 fixed-shape fit at 0.805) — consistent with the
-   documented biology that Vellore's persistent community strain
-   (G10P[11]) is not blocked by maternal titer, a India-specific mechanism
-   this arc identified separately (see project memory on neonatal priming).
-2. **India's symptom-by-age curve is far more sharply peaked**: <6m/6-11m/12m+
-   = 0.18/0.79/0.26 (a >4x jump into the peak bin) vs Bangladesh's
-   0.48/0.57/0.31 (a much flatter profile, <6m nearly as high as the peak).
-   This is the quantitative signature of the qualitative finding driving
-   this whole arc — India has a real, sharp 6-11m incidence peak that
-   Bangladesh's data doesn't show as strongly, and it's the age-symptom
-   channel, not transmission or susceptibility, carrying that difference.
+† `sus_after_2`/`sus_after_3plus` (via `sus_r2`/`sus_r3`) carry the ridge
+described in the caveat above in all four fits — read every range here as
+"not well constrained by this cohort's data alone," not as a precisely
+estimated value. `age_binned`'s `sus_after_3plus` for Bangladesh was
+partially narrowed by a real VE anchor (exp67, using PROVIDE's trial
+data) — see that experiment's SUMMARY for the constrained version;
+`infnum` did not get the same benefit.
 
-### For context: the other selected/available models
+‡ Both sites' titer fits sit at or near the floor of their allowed search
+range (`titer_median` bounded ≥4, `half_life_days` bounded ≥25) in both
+models — "the data wants this as short/weak as the search space allows,"
+not a precisely pinned-down curve, on either side.
+
+**The most interpretable, best-supported differences** (consistent
+across both symptom structures, so less likely to be a ridge artifact of
+one particular fit):
+1. **Bangladesh's force of infection is consistently ~2x higher than
+   India's**, in both models (`foi_eq` 0.0041-0.0047 vs 0.0019-0.0020) —
+   a genuine, well-identified cross-site difference (see caveat above for
+   why `foi_eq`, not `base_beta`, is the right quantity to read this from).
+2. **`sus_after_1` saturates at its 1.0 ceiling for Bangladesh in both
+   models, while India sits meaningfully below it** (0.92 age_binned,
+   0.94 infnum) — Bangladesh's data wants zero susceptibility reduction
+   from a single prior infection; India wants a modest one. This is the
+   cleanest, most structure-independent signal in the whole comparison.
+3. **Bangladesh's symptom probability at its peak bin/order runs much
+   higher than India's in both models** (`p_symp_age_6-11m` 0.999 vs
+   0.785; `p_symp_order2` 0.790 vs 0.379) — the same mechanism exp64/65
+   documented: Bangladesh's sharper 6-11m incidence peak (~2.8x the &lt;6m
+   rate, vs India's smaller relative jump) demands more symptomatic-
+   detection pressure to reproduce, regardless of which structure carries it.
+4. **Maternal protection strength (`maternal_efficacy`) and titer shape
+   are close across both sites and both models** (efficacy ~0.50-0.53;
+   titer median/half-life near the same floor-of-bounds values) — a
+   genuine similarity, not just an artifact of shared fixed values, since
+   both sites now have this fully freed.
+
+### For context: the other selected/available models (older ABM/HM method, not the ODE tables above)
 
 | Parameter | Bangladesh infnum (exp27, ESS 107.9) | UK infnum (exp28, the selected model) |
 |---|---|---|
