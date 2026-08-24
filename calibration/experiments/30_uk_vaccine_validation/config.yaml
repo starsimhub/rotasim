@@ -1,0 +1,35 @@
+# exp30 — UK vaccine-impact forward-prediction validation (no refit to post-vaccine).
+experiment: 30_uk_vaccine_validation
+question: >
+  Does the UK pre-vaccine-calibrated infnum model forward-predict post-vaccine VE and the
+  case age-distribution shift, given a 2+4mo vaccine at observed ~90% coverage?
+
+model:
+  symptom_model: infnum
+  maternal_model: titer          # fixed titer shape (exp 28)
+  n_agents: 40000                # reduce stochastic extinction in the low-FOI UK regime
+  cap_age_m: 60.0                # <5y observation window
+  surveillance_window_years: [5.0, 10.0]
+
+ensemble:
+  source_run: 28_hm_uk_infnum/outputs/hm/uk_infnum_titer_fixedshape
+  selection: top-K by multinomial logL on the pre-vaccine UK target
+  n_topk: 40
+  min_novax_cases: 300           # drop near-extinct draws (unreliable shape)
+
+vaccine:
+  doses_age_months: [2, 4]
+  coverage: 0.90                 # UK COVER ~90%, stable 2015-2019
+  moa: infection_blocking        # advances infection-number counter per responding dose
+  per_dose_take: [0.63, 0.90]    # seroconversion band; 0.9 ≈ HIC, 0.6 ≈ LMIC
+
+ve_definitions:
+  total: 1 - vax_cases / novax_cases (population, direct + herd)
+  direct: 1 - IRR(2-dose vs 0-dose), ages >= last dose age (4mo)  # test-negative analog
+
+validation_targets:
+  uk_post_vaccine: UK_age_byEra.xlsx PostVaccine 2015-2019 (vaccine-derived strains excluded)
+  uk_test_negative_ve: 0.77      # PMC6668223, 2-dose, lab-confirmed rotavirus
+  india_surveillance_ve: 0.524   # all-states, 6-11mo, population/total effect (read-across)
+
+run: PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python HM_WORKERS=110 python uk_vaccine_predict_run.py

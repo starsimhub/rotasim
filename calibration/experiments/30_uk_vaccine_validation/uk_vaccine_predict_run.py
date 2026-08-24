@@ -59,7 +59,11 @@ def _run(args):
     if vaccine:
         sc['vaccine'] = vaccine
     mo = cm._run_one_replicate((sc, sp, int(seed), (5.0, 10.0)))
-    return dict(prop=mo['case_proportions'], total=mo['total_cases'])
+    r = dict(prop=mo['case_proportions'], total=mo['total_cases'])
+    for k in ('cases_vax', 'cases_unvax', 'py_vax', 'py_unvax'):   # direct-VE split (vax sims only)
+        if k in mo:
+            r[k] = mo[k]
+    return r
 
 
 def _agg(P):
@@ -86,11 +90,33 @@ def main():
     healthy = [i for i in range(len(draws)) if by.get((i, 'novax', None), {}).get('total', 0) >= MIN_NOVAX_CASES]
     out = {'n_topk': len(draws), 'n_healthy': len(healthy),
            'novax': _agg([by[(i, 'novax', None)]['prop'] for i in healthy])}
+    def ve_group(e, lo, hi):   # per-draw achieved VE over age bins [lo:hi) = 1 - vax_cases/novax_cases
+        out_ve = []
+        for i in healthy:
+            nv = by[(i, 'novax', None)]; vx = by[(i, 'vax', e)]
+            nc = nv['total'] * sum(nv['prop'][lo:hi]); vc = vx['total'] * sum(vx['prop'][lo:hi])
+            if nc > 0:
+                out_ve.append(1 - vc / nc)
+        return out_ve
+    q3 = lambda a: (float(np.median(a)), float(np.quantile(a, .1)), float(np.quantile(a, .9))) if a else (float('nan'),)*3
+    def direct_ve(e, lo, hi):  # POOLED test-negative-analog VE = 1 - IRR(vax/unvax), counts pooled over draws
+        cv = cu = pv = pu = 0.0
+        for i in healthy:
+            vx = by[(i, 'vax', e)]
+            if 'cases_vax' not in vx:
+                continue
+            cv += sum(vx['cases_vax'][lo:hi]); cu += sum(vx['cases_unvax'][lo:hi])
+            pv += sum(vx['py_vax'][lo:hi]);    pu += sum(vx['py_unvax'][lo:hi])
+        ve = (1 - (cv / pv) / (cu / pu)) if (pv > 0 and pu > 0 and cu > 0) else float('nan')
+        return dict(ve=float(ve), cases_vax=cv, cases_unvax=cu, py_vax=pv, py_unvax=pu)
     for e in EFF:
         out[f'vax_{e}'] = _agg([by[(i, 'vax', e)]['prop'] for i in healthy])
         if healthy:
-            ve = [1 - by[(i, 'vax', e)]['total'] / by[(i, 'novax', None)]['total'] for i in healthy]
-            out[f'vax_{e}'].update(ve_med=float(np.median(ve)), ve_lo=float(np.quantile(ve, .1)), ve_hi=float(np.quantile(ve, .9)))
+            for tag, (lo, hi) in {'ve': (0, 6), 've12': (0, 2), 've12_59': (2, 6)}.items():  # overall / <12mo / 12-59mo
+                m, l, h = q3(ve_group(e, lo, hi))
+                out[f'vax_{e}'].update(**{f'{tag}_med': m, f'{tag}_lo': l, f'{tag}_hi': h})
+            for tag, (lo, hi) in {'direct': (0, 6), 'direct12': (0, 2), 'direct12_59': (2, 6)}.items():
+                out[f'vax_{e}'][tag] = direct_ve(e, lo, hi)   # restricted to ages >= last dose (4mo)
     out['observed_pre'] = PU.load_targets_uk_era('pre', CAP)['proportions'].tolist()
     out['observed_post'] = PU.load_targets_uk_era('post', CAP)['proportions'].tolist()
     out['bin_labels'] = PU.load_targets_uk_era('pre', CAP)['bin_labels']
@@ -102,7 +128,10 @@ def main():
     print(f"<12mo:  observed pre {f12(out['observed_pre'])} -> post {f12(out['observed_post'])};  model no-vax {f12(out['novax']['prop_med'])}")
     for e in EFF:
         v = out[f'vax_{e}']
-        print(f"  vax eff={e}: <12mo {f12(v['prop_med'])} [{f12(v['prop_lo'])},{f12(v['prop_hi'])}]  VE {v.get('ve_med', float('nan')):.2f}")
+        d12 = v.get('direct12', {}); d = v.get('direct', {})
+        print(f"  vax eff={e}: <12mo case-frac {f12(v['prop_med'])}  |  TOTAL VE: overall {v.get('ve_med', float('nan')):.2f} <12mo {v.get('ve12_med', float('nan')):.2f}"
+              f"  |  DIRECT VE (>=4mo): overall {d.get('ve', float('nan')):.2f} <12mo {d12.get('ve', float('nan')):.2f}"
+              f"  (unvax cases<12mo={d12.get('cases_unvax', 0):.0f})")
     print("wrote outputs/uk_vaccine_predict.json")
 
 
