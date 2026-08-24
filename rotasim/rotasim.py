@@ -5,6 +5,7 @@ Provides an easy-to-use interface for researchers while maintaining flexibility
 """
 
 # Third-party imports
+import sciris as sc
 import starsim as ss
 
 # Local imports
@@ -51,7 +52,7 @@ class Sim(ss.Sim):
     def __init__(
         self,
         scenario="baseline",
-        base_beta=0.1,
+        base_beta=0.16,  # Matches working value from tests/simple.py for endemic circulation
         override_fitness=None,
         override_prevalence=None,
         override_strains=None,
@@ -290,44 +291,31 @@ class Sim(ss.Sim):
 
         for G, P in gp_combinations:
             strain_key = (G, P)
-
+            strain_data = scenario["defaults"]
             # Get strain data from scenario (if it exists) or use defaults
+
             if strain_key in scenario["strains"]:
-                strain_data = scenario["strains"][strain_key]
-                strain_fitness = strain_data["fitness"]
-                strain_prevalence = strain_data["prevalence"]
-            else:
-                # Dormant reassortant - use default fitness and zero prevalence
-                strain_fitness = scenario.get("default_fitness", 1.0)
-                strain_prevalence = 0.0
+                strain_data = sc.mergedicts( strain_data, scenario["strains"][strain_key])
+            # else:
+            #     # Dormant reassortant - use default fitness and zero prevalence
+            #     strain_data = {
+            #         "fitness": scenario.get("default_fitness", 1.0),
+            #         "prevalence": 0.0
+            #     }
+                # strain_fitness = scenario.get("default_fitness", 1.0)
+                # strain_prevalence = 0.0
 
             # Apply fitness multiplier to base beta
-            adjusted_beta = base_beta * strain_fitness
+            # adjusted_beta = base_beta * strain_fitness
+            strain_data["beta"] = base_beta * strain_data["fitness"]
 
             # Create disease instance with proper Starsim parameter format
             disease = Rotavirus(
                 G=G,
                 P=P,
-                init_prev=ss.bernoulli(p=strain_prevalence),
-                beta=ss.perday(adjusted_beta),
-                dur_inf=ss.lognorm_ex(mean=4),
+                **strain_data
             )
             diseases.append(disease)
-
-            if strain_prevalence > 0:
-                active_count += 1
-                # Individual strain details (debug verbose)
-                if verbose > 1:
-                    print(
-                        f"    {disease.name}: beta={adjusted_beta:.3f} (x{strain_fitness:.2f}), prevalence={strain_prevalence} [ACTIVE]"
-                    )
-            else:
-                dormant_count += 1
-
-        # Summary (basic verbose)
-        if verbose:
-            print(f"  Created {active_count} active strains and {dormant_count} dormant reassortants")
-
         return diseases
 
     def get_connector_by_type(self, connector_type, warn_if_multiple=True):

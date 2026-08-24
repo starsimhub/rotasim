@@ -119,11 +119,6 @@ class RotaVaccination(ss.Intervention):
         if dose_interval is None:
             self.pars.dose_interval = ss.days(28)  # 4 weeks between doses
 
-        # Bare numbers are in days
-        for key in ["dose_interval", "waning_delay"]:
-            if not isinstance(self.pars[key], ss.dur):
-                self.pars[key] = ss.days(self.pars[key])
-
         if dose_effectiveness is None:
             if n_doses == 1:
                 self.pars.dose_effectiveness = [0.7]
@@ -275,7 +270,7 @@ class RotaVaccination(ss.Intervention):
             still_need_doses = self.doses_eligible[eligible_uids] < self.pars.n_doses
             self.next_dose_due[eligible_uids] = np.where(
                 still_need_doses,
-                self.ti + self.pars.dose_interval.days / self.dt.days,  # next_dose_due is in timesteps
+                self.ti + self.pars.dose_interval,
                 self.next_dose_due[eligible_uids],  # Keep existing value if no more doses needed
             )
 
@@ -371,7 +366,7 @@ class RotaVaccination(ss.Intervention):
         # Sample waning times for each agent
         if hasattr(self.pars.waning_rate_dist, "rvs"):
             self.waning_rate[uids] = 1.0 / self.pars.waning_rate_dist.rvs(uids)
-        self.waning_delay[uids] = self.pars.waning_delay.days
+        self.waning_delay[uids] = self.pars.waning_delay
 
         if self.pars.verbose:
             covered_strains = [(d.G, d.P) for d in self.covered_diseases]
@@ -389,20 +384,24 @@ class RotaVaccination(ss.Intervention):
         if len(self.covered_diseases) == 0:
             return
 
-        # Only apply to agents who have received at least one dose
-        uids = (self.doses_received > 0).uids
-        if len(uids) == 0:
+            # Only apply to agents who have received at least one dose
+        vaccinated_mask = self.doses_received > 0
+        if not np.any(vaccinated_mask):
             return  # No one is vaccinated yet
 
         # Calculate time since last dose for vaccinated agents
-        days_since_vaccination = np.maximum(0, (self.ti - self.last_dose_ti[uids]) * self.dt.days)
-        days_since_waning = np.maximum(0, days_since_vaccination - self.waning_delay[uids])
 
-        waned_effectiveness_factor = np.exp(-self.waning_rate[uids] * days_since_waning)
-        dose_effectiveness = np.array(self.pars.dose_effectiveness)[self.doses_received[uids] - 1]
+        days_since_vaccination = np.maximum(0, (self.ti - self.last_dose_ti) * self.dt.days)
+        days_since_waning = np.maximum(0, days_since_vaccination - self.waning_delay)
+
+        waned_effectiveness_factor = np.exp(-self.waning_rate * days_since_waning)
 
         # Update waned protection for each covered disease
         for disease in self.covered_diseases:
+            dose_effectiveness = np.zeros_like(waned_effectiveness_factor)
+            dose_effectiveness[vaccinated_mask] = np.array(self.pars.dose_effectiveness)[
+                self.doses_received[vaccinated_mask] - 1
+            ]
             vx_eff = waned_effectiveness_factor * dose_effectiveness * self.disease_match_efficacies[disease.name]
 
             # Apply to disease rel_sus if vaccine protection is better
@@ -410,7 +409,9 @@ class RotaVaccination(ss.Intervention):
             vx_sus = 1.0 - vx_eff
 
             # Use the minimum susceptibility (most protective)
-            disease.rel_sus[uids] = np.minimum(disease.rel_sus[uids], vx_sus)
+            current_sus = disease.rel_sus[:]
+            new_sus = np.minimum(current_sus, vx_sus)
+            disease.rel_sus[:] = new_sus
 
     def get_vaccination_summary(self):
         """Get summary of vaccination program status"""
@@ -464,3 +465,80 @@ class RotaVaccination(ss.Intervention):
 
 # Legacy alias for backward compatibility
 RotaVax = RotaVaccination
+
+#
+# class InitializeChildImmunity(ss.Intervention):
+#     """
+#     Initialize young children with prior infection history at simulation start.
+#
+#     This intervention sets the infection count for children under a specified age
+#     to reflect realistic pre-existing immunity. This is important for calibration
+#     because it ensures young children start with some infection history, which
+#     affects severity-based reporting rates.
+#
+#     Args:
+#         max_age_years (float): Maximum age in years for initialization (default: 3.0 = 36 months)
+#         min_infections (int): Minimum number of prior infections to assign (default: 1)
+#         max_infections (int): Maximum number of prior infections to assign (default: 1)
+#         verbose (bool): Print initialization details (default: False)
+#
+#     Examples:
+#         # Initialize all children <36 months with 1 prior infection
+#         init_immunity = InitializeChildImmunity(max_age_years=3.0, min_infections=1)
+#
+#         # Initialize all children <24 months with 1-2 prior infections
+#         init_immunity = InitializeChildImmunity(
+#             max_age_years=2.0,
+#             min_infections=1,
+#             max_infections=2
+#         )
+#     """
+#
+#     def __init__(self, max_age_years=3.0, min_infections=1, max_infections=1, verbose=False, **kwargs):
+#         super().__init__(**kwargs)
+#         self.max_age_years = max_age_years
+#         self.min_infections = min_infections
+#         self.max_infections = max_infections
+#         self.verbose = verbose
+#         self.n_infections_dist = ss.randint(self.min_infections, self.max_infections+1)
+#
+#     def step(self):
+#         """Initialize infection counts for young children at t=0"""
+#         sim = self.sim
+#         # Only run once at initialization
+#         if sim.ti != 0:
+#             return
+#
+#         # Get all Rotavirus disease instances
+#         rota_diseases = [d for d in sim.diseases.values() if isinstance(d, Rotavirus)]
+#
+#         if len(rota_diseases) == 0:
+#             if self.verbose:
+#                 print("InitializeChildImmunity: No Rotavirus diseases found, skipping")
+#             return
+#
+#         # Find children under max_age_years
+#         child_uids = (sim.people.age < self.max_age_years).uids
+#
+#         if len(child_uids) == 0:
+#             if self.verbose:
+#                 print(f"InitializeChildImmunity: No children <{self.max_age_years} years found")
+#             return
+#
+#         # Set infection counts for each child
+#         # For simplicity, use the first disease's n_infections state
+#         # (all diseases share the same n_infections counter per person)
+#         # todo: the above isn't true. each disease has its own n_infections counter, but leaving for now
+#         disease = rota_diseases[0]
+#         disease.n_infections[child_uids] = self.n_infections_dist.rvs(child_uids)
+#
+#         # Report what was done
+#         if self.verbose:
+#             print(f"\nInitializeChildImmunity:")
+#             print(f"  Initialized {len(child_uids)} children <{self.max_age_years} years")
+#             print(f"  Prior infections: {self.min_infections}-{self.max_infections}")
+#             if self.min_infections == self.max_infections:
+#                 print(f"  All children assigned {self.min_infections} prior infection(s)")
+#             else:
+#                 mean_prior = disease.n_infections[child_uids].mean()
+#                 print(f"  Mean prior infections: {mean_prior:.2f}")

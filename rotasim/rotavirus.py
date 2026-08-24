@@ -5,6 +5,7 @@ Individual strain-specific disease instances following traditional Starsim patte
 
 # Third-party imports
 import starsim as ss
+import numpy as np
 
 
 class Rotavirus(ss.Infection):
@@ -42,17 +43,24 @@ class Rotavirus(ss.Infection):
         super().__init__()
 
         self.define_pars(
-            init_prev=ss.bernoulli(p=0.01),  # Initial prevalence
-            beta=ss.perday(0.1),  # Transmission rate (will be modified by fitness)
-            dur_inf=ss.lognorm_ex(mean=7, unit="days"),  # Duration of infection (~7 days)
+            init_age_dist= [(0, 100, 1),],  # Age distribution for initial infections
+            init_prevalence = 0.04, # Overall initial prevalence across all ages
+            init_prev=ss.bernoulli(p=self._init_prevalence_by_age),  # Initial prevalence dist (_init_prevalence_by_age uses init_age_dist and init_prevalence to set age-specific rates)
+            beta=ss.perday(0.16),  # Transmission rate per day (matches working value from tests/simple.py for endemic circulation)
+            dur_inf=ss.lognorm_ex(mean=13, unit="days"),  # Duration of infection (~13 days total including symptomatic + asymptomatic)
+            dur_asymptomatic=ss.constant(8, unit="days"),  # Duration of asymptomatic phase (8 days)
+            asymptomatic_shedding_rate=0.1,  # Shedding rate during asymptomatic phase (10% of normal = 90% reduction)
             waning_rate_dist=ss.normal(
-                loc=180, scale=10, unit="days"
-            ),  # Duration of waning immunity (180 days mean for normal)
+                loc=91, scale=14, unit="days"
+            ),  # Duration of temporary immunity (13 weeks = 91 days mean, 2 weeks SD)
             waning_delay=ss.days(0),
+            fitness=1,
         )
 
         # Define additional disease states (base ss.Infection already provides susceptible, infected, rel_sus, rel_trans, ti_infected)
         self.define_states(
+            ss.BoolState("asymptomatic", label="Asymptomatic"),
+            ss.FloatArr("ti_asymptomatic", label="Time of asymptomatic phase start"),
             ss.BoolState("recovered", label="Recovered"),
             ss.FloatArr("ti_recovered", label="Time of recovery"),
             # ss.FloatArr('ti_waned', label='Time of waned immunity'),
@@ -61,10 +69,23 @@ class Rotavirus(ss.Infection):
                 default=0.0,
                 label="Individual decay rate for immunity waning",
             ),
+            ss.FloatArr("waned_immunity_efficacy", default=0.0, label="Individual immunity efficacy"),
             ss.FloatArr("n_infections", default=0, label="Total number of infections"),
         )
 
         self.update_pars(pars=pars, **kwargs)
+
+    def _init_prevalence_by_age(self, sim, uids):
+        p = np.zeros(len(uids))
+        total_pop = len(uids)
+        n_infections_expected = int(total_pop * self.pars.init_prevalence)
+        for age_min, age_max, percent in self.pars.init_age_dist:
+            age_group_members = ((sim.people.age >= age_min) & (sim.people.age < age_max)).uids
+            age_group_pop = len(age_group_members)
+            n_infections_in_age_group = percent * n_infections_expected
+            p[age_group_members] = n_infections_in_age_group / age_group_pop
+            print(f" ({age_min}-{age_max}): percent of infections: {percent} / total infections: {n_infections_in_age_group} / age group size: {age_group_pop} / prob per agent in age group: {n_infections_in_age_group/age_group_pop}")
+        return p
 
     def init_results(self):
         super().init_results()
@@ -76,6 +97,16 @@ class Rotavirus(ss.Infection):
                 scale=True,
             )
         )
+
+    def init_post(self):
+        """
+        Called after initialization to handle initial prevalence
+
+        This ensures that agents seeded with initial prevalence have their
+        n_infections counter properly incremented, since they bypass set_prognoses.
+        """
+        super().init_post()
+
 
     def set_prognoses(self, uids, sources=None):
         """
@@ -97,6 +128,7 @@ class Rotavirus(ss.Infection):
         # Update agent states: susceptible → infected
         self.susceptible[uids] = False
         self.infected[uids] = True
+        self.asymptomatic[uids] = False
         self.recovered[uids] = False
         self.ti_infected[uids] = ti
 
@@ -104,14 +136,25 @@ class Rotavirus(ss.Infection):
         self.n_infections[uids] += 1
 
         # Sample duration of infection for each agent
-        # dur_inf is typically ss.lognorm_ex(mean=7) for ~7 days
+        # dur_inf is total duration (symptomatic + asymptomatic)
         dur_inf = self.pars.dur_inf.rvs(uids)
 
-        # Set recovery time: current time + infection duration
+        # Duration of asymptomatic phase (fixed at 8 days)
+        dur_asymptomatic = self.pars.dur_asymptomatic.rvs(uids)
+
+        # Calculate when asymptomatic phase starts
+        # Symptomatic duration = total duration - asymptomatic duration
+        dur_symptomatic = np.maximum(dur_inf - dur_asymptomatic, 0)  # Ensure non-negative
+        self.ti_asymptomatic[uids] = ti + dur_symptomatic
+
+        # Set recovery time: current time + total infection duration
         self.ti_recovered[uids] = ti + dur_inf
         immunity_connector = self.sim.get_connector_by_type("RotaImmunityConnector")
         if immunity_connector:
             immunity_connector.record_infection(self, uids)
+
+        # Update transmission rates for newly infected agents
+        self.update_transmission()
 
         return
 
@@ -120,12 +163,23 @@ class Rotavirus(ss.Infection):
         Update disease states each timestep
 
         This method handles state transitions:
-        - infected → recovered (when ti_recovered is reached)
+        - infected → asymptomatic (when ti_asymptomatic is reached)
+        - asymptomatic → recovered (when ti_recovered is reached)
+
+        Note: Initial infections are tracked in init_post, not here
         """
-        # Progress infected -> recovered (following SIR example pattern)
+        # Progress infected -> asymptomatic
         sim = self.sim
-        recovering = (self.infected & (self.ti_recovered <= self.ti)).uids
+        ti = self.ti
+
+        # Transition infected → asymptomatic (symptomatic phase ends)
+        becoming_asymptomatic = (self.infected & ~self.asymptomatic & (ti >= self.ti_asymptomatic)).uids
+        self.asymptomatic[becoming_asymptomatic] = True
+
+        # Transition asymptomatic → recovered (infection ends)
+        recovering = (self.asymptomatic & (ti >= self.ti_recovered)).uids
         self.infected[recovering] = False
+        self.asymptomatic[recovering] = False
         self.recovered[recovering] = True
         self.susceptible[recovering] = (
             True  # When recovered, become susceptible again (SIRS), but with modified susceptibility via connector
@@ -135,11 +189,57 @@ class Rotavirus(ss.Infection):
         # Store individual decay rates: 1/duration for exponential decay
         self.waning_rate[recovering] = 1.0 / waning_rate_denoms
 
+        recovered_uids = ((self.infected == False) & (self.n_infections > 0)).uids
+
+        days_since_recovery = (self.ti - self.ti_recovered[recovered_uids]) * self.dt.days
+        waning_started = days_since_recovery > self.pars.waning_delay.days
+        waning_started_uids = recovered_uids[waning_started]
+        waning_not_started_uids = recovered_uids[~waning_started]
+        infected_uids = self.infected.uids
+
+        # Calculate decay factor for agents past the delay period
+        decay_time = days_since_recovery[waning_started] - self.pars.waning_delay.days
+        # Use pre-computed decay rates stored when agents recovered
+        decay_rate = self.waning_rate[waning_started_uids]
+        decay_factor = np.exp(
+            -decay_rate * decay_time
+        )  # decay_rate (1/days) * decay_time (days) = dimensionless
+
+        self.waned_immunity_efficacy[waning_started_uids] = decay_factor
+        self.waned_immunity_efficacy[infected_uids] = 1
+        self.waned_immunity_efficacy[waning_not_started_uids] = 1
+
+
+
         self.results["new_recovered"][self.ti] = len(recovering)
 
         immunity_connector = self.sim.get_connector_by_type("RotaImmunityConnector")
         if immunity_connector:
             immunity_connector.record_recovery(self, recovering)
+
+        # Update transmission rates based on disease state
+        self.update_transmission()
+
+        return
+
+    def update_transmission(self):
+        """
+        Update relative transmission (rel_trans) based on disease state
+
+        - Symptomatic infected agents: rel_trans = 1.0 (full transmission)
+        - Asymptomatic agents: rel_trans = asymptomatic_shedding_rate (reduced transmission)
+        - All other states: rel_trans = 0.0 (no transmission)
+        """
+        # Reset all to 0
+        self.rel_trans[:] = 0.0
+
+        # Symptomatic infected (infected but not yet asymptomatic): full transmission
+        symptomatic = (self.infected & ~self.asymptomatic).uids
+        self.rel_trans[symptomatic] = 1.0
+
+        # Asymptomatic: reduced transmission (10% = 90% reduction)
+        asymptomatic_uids = (self.infected & self.asymptomatic).uids
+        self.rel_trans[asymptomatic_uids] = self.pars.asymptomatic_shedding_rate
 
         return
 

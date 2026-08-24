@@ -10,7 +10,7 @@ with sc.timer():
         scenario="high_diversity",  # see utils.py for unified scenarios
         override_prevalence=0.002,  # percent of population initially infected with each strain
         start="2000-01-01",  # simulation start date
-        stop="2003-06-01",  # simulation end date
+        stop="2001-06-01",  # simulation end date
         dt=ss.days(1),  # timestep size
         analyzers=[rs.EventStats(), rs.StrainStats()],  # analyzers to collect data
         networks=ss.RandomNet(  # contact network

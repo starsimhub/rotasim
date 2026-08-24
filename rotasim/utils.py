@@ -5,80 +5,113 @@ Provides convenient functions for generating strain combinations and fitness sce
 
 # Standard library imports
 import itertools
+import starsim as ss
+import sciris as sc
+
+
+DEFAULT_INITIAL_INFECTION_AGE_DIST = [
+    (0, 1, 0.138),  # <1 year: 13.8% of infections
+    (1, 2, 0.277),  # 1-2 years: 27.7% of infections
+    (2, 5, 0.469),  # 2-5 years: 46.9% of infections
+    (5, 200, 0.116),  # ≥5 years: 11.6% of infections
+]
+
+SCENARIO_DEFAULTS = {
+            "fitness": 1.0,
+            "init_prevalence": 0.0,
+            "init_age_dist": DEFAULT_INITIAL_INFECTION_AGE_DIST,
+            "dur_inf": ss.lognorm_ex(mean=13),
+            "waning_delay": ss.days(0),
+            "waning_rate_dist": ss.normal(loc=91, scale=14, unit="days"),
+        }
 
 # Unified scenario system - contains strains, fitness, and prevalence all in one place
 SCENARIOS = {
     "simple": {
         "description": "Simple two-strain scenario - G1P8 and G2P4 with equal fitness and prevalence",
         "strains": {
-            (1, 8): {"fitness": 1.0, "prevalence": 0.01},
-            (2, 4): {"fitness": 1.0, "prevalence": 0.01},
+            (1, 8): {
+                "init_prevalence": 0.03,
+            },
+            (2, 4): {
+                "init_prevalence": 0.01
+            },
         },
-        "default_fitness": 1.0,
+        "defaults": SCENARIO_DEFAULTS,
+    },
+    "single": {
+        "description": "Simple strain scenario for debugging - G1P8",
+        "strains": {
+            (1, 8): {
+                "fitness": 1.0,
+                "init_prevalence": 0.04,
+            },
+        },
+        "defaults": SCENARIO_DEFAULTS,
     },
     "baseline": {
         "description": "Baseline scenario - common global strains with equal fitness",
         "strains": {
-            (1, 8): {"fitness": 1.0, "prevalence": 0.015},
-            (2, 4): {"fitness": 1.0, "prevalence": 0.008},
-            (3, 8): {"fitness": 1.0, "prevalence": 0.007},
+            (1, 8): {"fitness": 1.0, "init_prev": 0.015},
+            (2, 4): {"fitness": 1.0, "init_prev": 0.008},
+            (3, 8): {"fitness": 1.0, "init_prev": 0.007},
         },
         "default_fitness": 1.0,
     },
     "realistic_competition": {
         "description": "G1P8 dominant with realistic strain competition",
         "strains": {
-            (1, 8): {"fitness": 1.0, "prevalence": 0.015},
-            (2, 4): {"fitness": 0.2, "prevalence": 0.008},
-            (3, 8): {"fitness": 0.4, "prevalence": 0.007},
-            (4, 8): {"fitness": 0.5, "prevalence": 0.005},
+            (1, 8): {"fitness": 1.0, "init_prev": 0.015},
+            (2, 4): {"fitness": 0.2, "init_prev": 0.008},
+            (3, 8): {"fitness": 0.4, "init_prev": 0.007},
+            (4, 8): {"fitness": 0.5, "init_prev": 0.005},
         },
         "default_fitness": 0.05,
     },
     "balanced_competition": {
         "description": "G1P8 dominant with moderate balanced competition",
         "strains": {
-            (1, 8): {"fitness": 1.0, "prevalence": 0.015},
-            (2, 4): {"fitness": 0.6, "prevalence": 0.008},
-            (3, 8): {"fitness": 0.9, "prevalence": 0.007},
-            (4, 8): {"fitness": 0.9, "prevalence": 0.005},
+            (1, 8): {"fitness": 1.0, "init_prev": 0.015},
+            (2, 4): {"fitness": 0.6, "init_prev": 0.008},
+            (3, 8): {"fitness": 0.9, "init_prev": 0.007},
+            (4, 8): {"fitness": 0.9, "init_prev": 0.005},
         },
         "default_fitness": 0.2,
     },
     "high_diversity": {
         "description": "High diversity with 12 strains and varied fitness",
         "strains": {
-            (1, 8): {"fitness": 1.0, "prevalence": 0.012},
-            (2, 4): {"fitness": 0.7, "prevalence": 0.007},
-            (3, 8): {"fitness": 0.85, "prevalence": 0.005},
-            (4, 8): {"fitness": 0.88, "prevalence": 0.004},
-            (9, 8): {"fitness": 0.95, "prevalence": 0.003},
-            (12, 8): {"fitness": 0.93, "prevalence": 0.003},
-            (9, 6): {"fitness": 0.85, "prevalence": 0.002},
-            (12, 6): {"fitness": 0.90, "prevalence": 0.002},
-            (9, 4): {"fitness": 0.90, "prevalence": 0.002},
-            (1, 6): {"fitness": 0.6, "prevalence": 0.002},
-            (2, 8): {"fitness": 0.6, "prevalence": 0.002},
-            (2, 6): {"fitness": 0.6, "prevalence": 0.002},
+            (1, 8): {"fitness": 1.0, "init_prev": 0.012},
+            (2, 4): {"fitness": 0.7, "init_prev": 0.007},
+            (3, 8): {"fitness": 0.85, "init_prev": 0.005},
+            (4, 8): {"fitness": 0.88, "init_prev": 0.004},
+            (9, 8): {"fitness": 0.95, "init_prev": 0.003},
+            (12, 8): {"fitness": 0.93, "init_prev": 0.003},
+            (9, 6): {"fitness": 0.85, "init_prev": 0.002},
+            (12, 6): {"fitness": 0.90, "init_prev": 0.002},
+            (9, 4): {"fitness": 0.90, "init_prev": 0.002},
+            (1, 6): {"fitness": 0.6, "init_prev": 0.002},
+            (2, 8): {"fitness": 0.6, "init_prev": 0.002},
+            (2, 6): {"fitness": 0.6, "init_prev": 0.002},
         },
         "default_fitness": 0.4,
     },
     "low_diversity": {
         "description": "Low diversity with 4 main competitive strains",
         "strains": {
-            (1, 8): {"fitness": 0.98, "prevalence": 0.020},
-            (2, 4): {"fitness": 0.7, "prevalence": 0.012},
-            (3, 8): {"fitness": 0.8, "prevalence": 0.008},
-            (4, 8): {"fitness": 0.8, "prevalence": 0.005},
+            (1, 8): {"fitness": 0.98, "init_prev": 0.020},
+            (2, 4): {"fitness": 0.7, "init_prev": 0.012},
+            (3, 8): {"fitness": 0.8, "init_prev": 0.008},
+            (4, 8): {"fitness": 0.8, "init_prev": 0.005},
         },
         "default_fitness": 0.5,
     },
     "emergence_scenario": {
         "description": "Scenario for studying strain emergence with weak background",
         "strains": {
-            (1, 8): {"fitness": 1.0, "prevalence": 0.015},
-            (2, 4): {"fitness": 0.4, "prevalence": 0.005},
-            (3, 8): {"fitness": 0.7, "prevalence": 0.003},
+            (1, 8): {"fitness": 1.0, "init_prev": 0.015},
+            (2, 4): {"fitness": 0.4, "init_prev": 0.005},
+            (3, 8): {"fitness": 0.7, "init_prev": 0.003},
         },
         "default_fitness": 0.05,  # Very low fitness for new emerging strains
     },
@@ -222,7 +255,7 @@ def apply_scenario_overrides(scenario, override_fitness=None, override_prevalenc
     Args:
         scenario: Base scenario dict
         override_fitness: Override fitness values - float (all strains) or dict {(G,P): fitness}
-        override_prevalence: Override prevalence values - float (all strains) or dict {(G,P): prevalence}
+        override_prevalence: Override prevalence values - float (all strains), callable (all strains), ss.Dist (all strains), or dict {(G,P): prevalence} (per-strain)
         override_strains: Add/modify strains - dict {(G,P): {'fitness': X, 'prevalence': Y}}
 
     Returns:
@@ -241,8 +274,8 @@ def apply_scenario_overrides(scenario, override_fitness=None, override_prevalenc
                 raise ValueError(f"Strain key must be (G,P) tuple, got {strain}")
             if not isinstance(data, dict):
                 raise ValueError(f"Strain data must be dict, got {type(data)}")
-            if "fitness" not in data or "prevalence" not in data:
-                raise ValueError(f"Strain data must contain 'fitness' and 'prevalence' for {strain}")
+            if "fitness" not in data or "init_prev" not in data:
+                raise ValueError(f"Strain data must contain 'fitness' and 'init_prev' for {strain}")
             result["strains"][strain] = data.copy()
 
     # Apply fitness overrides
@@ -261,16 +294,34 @@ def apply_scenario_overrides(scenario, override_fitness=None, override_prevalenc
 
     # Apply prevalence overrides
     if override_prevalence is not None:
-        if isinstance(override_prevalence, (int, float)):
+
+        # if prevalence is an int, convert it to float
+        if isinstance(override_prevalence, int):
+            override_prevalence = float(override_prevalence)
+
+        # if prevalence is a float or callable, assign it to all strains directly
+        if isinstance(override_prevalence, float) or callable(override_prevalence):
             # Apply to all strains
             for strain in result["strains"]:
-                result["strains"][strain]["prevalence"] = float(override_prevalence)
+                result["strains"][strain]["init_prev"] = override_prevalence
+        elif isinstance(override_prevalence, ss.Dist):
+            for strain in result["strains"]:
+                result["strains"][strain]["init_prev"] = sc.dcp(override_prevalence) # each strain needs its own copy of the dist
+
+        # if prevalence is a dict, it can contain ints, floats, dists, or callables
         elif isinstance(override_prevalence, dict):
             # Apply to specific strains
             for strain, prevalence in override_prevalence.items():
                 if strain in result["strains"]:
-                    result["strains"][strain]["prevalence"] = float(prevalence)
+                    if isinstance(prevalence, float) or callable(prevalence):
+                        result["strains"][strain]["init_prev"] = prevalence
+                    elif isinstance(prevalence, int):
+                        result["strains"][strain]["init_prev"] = float(prevalence)
+                    elif isinstance(prevalence, ss.Dist):
+                        result["strains"][strain]["init_prev"] = prevalence
+                    else:
+                        raise ValueError(f"Prevalence in dict must be float, int, or callable, got {type(prevalence)}")
         else:
-            raise ValueError("override_prevalence must be number or dict")
+            raise ValueError("override_prevalence must be number, callable, or dict of numbers or callables")
 
     return result
