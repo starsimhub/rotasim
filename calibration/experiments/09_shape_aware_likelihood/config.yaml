@@ -1,0 +1,24 @@
+# Exp 09 — re-calibrate BOTH models under the per-bin Poisson (shape-aware) likelihood.
+# Driver: calibrate_maled.py --fit-target poisson. run.py loads both _poisson studies.
+site: bangladesh
+fit_target: poisson              # per-bin Poisson deviance (incidence) + first-inf
+shape_weight: none               # pure per-bin Poisson, no multinomial up-weight (fallback if needed)
+w_first: 1.0                     # first-inf kept as a light term; incidence-dominated (see SUMMARY)
+maternal_n_stages: 6
+n_trials: 40
+n_reps: 20
+n_jobs: 1
+n_agents: 100000
+demographics: bangladesh
+mixing: homogeneous
+models:
+  peaked_age:
+    symptom_model: age_only
+    study: rota_maled_bangladesh_erlang6_poisson
+    db: rota_maled_bangladesh_erlang6_poisson.db
+    seeds: peaked shape at base_beta ladder [0.20, 0.12, 0.08, 0.06]  # see enqueue_seeds.py
+  infection_number:
+    symptom_model: infection_number
+    study: rota_maled_bangladesh_infnum_erlang6_poisson
+    db: rota_maled_bangladesh_infnum_erlang6_poisson.db
+    seeds: none

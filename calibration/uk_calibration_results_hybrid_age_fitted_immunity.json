@@ -1,0 +1,71 @@
+{
+  "model": "hybrid_age_fitted_immunity",
+  "description": "Age-based symptoms + fitted immunity by infection number (severity=0.2)",
+  "n_trials": 30,
+  "best_parameters": {
+    "reporting_rate": 0.0042421868931361685,
+    "base_beta": 4.12385746207656,
+    "beta0": 0.9654446456871413,
+    "beta1": 0.24619360390232425,
+    "beta2": -0.007592017636023645,
+    "sus_after_3plus": 0.6211993930781721,
+    "sus_after_2": 0.6857612402097596,
+    "sus_after_1": 0.8050102845662466
+  },
+  "best_gof": 2.2892052909461866,
+  "target_incidence": 27.56,
+  "fixed_severity": 0.2,
+  "calibration_pars": {
+    "reporting_rate": [
+      0.0025,
+      0.0003,
+      0.01
+    ],
+    "base_beta": [
+      3.0,
+      2.0,
+      6.0
+    ],
+    "beta0": [
+      0.5,
+      -2,
+      3
+    ],
+    "beta1": [
+      -0.1,
+      -0.5,
+      0.3
+    ],
+    "beta2": [
+      -0.01,
+      -0.05,
+      0.02
+    ],
+    "sus_after_1": [
+      0.85,
+      0.5,
+      1.0
+    ],
+    "sus_after_2": [
+      0.7,
+      0.3,
+      0.95
+    ],
+    "sus_after_3plus": [
+      0.5,
+      0.1,
+      0.9
+    ]
+  },
+  "mle_evaluation": {
+    "incidence": 60.1453200590246,
+    "age_distribution": [
+      0.09006211180124223,
+      0.23291925465838512,
+      0.49689440993788825,
+      0.18012422360248448
+    ],
+    "incidence_gof": 1.1823410761619955,
+    "age_gof": 1.1068642147841912
+  }
+}

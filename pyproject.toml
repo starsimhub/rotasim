@@ -12,14 +12,13 @@ authors = [
 readme = "README.md"
 license = {file = "LICENSE"}
 dynamic = ["version"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "sciris",
     "numpy",
-    "numba>=0.61.0",
     "matplotlib",
     "pandas",
-    "starsim>=3.0.2",
+    "starsim>=4.0.0",
 ]
 
 [dependency-groups]
@@ -29,8 +28,6 @@ dev = [
     "seaborn",           # Enhanced plotting for notebooks
     "pytest",            # Testing framework
     "pytest-cov",        # Coverage reports
-    "black",             # Code formatting
-    "ruff",              # Linting
     "pre-commit",        # Git hooks
     "pytest",            # Testing framework
 ]

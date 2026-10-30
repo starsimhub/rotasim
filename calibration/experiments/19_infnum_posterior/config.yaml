@@ -1,0 +1,17 @@
+# Exp 19 — trajectory-selection posterior for infnum+titer (importance resampling on the exp-17 NROY).
+model: infnum
+method: trajectory_selection
+driver: ../../trajectory_select.py
+n_nroy_draws: 5000
+n_agents: 40000
+observation: cohort
+seed_scheme: fixed per draw, seed = 20260611 + idx (deterministic; NROY draw cached to outputs/nroy_draw.csv)
+likelihood:
+  ir_by_age: Poisson(cases | lambda = IR/100 * PT)   # bins <6m, 6-11m, 12-23m
+  repeat_detected_frac: Binomial(obs | n)
+  first_infection: censored-survival LL over all (age, event) records vs model KM survival
+  ever_detected: EXCLUDED   # marginal of the survival data -> would double-count (agreed 2026-06-11)
+hm_checkpoint: ../17_hm_infnum_titer/outputs/hm/maled_infnum_titer/checkpoint.pkl
+machine: covaguest (pinned env; ../../hm_env_pins.txt)
+outputs: [outputs/nroy_draw.csv, outputs/sir_results.jsonl, outputs/posterior.csv, outputs/ts_stats.json]
+compare_against: ../18_age_posterior

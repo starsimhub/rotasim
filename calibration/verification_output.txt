@@ -1,0 +1,25 @@
+======================================================================
+UK CALIBRATION VERIFICATION
+======================================================================
+Traceback (most recent call last):
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/verify_calibration.py", line 222, in <module>
+    study = optuna.load_study(study_name='rota', storage=storage)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/_convert_positional_args.py", line 83, in converter_wrapper
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/study.py", line 1369, in load_study
+    return Study(study_name=study_name, storage=storage, sampler=sampler, pruner=pruner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/study/study.py", line 87, in __init__
+    study_id = storage.get_study_id_from_name(study_name)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/storages/_cached_storage.py", line 107, in get_study_id_from_name
+    return self._backend.get_study_id_from_name(study_name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/storages/_rdb/storage.py", line 332, in get_study_id_from_name
+    study = models.StudyModel.find_or_raise_by_name(study_name, session)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/optuna/storages/_rdb/models.py", line 88, in find_or_raise_by_name
+    raise KeyError(NOT_FOUND_MSG)
+KeyError: 'Record does not exist.'

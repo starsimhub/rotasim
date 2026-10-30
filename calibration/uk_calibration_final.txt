@@ -1,0 +1,63 @@
+[I 2025-10-30 13:26:28,741] A new study created in RDB with name: rota
+============================================================
+UK Calibration (2008-2012)
+============================================================
+
+UK Demographics:
+  Birth rate: 13/1000
+  Death rate: 6/1000
+  Net migration: +4/1000 adults (approximated in death rate)
+  Target age distribution: [1.26%, 1.27%, 3.66%, 93.81%]
+  Follow-up: 5 years (2008-2012)
+============================================================
+Rotasim: Setting up multi-strain simulation
+  Scenario: single
+  Base beta: 0.16
+  Strains: 1
+  Connectors: Adding default connectors: RotaImmunityConnector, RotaReassortmentConnector
+  Time units: day, dt=day
+  Total diseases: 1 (1 active + 0 dormant)
+
+Calibration target data:
+Overall incidence: 1.4 per 100k
+
+Age distribution (proportions):
+  ages  proportion
+0    0    0.137698
+1    1    0.276685
+2    2    0.468881
+3    5    0.116737
+
+Calibration parameters:
+  reporting_rate: best=0.0002, range=[0.0001, 0.001]
+  homotypic_immunity_efficacy: best=0.5, range=[0.1, 0.9]
+  partial_heterotypic_immunity_efficacy: best=0.2, range=[0.0, 0.5]
+  complete_heterotypic_immunity_efficacy: best=0.1, range=[0.0, 0.3]
+  base_beta: best=0.16, range=[0.05, 0.3]
+  maternal_immunity_efficacy: best=0.0, range=[0.0, 0.0]
+  adult_baseline_immunity: best=0.95, range=[0.9, 0.99]
+
+============================================================
+Running calibration (20 trials)...
+============================================================
+Removed existing calibration file rota.db
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: invalid value encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: invalid value encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: invalid value encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: invalid value encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: invalid value encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: invalid value encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: invalid value encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: overflow encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: invalid value encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt
+/opt/anaconda3/lib/python3.12/site-packages/starsim/diseases.py:224: RuntimeWarning: invalid value encountered in multiply
+  p_transmit = rel_trans[src] * rel_sus[trg] * beta_per_dt

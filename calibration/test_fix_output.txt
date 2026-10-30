@@ -1,0 +1,35 @@
+================================================================================
+TESTING FIXED BASELINE IMMUNITY SYSTEM
+================================================================================
+
+Test parameters:
+  - Random mixing (NO age assortment)
+  - Infections seeded in ADULTS (>=5 years)
+  - Adult baseline immunity: 0.99 via connector parameter
+  - Homotypic immunity: 0.2 (low - allows reinfections)
+  - Running for 10 years
+================================================================================
+
+Creating simulation...
+Rotasim: Setting up multi-strain simulation
+  Scenario: single
+  Base beta: 0.16
+  Strains: 1
+  Created 1 active strains and 0 dormant reassortants
+  Connectors: Adding default connectors: RotaImmunityConnector, RotaReassortmentConnector
+  Time units: day, dt=day
+  Total diseases: 1 (1 active + 0 dormant)
+Traceback (most recent call last):
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/test_fix_high_adult_immunity.py", line 69, in <module>
+    sim = rs.Sim(
+          ^^^^^^^
+  File "/Users/aliciakraay/PycharmProjects/rotasim/rotasim/rotasim.py", line 142, in __init__
+    super().__init__(diseases=diseases, **kwargs)
+  File "/opt/anaconda3/lib/python3.12/site-packages/starsim/sim.py", line 47, in __init__
+    self.pars.update(input_pars)  # Update the parameters
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/starsim/parameters.py", line 49, in update
+    self.check_key_mismatch(pars)
+  File "/opt/anaconda3/lib/python3.12/site-packages/starsim/parameters.py", line 187, in check_key_mismatch
+    raise sc.KeyNotFoundError(errormsg)
+sciris.sc_utils.KeyNotFoundError: Key(s) ['immunity'] not found; available keys are ['label', 'verbose', 'n_agents', 'total_pop', 'pop_scale', 'start', 'stop', 'dur', 'dt', 'rand_seed', 'birth_rate', 'death_rate', 'use_aging', 'people', 'modules', 'networks', 'demographics', 'diseases', 'connectors', 'interventions', 'analyzers']

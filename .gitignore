@@ -143,3 +143,9 @@ node_modules
 *.html
 *.jpg
 *.pkl
+
+# Accidental duplicate of calibration/ — do not commit
+calibration/calibration/
+
+# Excel lock files
+~$*.xlsx

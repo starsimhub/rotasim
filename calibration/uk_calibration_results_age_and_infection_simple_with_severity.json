@@ -1,0 +1,16 @@
+{
+  "symptom_model": "age_and_infection_simple_with_severity",
+  "best_parameters": {
+    "beta0": 1.7919587439896336,
+    "beta1": 0.26964539547974015,
+    "beta2": -0.020868246115113457,
+    "constant_severity": 0.1403169913459729,
+    "reporting_rate": 0.029057101336531343,
+    "base_beta": 3.020741657278965
+  },
+  "incidence": {
+    "target": 27.56,
+    "fitted_severity": 0.1403169913459729,
+    "note": "Severity fitted as free parameter (14.0%) vs previously fixed at 5%"
+  }
+}

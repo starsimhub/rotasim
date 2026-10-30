@@ -1,0 +1,19 @@
+# Exp 05 — non-linear (peaked) age-symptom curve + strong maternal feasibility.
+# Homogeneous mixing (RandomNet). age_only quadratic symptom model (beta0/1/2,
+# logistic centered at 12mo). Strong Erlang maternal (verified working in exp 04).
+site: bangladesh
+n_agents: 20000
+seed: 20260605
+base_beta_sweep: [0.10, 0.20]
+maternal_immunity_efficacy: 0.95
+maternal_mean_duration_days: 200.0
+maternal_n_stages: 6
+sus_after_1: 0.60
+sus_after_2: 0.40
+sus_after_3plus: 0.25
+# Peaked age-symptom beta sets [beta0, beta1, beta2] (logistic centered at 12mo,
+# age capped at 60mo). All peak in the 6-12mo range; vary breadth/sharpness.
+beta_sets:
+  lewnard_broad:   [-1.05, -0.0133, -0.00375]   # Lewnard set 1, year->month scaled (broad bell ~10mo)
+  moderate_peak:   [-1.20,  0.0,    -0.010]      # vertex at 12mo, moderate width
+  sharp_peak_9mo:  [-1.30, -0.06,   -0.010]      # vertex ~9mo, sharper

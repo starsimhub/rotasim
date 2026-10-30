@@ -1,0 +1,60 @@
+2026-07-06 13:57:53 [INFO] ============================================================
+2026-07-06 13:57:53 [INFO] HISTORY MATCHING — CONFIGURATION
+2026-07-06 13:57:53 [INFO] ============================================================
+2026-07-06 13:57:53 [INFO]   Emulator type:            bayes_linear
+2026-07-06 13:57:53 [INFO]   Parameters:               8
+2026-07-06 13:57:53 [INFO]   Observation targets:      8
+2026-07-06 13:57:53 [INFO]   Samples per wave:         20
+2026-07-06 13:57:53 [INFO]   Max iterations:           1
+2026-07-06 13:57:53 [INFO]   Implausibility threshold: 3.0
+2026-07-06 13:57:53 [INFO]   Auto space reduction:     disabled
+2026-07-06 13:57:53 [INFO]   Random seed:              20260706
+2026-07-06 13:57:53 [INFO]   Oversample factor:        1.1
+2026-07-06 13:57:53 [INFO]   Max batch size:           10000
+2026-07-06 13:57:53 [INFO]   Output directory:         /Users/aliciakraay/PycharmProjects/ryan_rotasim/rotasim/calibration/experiments/37_uk_seroprev_hm/outputs/hm/uk_infnum_titer_fixedshape_seroprev
+2026-07-06 13:57:53 [INFO]   Run log:                  /Users/aliciakraay/PycharmProjects/ryan_rotasim/rotasim/calibration/experiments/37_uk_seroprev_hm/outputs/hm/uk_infnum_titer_fixedshape_seroprev/log.txt
+2026-07-06 13:57:53 [INFO]   Parameters: ['log_base_beta', 'sus_after_1', 'sus_r2', 'sus_r3', 'maternal_efficacy', 'p_symp_1', 'p_r2', 'p_r3']
+2026-07-06 13:57:53 [INFO]   Targets: ['prop_0_6', 'prop_6_11', 'prop_12_23', 'prop_24_35', 'prop_36_47', 'prop_48_59', 'sero_2y', 'sero_5to6y']
+2026-07-06 13:57:53 [INFO] ============================================================
+2026-07-06 13:57:53 [INFO] Starting automated run with 1 max iterations
+2026-07-06 13:57:53 [INFO] ============================================================
+2026-07-06 13:57:53 [INFO] WAVE 1 STARTING
+2026-07-06 13:57:53 [INFO] ============================================================
+2026-07-06 13:57:53 [INFO] [Wave 1] Phase 1/5 SAMPLING: generated 20 samples (acceptance rate: 1.000) [0.0s]
+2026-07-06 13:57:53 [INFO] [Wave 1] Phase 2/5 SIMULATION: running 20 simulations...
+2026-07-06 13:58:45 [INFO] [Wave 1] Phase 2/5 SIMULATION: complete — 8 outputs [51.3s]
+2026-07-06 13:58:45 [INFO] [Wave 1] Phase 3/5 FEATURE SELECTION: ['prop_0_6'] [0.0s]
+2026-07-06 13:58:45 [INFO] [Wave 1] Phase 4/5 EMULATOR TRAINING: training 1 emulators...
+2026-07-06 13:58:45 [WARNING]   Feature 'prop_0_6': dropping 9/20 NaN rows before training
+2026-07-06 13:58:45 [INFO]   Emulator 1/1 [prop_0_6]: creating (11 samples, 8 params, type=bayes_linear)...
+2026-07-06 13:58:45 [DEBUG] Created bayes_linear emulator for feature: prop_0_6
+2026-07-06 13:58:45 [INFO]   Emulator 1/1 [prop_0_6]: training...
+2026-07-06 13:58:45 [INFO]     Training Bayes Linear: 8 points, 8 dims
+2026-07-06 13:58:45 [INFO]     OLS trend fit [0.0s]
+2026-07-06 13:58:45 [INFO]     Optimizing theta (8 correlation lengths, 8x8 Cholesky per eval)...
+2026-07-06 13:58:45 [INFO]     L-BFGS-B iter 19: NLL=-269.4659 [0s]
+2026-07-06 13:58:45 [INFO]     L-BFGS-B iter 29: NLL=-269.4981 [0s]
+2026-07-06 13:58:45 [INFO]     L-BFGS-B iter 39: NLL=-269.5196 [0s]
+2026-07-06 13:58:45 [INFO]     L-BFGS-B iter 49: NLL=-269.5235 [0s]
+2026-07-06 13:58:45 [INFO]     L-BFGS-B iter 59: NLL=-269.5250 [0s]
+2026-07-06 13:58:45 [INFO]     L-BFGS-B iter 69: NLL=-269.5256 [0s]
+2026-07-06 13:58:45 [INFO]     L-BFGS-B iter 79: NLL=-269.5258 [0s]
+2026-07-06 13:58:45 [INFO]     Theta optimization: 7 L-BFGS iters, 79 NLL evals, final NLL=-269.5258 [0.0s]
+2026-07-06 13:58:45 [INFO]     Building 8x8 correlation matrix and Cholesky...
+2026-07-06 13:58:45 [INFO]     Training complete — sigma²=0.0000, theta range=[0.162, 0.716] [0.0s total]
+2026-07-06 13:58:45 [INFO]   Emulator 1/1 [prop_0_6]: trained [0.0s]
+2026-07-06 13:58:45 [INFO] [Wave 1] Phase 4/5 EMULATOR TRAINING: complete [0.0s]
+2026-07-06 13:58:45 [INFO] [Wave 1] Phase 5/5 NROY SAMPLING: finding 20 plausible candidates for next wave...
+2026-07-06 13:58:45 [INFO]   LHS rejection: 0/20 (0%) — starting
+2026-07-06 13:58:45 [INFO]   LHS rejection: 4/20 (20%) | 22 tested | rate=18.1818% [0s]
+2026-07-06 13:58:45 [INFO]   LHS rejection: 26/20 (130%) | 118 tested | rate=22.0339% [0s]
+2026-07-06 13:58:45 [INFO]   LHS rejection: 20/20 [0.0s]
+2026-07-06 13:58:45 [INFO]   NROY SUMMARY: 20/20 [OK] — sources: LHS=20 [0.0s]
+2026-07-06 13:58:45 [DEBUG] NROY fraction: 0.169492
+2026-07-06 13:58:45 [INFO] [Wave 1] Phase 5/5 NROY SAMPLING: found 20 candidates [0.0s]
+2026-07-06 13:58:45 [INFO] [Wave 1] ALL PHASES COMPLETE [51.3s total]. Committing...
+2026-07-06 13:58:48 [INFO] Checkpoint saved to /Users/aliciakraay/PycharmProjects/ryan_rotasim/rotasim/calibration/experiments/37_uk_seroprev_hm/outputs/hm/uk_infnum_titer_fixedshape_seroprev/checkpoint.pkl
+2026-07-06 13:58:48 [INFO] Wave 1 output saved to /Users/aliciakraay/PycharmProjects/ryan_rotasim/rotasim/calibration/experiments/37_uk_seroprev_hm/outputs/hm/uk_infnum_titer_fixedshape_seroprev/wave1
+2026-07-06 13:58:48 [INFO] [Wave 1] COMMITTED — diagnostics and checkpoint saved to /Users/aliciakraay/PycharmProjects/ryan_rotasim/rotasim/calibration/experiments/37_uk_seroprev_hm/outputs/hm/uk_infnum_titer_fixedshape_seroprev
+2026-07-06 13:58:48 [INFO] ============================================================
+2026-07-06 13:58:48 [INFO] Automated run completed. 1 iterations executed.

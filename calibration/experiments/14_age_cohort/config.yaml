@@ -1,0 +1,23 @@
+# Exp 14 — age-symptom model + titer maternal under the cohort observation (Set-2 partner).
+# Same model cell as exp 12 (age_only x titer), but the cohort observation + cohort
+# fit-target (symptomatic IR by age + repeat-detected fraction + KM first-detection),
+# matching exp 13 (infnum+titer+cohort). Homogeneous mixing.
+site: bangladesh
+symptom_model: age_only
+maternal_model: titer
+fit_target: cohort
+observation: cohort
+n_trials: 40
+n_reps: 20
+n_jobs: 1
+n_agents: 100000
+demographics: bangladesh
+mixing: homogeneous
+study: rota_maled_bangladesh_titer_cohort
+db: rota_maled_bangladesh_titer_cohort.db
+seed: weak-titer (efficacy 0.5, median 4, half-life 25d, Hill 1.5) + exp-10 peaked age curve (see enqueue_seeds.py)
+compare_against: ../13_cohort_emulation   # infnum+titer+cohort matched partner
+command: >-
+  python calibrate_maled.py --site bangladesh --symptom-model age_only
+  --maternal-model titer --observation cohort --fit-target cohort
+  --n-trials 40 --n-reps 20 --n-jobs 1

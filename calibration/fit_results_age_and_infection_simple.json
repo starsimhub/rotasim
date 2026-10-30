@@ -1,0 +1,104 @@
+{
+  "symptom_model": "age_and_infection_simple",
+  "mle_parameters": {
+    "beta0": -2.0,
+    "beta1": -0.3,
+    "beta2": -0.01,
+    "reporting_rate": 0.01,
+    "base_beta": 0.6
+  },
+  "n_replicates": 3,
+  "incidence": {
+    "target": 27.56,
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "cv_percent": null
+  },
+  "age_distribution": {
+    "target": {
+      "ages": {
+        "0": 0,
+        "1": 1,
+        "2": 2,
+        "3": 5
+      },
+      "proportion": {
+        "0": 0.1376975169300226,
+        "1": 0.2766849403418252,
+        "2": 0.4688810061270558,
+        "3": 0.1167365366010964
+      }
+    },
+    "mean": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "std": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "cv_percent": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "individual_replicates": {
+    "incidence": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "age_distributions": [
+      {
+        "ages": {
+          "0": 0,
+          "1": 1,
+          "2": 2,
+          "3": 5
+        },
+        "proportion": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.0,
+          "3": 0.0
+        }
+      },
+      {
+        "ages": {
+          "0": 0,
+          "1": 1,
+          "2": 2,
+          "3": 5
+        },
+        "proportion": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.0,
+          "3": 0.0
+        }
+      },
+      {
+        "ages": {
+          "0": 0,
+          "1": 1,
+          "2": 2,
+          "3": 5
+        },
+        "proportion": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.0,
+          "3": 0.0
+        }
+      }
+    ]
+  }
+}

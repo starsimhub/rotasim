@@ -1,0 +1,10 @@
+{
+  "model": "age_binned",
+  "n": 5000,
+  "finite": 1211,
+  "ess": 20.9600338965282,
+  "max_logL": -283.35912687786504,
+  "ve_target": null,
+  "ve_sigma": 0.07,
+  "ve_take": 0.74
+}

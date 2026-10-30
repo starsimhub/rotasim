@@ -1,211 +1,107 @@
 """
-Test script for v2 analyzers - validates compatibility with v1 output format
+Test analyzers and observation models
 """
-
-import sys
-import os
-
-# Add rotasim to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-import starsim as ss
-from rotasim import Sim, StrainStats
 import numpy as np
+import pytest
+import sciris as sc
+import starsim as ss
+import rotasim as rs
+
+pars = dict(n_agents=2000, start="2000-01-01", stop="2003-01-01", verbose=0)
 
 
-def test_analyzer_creation():
-    """Test basic analyzer creation and integration"""
-    print("=== Testing Analyzer Creation ===\n")
-
-    # Test standalone creation
-    analyzer = StrainStats()
-    print(f"✓ Created StrainStats analyzer: {type(analyzer).__name__}")
-
-    # Test integration with Rotasim using simple scenario
-    sim = Sim(scenario="simple", analyzers=[analyzer])
-    print(f"✓ Created Rotasim with StrainStats analyzer")
-    print(f"  Total diseases: {sim.get_strain_summary()['total_diseases']}")
-    print()
+def make_demographics():
+    return [ss.Births(birth_rate=ss.peryear(30)), ss.Deaths(death_rate=ss.peryear(10))]
 
 
-def test_analyzer_initialization():
-    """Test analyzer initialization and strain detection"""
-    print("=== Testing Analyzer Initialization ===\n")
+@sc.timer()
+def test_analyzers():
+    sc.heading("Testing analyzers")
+    analyzers = [rs.StrainStats(), rs.EventStats(), rs.AgeStats(), rs.InfectedStrainStats(), rs.PersonTimeByAge(calibration_window=(1, 2)), rs.UidTracker(uids=[0, 5], track_fields=["rel_sus", "infected"])]
+    sim = rs.Sim(scenario="simple", analyzers=analyzers, demographics=make_demographics(), **pars).run()
 
-    # Create simulation with analyzer using new unified API
-    analyzer = StrainStats()
-    sim = Sim(analyzers=[analyzer], n_agents=1000)
+    res = sim.analyzers.strainstats.results
+    total = sum(res[f"{name}_count"] for name in sim.diseases.keys())
+    assert np.array_equal(total, sum(d.results.infected for d in sim.diseases.values()))  # Counts match the diseases
+    assert np.nanmax(sum(res[f"{name}_proportion"] for name in sim.diseases.keys())) < 1.001  # Proportions add up to 1
 
-    # This should trigger analyzer initialization without running simulation
-    print("Testing analyzer without simulation run (strain detection only)...")
+    events = sim.analyzers.eventstats.results
+    assert events.births.sum() == sim.results.births.new.sum()
+    assert events.new_infections.sum() == sum(d.results.new_infections.sum() for d in sim.diseases.values())
+    assert events.reassortments.sum() > 0  # With two strains circulating, reassortants arise
+    assert (events.infected_agents >= events.coinfected_agents).all()
 
-    # Check expected strains vs diseases
-    strain_summary = sim.get_strain_summary()
-    expected_strains = strain_summary["total_diseases"]
+    ages = sim.analyzers.agestats.results
+    assert sum(ages[label][-1] for label in rs.AgeStats.age_labels) == sim.people.n_alive  # Everyone is in one age group
 
-    print(f"✓ Simulation has {expected_strains} total diseases")
-    print(f"  Active: {len(strain_summary['active_strains'])}")
-    print(f"  Dormant: {len(strain_summary['dormant_strains'])}")
-    print()
+    infections = sim.analyzers.infectedstrainstats.to_df()
+    seeds = sum(int(d.pars.init_prevalence * pars["n_agents"]) for d in sim.diseases.values())
+    assert len(infections) > seeds  # Seeds and transmission are both logged
+    assert (infections.Strain == "G1P8A1B1").any() and infections.CollectionTime.max() > 2
+    assert infections.severity.isin(rs.InfectedStrainStats.severity_rates).all()
 
+    person_months = sim.analyzers.persontimebyage.person_months
+    assert person_months["<6 m"] > 0
+    expected = np.count_nonzero(sim.people.age.values < 0.5) * 12  # About that many people for a year
+    assert 0.5 * expected < person_months["<6 m"] < 1.5 * expected
 
-def test_v1_format_compatibility():
-    """Test that output format matches v1 exactly"""
-    print("=== Testing V1 Format Compatibility ===\n")
-
-    # Create simple simulation to test format using simple scenario
-    analyzer = StrainStats()
-    sim = Sim(
-        scenario="simple",
-        analyzers=[analyzer],
-        n_agents=100,
-        start="2020-01-01",
-        stop="2021-01-01",  # Just 1 year for testing
-        dt=ss.days(1),  # Daily timesteps
-    )
-
-    print("1. Testing column name format:")
-
-    # The analyzer should create results for strain tuples
-    # V1 format: "(1, 8, 1, 1) proportion" and "(1, 8, 1, 1) count"
-    expected_strains = [
-        "(1, 8, 1, 1)",  # G1P8 with A1B1 backbone
-        "(2, 4, 1, 1)",  # G2P4 with A1B1 backbone
-        "(1, 4, 1, 1)",  # G1P4 reassortant
-        "(2, 8, 1, 1)",  # G2P8 reassortant
-    ]
-
-    print(f"  Expected strain names (v1 format): {expected_strains}")
-
-    # Test column naming without running simulation
-    strain_summary = sim.get_strain_summary()
-    actual_diseases = strain_summary["total_diseases"]
-
-    print(f"  Diseases in simulation: {actual_diseases}")
-    print(f"  Expected columns per strain: 2 (proportion + count)")
-    print(f"  Total expected result columns: {actual_diseases * 2}")
-
-    print("\n2. Testing result structure compatibility:")
-    print("  Format should match v1: '{strain_tuple} proportion' and '{strain_tuple} count'")
-    print("  Where strain_tuple = '(G, P, A, B)' with A=1, B=1 for v2 compatibility")
-    print()
+    tracker = sim.analyzers.uidtracker
+    assert tracker.get_field_matrix("G1P8", "rel_sus").shape == (sim.t.npts, 2)
+    assert tracker.to_df().shape == (sim.t.npts, 2 * 2 * len(sim.diseases))
+    assert len(tracker.get_uid_ages()) == 2
+    tracker.plot_field_heatmap("G1P8")
 
 
-def test_strain_counting_logic():
-    """Test the core strain counting and proportion calculation logic"""
-    print("=== Testing Strain Counting Logic ===\n")
+@sc.timer()
+def test_symptoms():
+    sc.heading("Testing symptom models")
+    by_order = rs.SymptomModel(p_symp_1=0.6, p_symp_2=0.4, p_symp_3plus=0.2)
+    assert np.allclose(by_order.prob([10, 10, 10, 10], [1, 2, 3, 7]), [0.6, 0.4, 0.2, 0.2])  # By infection order
 
-    # Test with different scenarios
-    test_cases = [
-        ("Single strain", [(1, 8)], "Only one strain active"),
-        ("Two strains", [(1, 8), (2, 4)], "Two initial strains + reassortants"),
-        ("Three strains", [(1, 8), (2, 4), (3, 6)], "Multiple strains with many reassortants"),
-    ]
+    by_age = rs.SymptomModel("age_binned", p_symp_age_0_6=0.1, p_symp_age_6_11=0.5, p_symp_age_12plus=0.9)
+    assert np.allclose(by_age.prob([3, 8, 20], [1, 1, 1]), [0.1, 0.5, 0.9])  # By age bin
 
-    for name, strains, description in test_cases:
-        print(f"{name}: {strains}")
-        print(f"  {description}")
+    logistic = rs.SymptomModel("age_only", beta0=0)
+    assert np.allclose(logistic.prob([12, 40], [1, 2]), 0.5)  # A logistic of 0
+    with_order = rs.SymptomModel("age_and_infection", beta3=-1)
+    assert with_order.prob([12], [1]) > with_order.prob([12], [3])  # Later infections are milder
 
-        analyzer = StrainStats()
-        strain_scenario = {
-            "strains": {strain: {"fitness": 1.0, "prevalence": 0.01} for strain in strains},
-            "default_fitness": 1.0,
-        }
-        sim = Sim(scenario=strain_scenario, analyzers=[analyzer], n_agents=500)
-
-        summary = sim.get_strain_summary()
-        print(f"  Total diseases: {summary['total_diseases']}")
-        print(f"  Active: {len(summary['active_strains'])}")
-        print(f"  Dormant: {len(summary['dormant_strains'])}")
-
-        # Expected results structure
-        expected_results = summary["total_diseases"] * 2  # proportion + count for each strain
-        print(f"  Expected analyzer results: {expected_results}")
-        print()
+    with pytest.raises(ValueError):
+        rs.SymptomModel("nonexistent")
 
 
-def test_data_format_validation():
-    """Validate the data format matches v1 expectations"""
-    print("=== Testing Data Format Validation ===\n")
+@sc.timer()
+def test_observers():
+    sc.heading("Testing observation models")
+    targets = rs.MALEDTargets(calibration_window=(1, 3), beta0=0, beta1=-0.05, beta2=0)
+    cohort = rs.MALEDCohort(censoring_ages=[24, 30, 36], enroll_window=(1, 2), p_symp_1=0.6, p_symp_2=0.4, p_symp_3plus=0.2, log_events=True)
+    surveillance = rs.Surveillance(window=(1, 3), cap_age_m=36, p_symp_1=0.6, p_symp_2=0.4, p_symp_3plus=0.2)
+    immunity = rs.RotaImmunityConnector(use_fixed_susceptibility=True)
+    kwargs = sc.mergedicts(pars, dict(n_agents=5000))
+    sim = rs.Sim(scenario="single", analyzers=[targets, cohort, surveillance], connectors=immunity, networks=ss.RandomNet(n_contacts=7), demographics=make_demographics(), **kwargs).run()
 
-    print("1. Testing strain tuple format:")
-    print("   V1 format: '(G, P, A, B)' where G,P are genotypes, A,B are backbone")
-    print("   V2 format: '(G, P, 1, 1)' where we fix A=1, B=1 for compatibility")
-    print("   This allows v1 analysis scripts to work unchanged")
-    print()
+    out = sim.analyzers.maledtargets.results_dict()
+    assert sum(out["cases"].values()) > 0 and out["ir"]["12-23 m"] > 0  # Cases, as a rate
+    assert 0 < out["prev_mean"] < 1 and out["fi_n"] > 0
+    assert 0 < out["fi_q25"] <= out["fi_median"] <= out["fi_q75"] <= 36
 
-    print("2. Testing column naming:")
-    print("   V1: '{strain_tuple} proportion', '{strain_tuple} count'")
-    print("   V2: Same format for backwards compatibility")
-    print()
+    out = sim.analyzers.maledcohort.results_dict()
+    assert out["n_enrolled"] > 50  # About a year of births
+    assert 0 < out["frac_ever_detected"] <= out["frac_ever_infected"] <= 1  # Not every infection is detected
+    assert len(out["km_time"]) == out["n_enrolled"] and max(out["km_time"]) <= 36  # Followed to their exit age at most
+    assert sum(out["ir_symp"].values()) <= sum(out["ir_all"].values())  # Detected cases include those without symptoms
+    events = sim.analyzers.maledcohort.events
+    assert len(events) > 0 and max(e["age_m"] for e in events) <= 36
 
-    print("3. Testing data types:")
-    print("   Proportions: float (sum to 1.0 across active strains)")
-    print("   Counts: float (integer values as floats for consistency)")
-    print()
-
-    print("4. Testing CSV compatibility:")
-    print("   Same DataFrame structure as v1")
-    print("   Same column removal logic for duplicate timevec columns")
-    print("   Direct drop-in replacement for v1 analysis workflows")
-    print()
-
-
-def test_backwards_compatibility():
-    """Test specific backwards compatibility features"""
-    print("=== Testing Backwards Compatibility ===\n")
-
-    # Test legacy alias
-    from rotasim import StrainStatistics
-
-    print("✓ Legacy StrainStatistics alias works")
-
-    # Test that the interface matches v1
-    analyzer = StrainStats()
-    methods = ["init_results", "step", "to_df"]
-
-    print("✓ V1 interface methods available:")
-    for method in methods:
-        if hasattr(analyzer, method):
-            print(f"  ✓ {method}()")
-        else:
-            print(f"  ❌ {method}() missing")
-
-    # Test additional v2 features
-    v2_methods = ["get_strain_summary"]
-    print("\n✓ V2 enhanced methods:")
-    for method in v2_methods:
-        if hasattr(analyzer, method):
-            print(f"  ✓ {method}() (new in v2)")
-        else:
-            print(f"  ❌ {method}() missing")
-
-    print()
+    out = sim.analyzers.surveillance.results_dict()
+    assert out["total_cases"] > 0 and len(out["case_counts"]) == 4  # Four bins with a cap
+    assert np.isclose(sum(out["case_proportions"]), 1) and np.isclose(sum(out["pop_fraction"]), 1)
+    assert 0 < out["sero_2y"] <= 1 and out["n_first_infs"] > 0
 
 
 if __name__ == "__main__":
-    print("Running StrainStats analyzer tests...\n")
-
-    try:
-        test_analyzer_creation()
-        test_analyzer_initialization()
-        test_v1_format_compatibility()
-        test_strain_counting_logic()
-        test_data_format_validation()
-        test_backwards_compatibility()
-
-        print("🎉 All analyzer tests completed!")
-        print("\nSummary:")
-        print("✅ StrainStats analyzer successfully implemented")
-        print("✅ Auto-detects Rotavirus diseases in v2 architecture")
-        print("✅ Maintains v1 output format for backwards compatibility")
-        print("✅ Supports strain tuple format: '(G, P, A, B)' with fixed A=1, B=1")
-        print("✅ Same CSV structure and column naming as v1")
-        print("✅ Drop-in replacement for v1 analysis workflows")
-
-    except Exception as e:
-        print(f"❌ Test failed: {e}")
-        import traceback
-
-        traceback.print_exc()
-        sys.exit(1)
+    T = sc.timer()
+    test_analyzers()
+    test_symptoms()
+    test_observers()
+    T.toc()

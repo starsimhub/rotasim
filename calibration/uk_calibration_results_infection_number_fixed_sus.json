@@ -1,0 +1,16 @@
+{
+  "model": "infection_number_fixed_susceptibility",
+  "susceptibility_model": {
+    "type": "fixed",
+    "sus_after_1": 0.67,
+    "sus_after_2": 0.5,
+    "sus_after_3plus": 0.36
+  },
+  "best_parameters": {
+    "reporting_rate": 0.0021258099445399365
+  },
+  "target_incidence": 27.56,
+  "fitted_incidence": 122.90565403365898,
+  "error_percent": 345.95665469397306,
+  "gof": 6.676445163204276
+}

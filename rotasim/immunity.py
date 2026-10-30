@@ -1,10 +1,6 @@
 """
-High-performance immunity connector for Rotavirus v2 architecture
-Uses bitmask vectorization for cross-strain immunity calculations
+Immunity between rotavirus strains, and from mothers
 """
-
-# Standard library imports
-# (none needed for this module)
 
 # Third-party imports
 import numpy as np
@@ -13,315 +9,216 @@ import starsim as ss
 # Local imports
 from .rotavirus import Rotavirus
 
+__all__ = ["RotaImmunityConnector", "erlang_survival"]
 
-class PathogenMatch:
-    """Define whether pathogens are completely heterotypic, partially heterotypic, or homotypic"""
 
-    COMPLETE_HETERO = 1
-    PARTIAL_HETERO = 2
-    HOMOTYPIC = 3
+def erlang_survival(t, n_stages, mean_duration):
+    """
+    The share of an Erlang(n_stages) waiting time still running at time t
+
+    This is the waning of a maternal class split into several compartments, as in rotavirus
+    transmission models (e.g. Pitzer et al.): `n_stages=1` is exponential decay with the given
+    mean, and larger values give a plateau followed by a sharper drop.
+
+    Args:
+        t (array): time, in the same units as mean_duration
+        n_stages (int): number of stages
+        mean_duration (float): mean of the waiting time
+    """
+    n_stages = int(n_stages)
+    x = n_stages / mean_duration * np.asarray(t, dtype=float)
+    total = np.ones_like(x)
+    term = np.ones_like(x)
+    for k in range(1, n_stages):
+        term = term * x / k
+        total += term
+    return np.exp(-x) * total
 
 
 class RotaImmunityConnector(ss.Connector):
     """
-    High-performance cross-strain immunity connector using bitmask vectorization
+    Sets each agent's susceptibility to each strain from their infection history, age, and strains seen
 
-    This connector automatically detects all Rotavirus disease instances in the
-    simulation and manages cross-strain immunity using efficient bitwise operations
-    on entire population arrays, avoiding all UID loops.
+    For a strain, an agent's protection is the larger of two things:
+
+    - Acquired immunity: `factor * efficacy`. The efficacy depends on the closest match among the strains
+      they have recovered from (homotypic, partial heterotypic if G or P is shared, or complete heterotypic).
+      The factor is the larger of their baseline protection, which depends on how many infection episodes
+      they have had and does not wane, and the waning immunity from the matching strains.
+    - Maternal immunity, which depends on age.
+
+    The strains an agent has seen are held as bitmasks, one bit per genotype, so that matching is vectorized.
+
+    Args:
+        pars (dict): parameters
+        homotypic_immunity_efficacy (float): protection after recovering from the same G,P
+        partial_heterotypic_immunity_efficacy (float): protection after recovering from a strain sharing G or P
+        complete_heterotypic_immunity_efficacy (float): protection after recovering only from strains sharing neither
+        naive_immunity_efficacy (float): protection of agents with no prior infections
+        use_fixed_susceptibility (bool): whether baseline protection is set by sus_after_1, sus_after_2, and sus_after_3plus, rather than saturating with baseline_immunity_exponential_rate
+        sus_after_1 (float): susceptibility after 1 infection episode
+        sus_after_2 (float): susceptibility after 2 infection episodes
+        sus_after_3plus (float): susceptibility after 3 or more infection episodes
+        baseline_immunity_exponential_rate (float): baseline protection is 1 - exp(-rate * episodes)
+        maternal_immunity_model (str): how maternal immunity wanes: 'erlang' (the same for everyone of an age) or 'titer' (from each infant's antibody titer)
+        maternal_immunity_efficacy (float): protection at birth; 0 turns maternal immunity off
+        maternal_immunity_half_life (ss.dur): half-life, which sets the mean duration if that is not given
+        maternal_immunity_n_stages (int): stages of Erlang waning (1 is exponential)
+        maternal_immunity_mean_duration (ss.dur): mean duration of Erlang waning
+        maternal_immunity_efficacy_slow (float): a second, slower component, e.g. from breastfeeding (Erlang model only)
+        maternal_immunity_half_life_slow (ss.dur): half-life of the slow component
+        maternal_titer_median (float): median initial titer, as a multiple of the titer that gives half protection (titer model)
+        maternal_titer_gsd (float): geometric standard deviation of initial titers
+        maternal_titer_half_life (ss.dur): half-life of the titer
+        maternal_hill_slope (float): slope of the Hill curve from titer to protection
     """
 
     def __init__(self, pars=None, **kwargs):
-        """
-        Initialize immunity connector with default parameters
-
-        Args:
-            pars (dict, optional): Parameters dict to override defaults
-            **kwargs: Additional parameters
-
-        Default parameters:
-            homotypic_immunity_efficacy (0.9): Protection from same G,P strain
-            partial_heterotypic_immunity_efficacy (0.5): Protection from shared G or P
-            complete_heterotypic_immunity_efficacy (0.3): Protection from different G,P
-            naive_immunity_efficacy (0.0): Baseline immunity for naive individuals
-            # full_waning_rate: Immunity waning rate (~273 days mean, 365/273 per year)
-            immunity_waning_delay (0 days): Delay before immunity decay starts
-            cotransmission_prob (2%): Probability of co-transmitting multiple strains
-        """
         super().__init__()
 
-        # Define immunity parameters
         self.define_pars(
-            homotypic_immunity_efficacy=0.9,  # Protection from same G,P strain
-            partial_heterotypic_immunity_efficacy=0.5,  # Protection from shared G or P
-            complete_heterotypic_immunity_efficacy=0.3,  # Protection from different G,P (or no prior exposure to any strain)
-            naive_immunity_efficacy=0.0,  # Baseline immunity for naive individuals (0.0 = fully susceptible)
-            immunity_waning_delay=ss.days(0),  # Time delay before immunity decay starts (years)
-            # infection_history_susceptibility_factors = {0: 1, 1: 1, 2: 1, 3: 1},  # Susceptibility scaling based on total infection history. We may want to remove this feature later.
-            cotransmission_prob=ss.bernoulli(
-                p=0.02
-            ),  # Probability of transmitting all strains instead of dominant strain selection (2%). We may want to remove this feature later.
+            homotypic_immunity_efficacy=1.0,
+            partial_heterotypic_immunity_efficacy=0.5,
+            complete_heterotypic_immunity_efficacy=0.3,
+            naive_immunity_efficacy=0.0,
+            use_fixed_susceptibility=False,
+            sus_after_1=0.67,
+            sus_after_2=0.50,
+            sus_after_3plus=0.36,
+            baseline_immunity_exponential_rate=0.1,
+            maternal_immunity_model="erlang",
+            maternal_immunity_efficacy=0.0,
+            maternal_immunity_half_life=ss.days(90),
+            maternal_immunity_n_stages=1,
+            maternal_immunity_mean_duration=None,
+            maternal_immunity_efficacy_slow=0.0,
+            maternal_immunity_half_life_slow=ss.days(270),
+            maternal_titer_median=8.0,
+            maternal_titer_gsd=2.0,
+            maternal_titer_half_life=ss.days(35),
+            maternal_hill_slope=3.0,
         )
-
-        # Update with user parameters
         self.update_pars(pars=pars, **kwargs)
 
-        # Define immunity state arrays
-
-        #  name=name, dtype=ss_int, nan=int_nan, **kwargs)
         self.define_states(
-            ss.Arr(
-                "exposed_GP_bitmask", dtype=np.int64, nan=ss.dtypes.int_nan, default=0
-            ),  # Bitmask of exposed (G,P) pairs
-            ss.Arr("exposed_G_bitmask", dtype=np.int64, nan=ss.dtypes.int_nan, default=0),  # Bitmask of exposed G types
-            ss.Arr("exposed_P_bitmask", dtype=np.int64, nan=ss.dtypes.int_nan, default=0),  # Bitmask of exposed P types
-            ss.FloatArr("oldest_infection", default=np.nan),  # Time of first infection (for waning)
-            ss.BoolArr("has_immunity", default=False),  # Whether agent has any immunity
-            ss.FloatArr(
-                "num_recovered_infections", default=0.0
-            ),  # Total number of prior infections (for scaling susceptibility)
-            ss.FloatArr(
-                "num_current_infections", default=0.0
-            ),  # Current number of active infections (for coinfection logic)
-            ss.FloatArr(
-                "homotypic_immunity_decay_factor", default=0.0
-            ),  # Decay factor for immunity over time (1.0 = full immunity, 0.0 = none)
-            ss.FloatArr(
-                "partial_match_immunity_decay_factor", default=0.0
-            ),  # Decay factor for partial matches (G, P, or G and P not homotypic)
-            ss.FloatArr(
-                "final_decayed_immunity_factor", default=0.0
-            ),  # Reusable array for final decay factor calculations (to reduce allocations)
+            ss.IntArr("exposed_GP_bitmask", default=0),  # The (G,P) pairs each agent has recovered from
+            ss.IntArr("exposed_G_bitmask", default=0),  # The G genotypes each agent has recovered from
+            ss.IntArr("exposed_P_bitmask", default=0),  # The P genotypes each agent has recovered from
+            ss.BoolArr("has_immunity", default=False),  # Whether the agent has any prior infection
+            ss.FloatArr("num_recovered_infections", default=0.0),  # Infection episodes completed
+            ss.FloatArr("num_current_infections", default=0.0),  # Strains the agent has now
+            ss.FloatArr("maternal_titer_z", default=ss.normal(0, 1)),  # Each infant's initial titer, as a draw from a standard normal
         )
 
-        # Will be populated during init_post
         self.rota_diseases = []
-        self.G_to_bit = {}
-        self.P_to_bit = {}
-        self.GP_to_bit = {}
-        self.disease_G_masks = {}
-        self.disease_P_masks = {}
-        self.disease_GP_masks = {}
 
-    def init_results(self):
-        """Initialize results storage for immunity-related outputs"""
-        super().init_results()
-
-        return
-
-    def init_pre(self, sim, force=False):
-        """Auto-detect Rotavirus diseases and create states before initialization"""
-        # Auto-detect all Rotavirus disease instances
+    def init_pre(self, sim):
+        """Find the Rotavirus diseases, and give each genotype its bit"""
+        super().init_pre(sim)
         self.rota_diseases = [d for d in sim.diseases.values() if isinstance(d, Rotavirus)]
 
-        if len(self.rota_diseases) == 0:
-            if sim.pars.verbose:
-                print("Warning: No Rotavirus diseases found in simulation")
-            super().init_pre(sim)
-            return
+        unique_G = sorted(set(d.G for d in self.rota_diseases))
+        unique_P = sorted(set(d.P for d in self.rota_diseases))
+        unique_GP = sorted(set(d.strain for d in self.rota_diseases))
+        max_bits = np.iinfo(ss.dtypes.int).bits - 1
+        if max(len(unique_G), len(unique_P), len(unique_GP), 0) > max_bits:
+            errormsg = f"Too many genotypes for the bitmasks: {len(unique_G)} G, {len(unique_P)} P, {len(unique_GP)} G,P pairs; the maximum is {max_bits} of each"
+            raise ValueError(errormsg)
 
-        if sim.pars.verbose:
-            print(f"RotaImmunityConnector: Found {len(self.rota_diseases)} Rotavirus strains")
+        self.masks = []  # The (G, P, GP) bits of each disease
+        self.partners = []  # The positions of the diseases that share only G or only P with each disease
+        for d in self.rota_diseases:
+            d.immunity = self
+            self.masks.append((1 << unique_G.index(d.G), 1 << unique_P.index(d.P), 1 << unique_GP.index(d.strain)))
+            self.partners.append([i for i, other in enumerate(self.rota_diseases) if (other.G == d.G) ^ (other.P == d.P)])
 
-        # Calculate unique genotypes once and store for use in init_post()
-        self.unique_G = sorted(set(d.G for d in self.rota_diseases))
-        self.unique_P = sorted(set(d.P for d in self.rota_diseases))
-        self.unique_GP = sorted(set((d.G, d.P) for d in self.rota_diseases))
+    def baseline_protection(self):
+        """The protection from past infection episodes, which does not wane"""
+        p = self.pars
+        episodes = self.num_recovered_infections.values
+        if p.use_fixed_susceptibility:
+            susceptibility = np.select([episodes >= 3, episodes >= 2, episodes >= 1], [p.sus_after_3plus, p.sus_after_2, p.sus_after_1], default=1.0)
+            return 1 - susceptibility
+        return 1 - np.exp(-p.baseline_immunity_exponential_rate * episodes)
 
-        GP_states = []
-        for gp in self.unique_GP:
-            state_name = f"G{gp[0]}P{gp[1]}_decayed_immunity_factor"
-            state = ss.FloatArr(state_name, default=0.0)
-            GP_states.append(state)
-
-        self.define_states(*GP_states)
-
-        # NOW call super().init_pre() with states already defined
-        super().init_pre(sim)
-
-    def init_post(self):
-        """Create bitmask mappings after initialization"""
-        super().init_post()
-
-        if len(self.rota_diseases) == 0:
-            return
-
-        # Use the genotypes calculated in init_pre() - no duplication!
-
-        # Ensure we don't exceed bitwise limits based on actual datatype
-        max_bits = np.iinfo(self.exposed_GP_bitmask.dtype).bits
-        if len(self.unique_G) > max_bits or len(self.unique_P) > max_bits or len(self.unique_GP) > max_bits:
-            raise ValueError(
-                f"Too many unique genotypes: {len(self.unique_G)} G types, {len(self.unique_P)} P types, {len(self.unique_GP)} GP pairs. Max {max_bits} each. Either increase bitmask dtype size or reduce number of strains."
-            )
-
-        # Create mappings: genotype -> bit position
-        self.G_to_bit = {g: i for i, g in enumerate(self.unique_G)}
-        self.P_to_bit = {p: i for i, p in enumerate(self.unique_P)}
-        self.GP_to_bit = {gp: i for i, gp in enumerate(self.unique_GP)}
-
-        if self.sim.pars.verbose > 1:
-            print(f"  - G genotypes: {self.unique_G} -> bits {list(self.G_to_bit.values())}")
-            print(f"  - P genotypes: {self.unique_P} -> bits {list(self.P_to_bit.values())}")
-            print(f"  - GP pairs: {self.unique_GP} -> bits {list(self.GP_to_bit.values())}")
-
-        # Pre-compute disease-specific bitmasks for fast lookup
-        self.disease_G_masks = {}
-        self.disease_P_masks = {}
-        self.disease_GP_masks = {}
-        for disease in self.rota_diseases:
-            self.disease_G_masks[disease.name] = 1 << self.G_to_bit[disease.G]
-            self.disease_P_masks[disease.name] = 1 << self.P_to_bit[disease.P]
-            self.disease_GP_masks[disease.name] = 1 << self.GP_to_bit[(disease.G, disease.P)]
-
-        if self.sim.pars.verbose > 1:
-            print(f"  - Pre-computed bitmasks for {len(self.rota_diseases)} diseases")
+    def maternal_protection(self):
+        """The protection from maternal antibodies, or 0 if there is none"""
+        p = self.pars
+        if p.maternal_immunity_efficacy == 0 and p.maternal_immunity_efficacy_slow == 0:
+            return 0
+        ages = self.sim.people.age.values
+        if p.maternal_immunity_model == "titer":
+            titer0 = p.maternal_titer_median * np.exp(np.log(p.maternal_titer_gsd) * self.maternal_titer_z.values)
+            titer = titer0 * np.exp(-np.log(2) * ages / p.maternal_titer_half_life.years)
+            hill = titer**p.maternal_hill_slope
+            return p.maternal_immunity_efficacy * hill / (hill + 1)  # A titer of 1 gives half protection
+        elif p.maternal_immunity_model == "erlang":
+            mean_duration = p.maternal_immunity_mean_duration or p.maternal_immunity_half_life / np.log(2)
+            fast = p.maternal_immunity_efficacy * erlang_survival(ages, p.maternal_immunity_n_stages, mean_duration.years)
+            slow = p.maternal_immunity_efficacy_slow * np.exp(-np.log(2) * ages / p.maternal_immunity_half_life_slow.years)
+            return 1 - (1 - fast) * (1 - slow)
+        raise ValueError(f"maternal_immunity_model must be 'erlang' or 'titer', not {p.maternal_immunity_model!r}")
 
     def step(self):
-        """Main connector step: apply waning and update cross-immunity"""
-        if len(self.rota_diseases) == 0:
+        """Set each strain's rel_sus"""
+        p = self.pars
+        baseline = self.baseline_protection()
+        maternal = self.maternal_protection()
+        waned = np.array([d.waned_immunity_efficacy.values for d in self.rota_diseases])
+        has_immunity = self.has_immunity.values
+        G_bits = self.exposed_G_bitmask.values
+        P_bits = self.exposed_P_bitmask.values
+        GP_bits = self.exposed_GP_bitmask.values
+
+        for i, disease in enumerate(self.rota_diseases):
+            G_mask, P_mask, GP_mask = self.masks[i]
+            exact = (GP_bits & GP_mask) != 0
+            partial = (((G_bits & G_mask) != 0) | ((P_bits & P_mask) != 0)) & ~exact
+
+            conditions = [~has_immunity, exact, partial]
+            choices = [p.naive_immunity_efficacy, p.homotypic_immunity_efficacy, p.partial_heterotypic_immunity_efficacy]
+            efficacy = np.select(conditions, choices, default=p.complete_heterotypic_immunity_efficacy)
+
+            factor = baseline.copy()
+            factor[exact] = np.maximum(factor[exact], waned[i, exact])
+            if self.partners[i]:
+                factor[partial] = np.maximum(factor[partial], waned[self.partners[i]][:, partial].max(axis=0))
+
+            disease.rel_sus[:] = 1 - np.maximum(factor * efficacy, maternal)
+
+    def record_infection(self, uids):
+        """Count new infections, called by Rotavirus when agents are infected"""
+        self.num_current_infections[uids] += 1
+
+    def record_recovery(self, disease, uids):
+        """Note the strain each agent has recovered from, called by Rotavirus when agents recover"""
+        if not len(uids):
             return
 
-        # Update cross-immunity protection for all diseases
-        self._update_cross_immunity()
+        G_mask, P_mask, GP_mask = self.masks[self.rota_diseases.index(disease)]
+        self.exposed_G_bitmask[uids] = self.exposed_G_bitmask[uids] | G_mask
+        self.exposed_P_bitmask[uids] = self.exposed_P_bitmask[uids] | P_mask
+        self.exposed_GP_bitmask[uids] = self.exposed_GP_bitmask[uids] | GP_mask
+        self.has_immunity[uids] = True
 
-    def _update_cross_immunity(self):
-        """Fully vectorized cross-immunity using bitwise operations - NO UID LOOPS"""
-        # Reset decay factors and update immunity for all diseases
-        self._reset_decay_factors()
-        self._update_immunity_decay_factors()
-        self._calculate_disease_susceptibilities()
+        # Co-infections and overlapping infections count as one episode, which ends with the last of them
+        self.num_current_infections[uids] -= 1
+        episode_over = uids[self.num_current_infections[uids] == 0]
+        self.num_recovered_infections[episode_over] += 1
 
-    def _reset_decay_factors(self):
-        """Reset partial immunity factors to 0.0 each timestep for fresh calculation"""
-        self.final_decayed_immunity_factor[:] = 0.0
-        self.partial_match_immunity_decay_factor[:] = 0.0
-        self.homotypic_immunity_decay_factor[:] = 0.0
-
-    def _update_immunity_decay_factors(self):
-        """Update immunity decay factors for all diseases based on recovery times"""
-        for disease in self.rota_diseases:
-            # Update max decay factors for agents recovered from this specific strain
-            recovered_from_strain = (disease.infected == False) & (disease.ti_recovered > 0)
-            recovered_uids = recovered_from_strain.uids
-
-            if recovered_from_strain.any():
-                # Calculate time since recovery in days
-                time_since_recovery = (disease.ti - disease.ti_recovered[recovered_from_strain]) * disease.dt.days
-
-                # Apply delayed exponential decay
-                waning_started = time_since_recovery > disease.pars.waning_delay.days
-
-                if waning_started.any():
-                    waning_started_uids = recovered_uids[waning_started]
-                    # Calculate decay factor for agents past the delay period
-                    decay_time = time_since_recovery[waning_started] - self.pars.immunity_waning_delay.days
-                    # Use pre-computed decay rates stored when agents recovered
-                    decay_rate = disease.waning_rate[waning_started_uids]
-                    decay_factor = np.exp(
-                        -decay_rate * decay_time
-                    )  # decay_rate (1/days) * decay_time (days) = dimensionless
-
-                    # Update per-strain decay factor (for homotypic immunity)
-                    self.homotypic_immunity_decay_factor[waning_started_uids] = decay_factor
-                    self[f"G{disease.G}P{disease.P}_decayed_immunity_factor"][waning_started_uids] = decay_factor
-
-    def _calculate_disease_susceptibilities(self):
-        """Calculate disease susceptibilities based on immunity matching and decay factors"""
-        for disease in self.rota_diseases:
-            disease_partial_matches = []
-            for gp in self.unique_GP:
-                if gp[0] == disease.G or gp[1] == disease.P and gp != (disease.G, disease.P):
-                    disease_partial_matches.append(gp)
-
-            disease_G_mask = self.disease_G_masks[disease.name]
-            disease_P_mask = self.disease_P_masks[disease.name]
-            disease_GP_mask = self.disease_GP_masks[disease.name]
-
-            # Extract raw numpy arrays for bitwise operations
-            G_bits = self.exposed_G_bitmask.values
-            P_bits = self.exposed_P_bitmask.values
-            GP_bits = self.exposed_GP_bitmask.values
-
-            # Vectorized matching using bitwise operations
-            has_exact_match = (GP_bits & disease_GP_mask) != 0
-            has_G_match = ((G_bits & disease_G_mask) != 0) & ~has_exact_match
-            has_P_match = ((P_bits & disease_P_mask) != 0) & ~has_exact_match
-
-            # Determine immunity type and assign protection levels
-            has_partial_match = has_G_match | has_P_match
-            has_immunity_mask = self.has_immunity[:]  # Agents with any prior immunity
-
-            # Separate naive agents (no prior immunity) from true heterotypic matches
-            has_complete_hetero = ~has_partial_match & ~has_exact_match & has_immunity_mask
-
-            strain_match_immunity_efficacy = np.zeros(has_exact_match.shape, dtype=float)
-            strain_match_immunity_efficacy[has_exact_match] = self.pars.homotypic_immunity_efficacy
-            strain_match_immunity_efficacy[has_partial_match] = self.pars.partial_heterotypic_immunity_efficacy
-            strain_match_immunity_efficacy[has_complete_hetero] = self.pars.complete_heterotypic_immunity_efficacy
-            strain_match_immunity_efficacy[~has_immunity_mask] = self.pars.naive_immunity_efficacy
-
-            # Homotypic: use per-strain decay
-            self.final_decayed_immunity_factor[has_exact_match] = self.homotypic_immunity_decay_factor[has_exact_match]
-
-            for gp in disease_partial_matches:
-                gp_decay = self[f"G{gp[0]}P{gp[1]}_decayed_immunity_factor"][has_partial_match]
-
-                # Update partial match decay factor to the maximum of any matching G or P type
-                self.final_decayed_immunity_factor[has_partial_match] = np.maximum(
-                    self.final_decayed_immunity_factor[has_partial_match], gp_decay
-                )
-
-            # Apply protection with appropriate decay factor
-            # People without immunity have full susceptibility (rel_sus = 1.0)
-
-            # The full rel_sus calculation combines strain match efficacy, decayed immunity factor, and infection history scaling.
-            # * strain_match_immunity_efficacy is the base protection level based on match type (0.0 to 1.0)
-            # * final_decay_factor reduces this protection over time since last infection (0.0 to 1.0). In the case of a partial match, it uses the max decay from either G or P.
-            # * infection_history_susceptibility_factor scales susceptibility based on total prior infections. It does not decay over time.
-
-            disease.rel_sus[:] = 1 - strain_match_immunity_efficacy * self.final_decayed_immunity_factor
-
-    def record_infection(self, disease, new_infected_uids):
-        self.num_current_infections[new_infected_uids] += 1.0
-
-    def record_recovery(self, disease, recovered_uids):
+    def initialize_immunity(self, min_age, max_age, exposures_per_year=1.5):
         """
-        Update bitmasks when people recover from infections
+        Give agents the infection history expected for their age; call after `sim.init()`
 
-        This method should be called by Rotavirus instances when infections resolve.
+        Most adults have had several rotavirus infections in childhood, so a sim that starts
+        with a naive population overestimates their susceptibility.
 
         Args:
-            disease: Rotavirus disease instance
-            recovered_uids: Array of UIDs who recovered from this disease
+            min_age (float): youngest age to initialize, in years
+            max_age (float): oldest age to initialize, in years
+            exposures_per_year (float): expected infections per year of life
         """
-        if len(recovered_uids) == 0:
-            return
-
-        if not isinstance(disease, Rotavirus):
-            return  # Only handle Rotavirus diseases
-
-        # Get bit positions for this disease's G,P genotypes and combination
-        G_bit = 1 << self.G_to_bit[disease.G]
-        P_bit = 1 << self.P_to_bit[disease.P]
-        GP_bit = 1 << self.GP_to_bit[(disease.G, disease.P)]
-
-        # Update bitmasks using IntArr bitwise ops
-        current_G = self.exposed_G_bitmask[recovered_uids]
-        current_P = self.exposed_P_bitmask[recovered_uids]
-        current_GP = self.exposed_GP_bitmask[recovered_uids]
-
-        self.exposed_G_bitmask[recovered_uids] = current_G | G_bit
-        self.exposed_P_bitmask[recovered_uids] = current_P | P_bit
-        self.exposed_GP_bitmask[recovered_uids] = current_GP | GP_bit
-
-        # Mark as having immunity
-        self.has_immunity[recovered_uids] = True
-
-        # Increment total infection count for each recovered agent
-        self.num_current_infections[recovered_uids] -= 1.0
-        self.num_recovered_infections[recovered_uids] += 1.0
-
-        # Track oldest infection time (only set if first infection)
-        first_infections = np.isnan(self.oldest_infection[recovered_uids])
-        self.oldest_infection[recovered_uids[first_infections]] = self.sim.ti
+        ages = self.sim.people.age
+        uids = ((ages >= min_age) & (ages < max_age)).uids
+        self.has_immunity[uids] = True
+        self.num_recovered_infections[uids] += np.round(exposures_per_year * ages[uids])

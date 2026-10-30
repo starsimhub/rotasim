@@ -1,0 +1,28 @@
+# Exp 04 — age-structured contacts feasibility (3-group refinement).
+# 2-group failed: infants got toddler-level FOI -> infected too early (<6m overshoot),
+# overwhelming even 97% maternal. Refinement: 3 groups -- infants (0-1) with a LOW
+# contact/exposure rate, young children (1-5) high-mixing reservoir, 5+. Infants are
+# exposed to the reservoir only weakly; sharp maternal holds them to ~6mo, then their
+# (low) exposure surges them at 6-11mo.
+# Contact matrix (rows=src, cols=dst), groups [inf, young, rest]:
+#   [[c, c, c],
+#    [infant_exposure, young_reservoir, c],
+#    [c, c, c]]
+# i.e. young->inf = infant_exposure (LOW, key), young->young = young_reservoir (HIGH).
+site: bangladesh
+n_agents: 20000
+seed: 20260605
+base_beta: 0.25
+young_reservoir_contacts: 30.0             # within young-children (1-5): sustains the epidemic
+infant_exposure_sweep: [2.0, 5.0, 10.0]    # infant's contact/exposure to the reservoir (LOW, key lever)
+maternal_mean_duration_sweep: [150.0, 210.0]  # Erlang maternal drop-age (~ peak age)
+maternal_n_stages: 6                       # sharp "plateau then drop"
+cross_contacts: 0.5                        # all other off-diagonal/background contacts
+fixed:
+  sus_after_1: 0.60
+  sus_after_2: 0.40
+  sus_after_3plus: 0.25
+  maternal_immunity_efficacy: 0.97
+  p_symp_1: 0.60
+  p_symp_2: 0.15
+  p_symp_3plus: 0.05

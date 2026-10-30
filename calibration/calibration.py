@@ -6,6 +6,7 @@ import numpy as np
 import sciris as sc
 import optuna as op
 import matplotlib.pyplot as plt
+import starsim as ss
 
 # Local imports ... should tidy up later
 thisdir = sc.thispath(__file__)
@@ -59,8 +60,9 @@ def compute_gof(actual, predicted, normalize=True, use_frac=True, use_squared=Fa
         if (actual<0).any() or (predicted<0).any():
             print('Warning: Calculating fractional errors for non-positive quantities is ill-advised!')
         else:
-            maxvals = np.maximum(actual, predicted) + eps
-            gofs /= maxvals
+            # Divide by actual to get fractional error relative to observed data
+            # This treats over- and under-estimation symmetrically
+            gofs /= (actual + eps)
 
     return gofs
 
@@ -100,11 +102,21 @@ class Calibration(sc.prettyobj):
         self.run_args = sc.objdict(kw)
 
         # Store calibration settings
-        self.known_pars = ['reassortment_rate', 'rel_beta']
+        self.known_pars = ['reassortment_rate', 'base_beta', 'reporting_rate', 'maternal_immunity_efficacy', 'maternal_immunity_half_life',
+                          'homotypic_immunity_efficacy', 'partial_heterotypic_immunity_efficacy', 'complete_heterotypic_immunity_efficacy',
+                          'baseline_immunity_exponential_rate',
+                          'long_term_immunity_prob_after_1', 'long_term_immunity_prob_after_2', 'long_term_immunity_prob_after_3', 'long_term_immunity_prob_after_4']
 
         # Handle other inputs
         self.sim        = sim
-        self.data       = data
+        # data should be a tuple of (overall_incidence, age_distribution)
+        if isinstance(data, tuple):
+            self.overall_incidence, self.age_distribution = data
+        else:
+            # Backwards compatibility: assume single dataframe with 'inci' column
+            self.overall_incidence = data['inci'].mean()
+            total = data['inci'].sum()
+            self.age_distribution = sc.dataframe(dict(ages=data['ages'], proportion=data['inci']/total))
         self.calib_pars = calib_pars
         self.die        = die
         self.verbose    = verbose
@@ -146,34 +158,163 @@ class Calibration(sc.prettyobj):
     def translate_pars(self, sim_pars):
         """ Take the nested dict of calibration pars and modify the sim """
         sim_pars = sc.mergedicts(sim_pars) # To allow None
-        sim = sc.dcp(self.sim)
+
+        # Handle base_beta BEFORE creating sim copy (needs to be in constructor)
+        base_beta_override = None
+        if 'base_beta' in sim_pars:
+            base_beta_override = sim_pars.pop('base_beta')
+
+        # Create sim copy with updated base_beta if needed
+        if base_beta_override is not None:
+            # Create new sim with updated base_beta
+            sim = sc.dcp(self.sim)
+            sim.pars.base_beta = base_beta_override
+
+            for disease in sim.pars.diseases:
+                if isinstance(disease, rs.Rotavirus):
+                    disease.pars.beta = ss.perday(sim.pars.base_beta * disease.pars.fitness)
+        else:
+            sim = sc.dcp(self.sim)
+
+        # Store parameters to apply after initialization
+        pars_to_apply = {}
+
         pars = list(sim_pars.keys())
         for par in pars:
             val = sim_pars.pop(par)
             if par in self.known_pars:
-                setattr(sim, par, val) # Set the new value
+                pars_to_apply[par] = val
             else:
                 errormsg = f'Do not know how to handle parameter "{par}"'
                 raise NotImplementedError(errormsg)
+
+        # Initialize the sim first so diseases and connectors are created
+        sim.init()
+
+        # todo move these before init and simplify
+        # Now apply the parameters after initialization
+        for par, val in pars_to_apply.items():
+            if par == 'reassortment_rate':
+                # In V2, set on the RotaReassortmentConnector (called reassortment_prob in V2)
+                if hasattr(sim, 'connectors'):
+                    for connector in sim.connectors.values():
+                        if type(connector).__name__ == 'RotaReassortmentConnector':
+                            if hasattr(connector, 'pars') and hasattr(connector.pars, 'reassortment_prob'):
+                                # Update the probability parameter - need to properly initialize it
+                                new_dist = ss.bernoulli(p=val)
+                                new_dist.init(sim.people, sim=sim)  # Initialize with people and sim
+                                connector.pars.reassortment_prob = new_dist
+                            break
+            elif par == 'reporting_rate':
+                # reporting_rate is applied during post-processing, not to sim
+                # Store it as an attribute on sim for use in compute_fit
+                sim._reporting_rate = val
+            elif par in ['maternal_immunity_efficacy', 'maternal_immunity_half_life', 'homotypic_immunity_efficacy',
+                         'partial_heterotypic_immunity_efficacy', 'complete_heterotypic_immunity_efficacy',
+                         'baseline_immunity_exponential_rate']:
+                if hasattr(sim, 'connectors'):
+                    for connector in sim.connectors.values():
+                        if type(connector).__name__ == 'RotaImmunityConnector':
+                            setattr(connector.pars, par, val)
+                            break
+            elif par in ['long_term_immunity_prob_after_1', 'long_term_immunity_prob_after_2',
+                         'long_term_immunity_prob_after_3', 'long_term_immunity_prob_after_4']:
+                # Set long-term immunity parameters on RotaImmunityConnector
+                if hasattr(sim, 'connectors'):
+                    for connector in sim.connectors.values():
+                        if type(connector).__name__ == 'RotaImmunityConnector':
+                            setattr(connector.pars, par, val)
+                            break
+            else:
+                setattr(sim, par, val) # Set the new value for other known pars
+
         return sim
 
     def compute_fit(self, sim, full=False):
-        """ Compute goodness-of-fit """
-        sim_df = self.sim_to_df(sim)
-        actual = self.data.inci.values
-        expected = sim_df.inci.values
-        gofs = compute_gof(actual, expected)
-        fit = gofs.sum()
+        """
+        Compute goodness-of-fit for both overall incidence and age distribution
+
+        Strategy:
+        - reporting_rate fits overall incidence magnitude
+        - maternal_immunity and base_beta fit age distribution shape
+
+        Returns combined GOF that weights both objectives
+        """
+        # Get simulation results
+        
+        sim_overall_incidence, sim_age_distribution = self.sim_to_df(sim)
+
+        # Handle case where simulation died out
+        if sim_overall_incidence is None or sim_age_distribution is None or len(sim_age_distribution) == 0:
+            penalty = 1e6
+            if full:
+                return penalty, penalty, penalty  # total, incidence_gof, age_dist_gof
+            else:
+                return penalty
+
+        # 1. Compute GOF for overall incidence (single value)
+        target_incidence = self.overall_incidence
+        incidence_gof = abs(sim_overall_incidence - target_incidence) / (target_incidence + 1e-9) * 0.1
+
+        # 2. Compute GOF for age distribution (proportions)
+        target_proportions = self.age_distribution.proportion.values
+        sim_proportions = sim_age_distribution.proportion.values
+
+        # Handle mismatched shapes
+        if len(sim_proportions) != len(target_proportions):
+            if len(sim_proportions) < len(target_proportions):
+                padding = np.zeros(len(target_proportions) - len(sim_proportions))
+                sim_proportions = np.concatenate([sim_proportions, padding])
+            else:
+                sim_proportions = sim_proportions[:len(target_proportions)]
+
+        # Use sum of absolute differences for proportions (they sum to 1)
+        age_dist_gof = np.abs(sim_proportions - target_proportions).sum()
+
+        # Combined GOF: weight both objectives equally
+        # Incidence GOF is already fractional (normalized)
+        # Age dist GOF is sum of absolute proportion differences (max = 2 if completely wrong)
+        # Normalize age_dist_gof to similar scale as incidence_gof
+        total_gof = incidence_gof + age_dist_gof
+
         if full:
-            return fit, gofs
+            return total_gof, incidence_gof, age_dist_gof
         else:
-            return fit
+            return total_gof
 
     @staticmethod
     def sim_to_df(sim):
-        """ Convert the sim output to a data-like dataframe """
-        df = process_incidence.process_model(sim.df)
-        return df
+        """
+        Convert the sim output to data format
+
+        Returns:
+            overall_incidence: float - overall incidence per 100k
+            age_distribution: dataframe - proportions by age
+        """
+        # Extract infection data from InfectedStrainStats analyzer
+        infected_analyzer = None
+        for analyzer in sim.analyzers.values():
+            if type(analyzer).__name__ == 'InfectedStrainStats':
+                infected_analyzer = analyzer
+                break
+
+        if infected_analyzer is None:
+            raise ValueError("InfectedStrainStats analyzer not found in simulation. Please add it to the sim.analyzers list.")
+
+        # Get the infection events dataframe
+        df = infected_analyzer.to_df()
+
+        # Process the data using the process_incidence module
+        # Returns (overall_incidence, age_distribution)
+        overall_incidence, age_distribution = process_incidence.process_model(df)
+
+        # Apply reporting rate if specified (represents surveillance capture rate)
+        # This scales the OVERALL incidence but doesn't affect age distribution shape
+        if hasattr(sim, '_reporting_rate') and sim._reporting_rate is not None:
+            reporting_rate = sim._reporting_rate
+            overall_incidence = overall_incidence * reporting_rate
+
+        return overall_incidence, age_distribution
 
     def run_trial(self, trial):
         """ Define the objective for Optuna """
@@ -252,18 +393,33 @@ class Calibration(sc.prettyobj):
         before_pars = self.calib_to_sim_pars()
         self.before_sim = self.run_sim(sim_pars=before_pars)
         self.after_sim  = self.run_sim(sim_pars=self.best_pars)
-        self.before_df = self.sim_to_df(self.before_sim)
-        self.after_df = self.sim_to_df(self.after_sim)
-        self.before_fit, self.before_gofs = self.compute_fit(self.before_sim, full=True)
-        self.after_fit, self.after_gofs = self.compute_fit(self.after_sim, full=True)
+
+        # Get simulation results (returns tuples of (overall_incidence, age_distribution))
+        self.before_overall_incidence, self.before_age_distribution = self.sim_to_df(self.before_sim)
+        self.after_overall_incidence, self.after_age_distribution = self.sim_to_df(self.after_sim)
+
+        # For backwards compatibility, store dataframes with both metrics
+        self.before_df = self.before_age_distribution  # Age distribution dataframe
+        self.after_df = self.after_age_distribution
+
+        # Get full GOF breakdown (total_gof, incidence_gof, age_dist_gof)
+        self.before_fit, self.before_incidence_gof, self.before_age_gof = self.compute_fit(self.before_sim, full=True)
+        self.after_fit, self.after_incidence_gof, self.after_age_gof = self.compute_fit(self.after_sim, full=True)
 
         if verbose:
-            print(f'Fit with original pars: {self.before_fit:n}')
-            print(f'Fit with best-fit pars: {self.after_fit:n}')
+            print(f'\nFit with original pars:')
+            print(f'  Total GOF:       {self.before_fit:n}')
+            print(f'  Incidence GOF:   {self.before_incidence_gof:n}')
+            print(f'  Age dist GOF:    {self.before_age_gof:n}')
+            print(f'\nFit with best-fit pars:')
+            print(f'  Total GOF:       {self.after_fit:n}')
+            print(f'  Incidence GOF:   {self.after_incidence_gof:n}')
+            print(f'  Age dist GOF:    {self.after_age_gof:n}')
+
             if self.after_fit <= self.before_fit:
-                print('✓ Calibration improved fit')
+                print('\n✓ Calibration improved fit')
             else:
-                print('✗ Calibration did not improve fit')
+                print('\n✗ Calibration did not improve fit')
         return self.before_fit, self.after_fit
 
     def parse_study(self, study):
@@ -389,12 +545,19 @@ if __name__ == '__main__':
     debug = False
     total_trials = 20
 
-    # Create the base sim
+    # Create the base sim with InfectedStrainStats analyzer
+    # Need longer simulation and demographics to sustain infections for calibration
     sim = rs.Sim(
-        N = 10_000,
-        timelimit = 2,
-        to_csv = False,
+        n_agents = 10_000,
+        start = "2000-01-01",
+        stop = "2010-01-01",  # 10 years to cover years 1-9 needed for calibration
         verbose = False,
+        scenario = "single",  # Use single strain scenario for debugging
+        analyzers = [rs.InfectedStrainStats()],  # Add the infection tracking analyzer
+        demographics = [  # Add demographics to sustain population
+            ss.Births(birth_rate=ss.peryear(13)),  # 25 per 1000 per year
+            ss.Deaths(death_rate=ss.peryear(6)),  # 10 per 1000 per year
+        ],
     )
 
     # Convert the data
@@ -402,8 +565,8 @@ if __name__ == '__main__':
 
     # Specify the calibration parameters
     calib_pars = sc.objdict(
-        rel_beta = [1.0, 0.5, 1.0],
-        reassortment_rate = [0.10, 0.09, 0.11]
+        rel_beta = [0.01, 0.001, 0.1],  # Expanded range to allow much lower transmission
+        reassortment_rate = [0.10, 0.05, 0.15]
     )
 
     # Run the calibration
@@ -414,6 +577,19 @@ if __name__ == '__main__':
         total_trials = total_trials,
         debug = debug,
     )
+
+
     calib.calibrate()
     calib.check_fit()
-    calib.plot_sims()
+
+    # Plot and save results
+    print('\nGenerating plots...')
+    fig1 = calib.plot_sims()
+    fig1.savefig('calibration_fit.png', dpi=150, bbox_inches='tight')
+    print('  Saved: calibration_fit.png')
+
+    fig2 = calib.plot_trend()
+    fig2.savefig('calibration_trend.png', dpi=150, bbox_inches='tight')
+    print('  Saved: calibration_trend.png')
+
+    plt.show()  # Display plots if running interactively

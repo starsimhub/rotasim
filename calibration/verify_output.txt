@@ -1,0 +1,47 @@
+======================================================================
+VERIFICATION: Age Distribution from Calibration
+======================================================================
+
+Using best parameters:
+  reporting_rate: 0.000154
+  homotypic_immunity_efficacy: 0.161274
+  partial_heterotypic_immunity_efficacy: 0.006090
+  complete_heterotypic_immunity_efficacy: 0.121781
+  base_beta: 0.060286
+  maternal_immunity_efficacy: 0.000000
+  adult_baseline_immunity: 0.966051
+
+======================================================================
+Step 1: Creating simulation
+======================================================================
+Rotasim: Setting up multi-strain simulation
+  Scenario: single
+  Base beta: 0.060285715739135576
+  Strains: 1
+  Created 1 active strains and 0 dormant reassortants
+  Connectors: Adding default connectors: RotaImmunityConnector, RotaReassortmentConnector
+  Time units: day, dt=day
+  Total diseases: 1 (1 active + 0 dormant)
+Initializing sim with 10000 agents
+RotaImmunityConnector: Found 1 Rotavirus strains
+InfectedStrainStats: Tracking infections for 1 Rotavirus strains
+✓ Simulation initialized with 10000 agents
+
+======================================================================
+Step 2: Initializing UK age distribution
+======================================================================
+✓ Ages initialized
+  <1y:   0.21%  (21 agents)
+  1-2y:  0.29%  (29 agents)
+  2-5y:  0.76%  (76 agents)
+  ≥5y:   98.74%  (9874 agents)
+
+======================================================================
+Step 3: Initializing adult baseline immunity
+======================================================================
+✓ Setting 96.6% immunity for 8975 adults (age ≥18)
+Traceback (most recent call last):
+  File "/Users/aliciakraay/PycharmProjects/rotasim/calibration/verify_age_distribution.py", line 126, in <module>
+    sim.people.rota.immunity[uid] = {'G1P8': 0.0}
+    ^^^^^^^^^^^^^^^
+AttributeError: 'People' object has no attribute 'rota'

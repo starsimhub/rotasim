@@ -1,0 +1,26 @@
+# Exp 10 — exp-09 re-run under corrected person-time denominator + infra fixes.
+# Identical to exp 09 except: PersonTimeByAge denominator, starsim#1343 mitigation,
+# and FRESH study DBs (*_ptfix) so old/new-denominator trials never mix.
+site: bangladesh
+fit_target: poisson
+maternal_n_stages: 6
+n_trials: 40
+n_reps: 20
+n_jobs: 1
+n_agents: 100000
+demographics: bangladesh
+mixing: homogeneous
+denominator: PersonTimeByAge          # corrected (was end-of-sim snapshot in exp 09)
+reporter: process_model               # MALEDTargets ported but age_only-only -> deferred
+models:
+  peaked_age:
+    symptom_model: age_only
+    db: rota_maled_bangladesh_erlang6_poisson_ptfix.db
+    study: rota_maled_bangladesh_erlang6_poisson
+    seeds: peaked shape at base_beta ladder [0.20, 0.12, 0.08, 0.06]
+  infection_number:
+    symptom_model: infection_number
+    db: rota_maled_bangladesh_infnum_erlang6_poisson_ptfix.db
+    study: rota_maled_bangladesh_infnum_erlang6_poisson
+    seeds: none
+compare_against: ../09_shape_aware_likelihood   # old-denominator baseline

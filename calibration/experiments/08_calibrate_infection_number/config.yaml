@@ -1,0 +1,18 @@
+# Exp 08 — calibrate the infection-number-only symptom model to MAL-ED Bangladesh
+# (joint fit), matched to exp 07. Driver: calibrate_maled.py. run.py here loads BOTH
+# studies (07 + 08) for the head-to-head comparison + shape scorecard.
+site: bangladesh
+symptom_model: infection_number  # per-infection p_symp_1/2/3plus, no age term
+maternal_n_stages: 6             # Erlang-6, same as exp 07
+fit_target: joint                # same objective as exp 07
+n_trials: 40
+n_reps: 20
+n_jobs: 1
+n_agents: 100000
+demographics: bangladesh         # birth 19 / death 6 per 1000; pyramid [2.5, 2.5, 7.5, 87.5]%
+mixing: homogeneous              # RandomNet, n_contacts=7
+study: rota_maled_bangladesh_infnum_erlang6
+db: rota_maled_bangladesh_infnum_erlang6.db
+seed_trial: none                 # no peak to seed toward
+compare_against: ../07_calibrate_peaked_age   # run.py reads exp 07's study too
+# Search ranges (wide/unbiased) live in calibrate_maled.py:_trial_to_sim_pars.

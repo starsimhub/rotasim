@@ -1,0 +1,52 @@
+{
+  "model": "infection_number_fitted_immunity",
+  "description": "Fresh 20-trial calibration with FIXED age distribution extraction",
+  "n_trials": 20,
+  "best_parameters": {
+    "reporting_rate": 0.001336273706464634,
+    "base_beta": 1.1761301917920375,
+    "sus_after_3plus": 0.8716026047079283,
+    "sus_after_2": 0.9449786993775343,
+    "sus_after_1": 0.9982526433781916
+  },
+  "best_gof": 11.562153355478102,
+  "target_incidence": 27.56,
+  "calibration_pars": {
+    "reporting_rate": [
+      0.01,
+      0.001,
+      0.05
+    ],
+    "base_beta": [
+      2.5,
+      1.0,
+      8.0
+    ],
+    "sus_after_1": [
+      0.85,
+      0.5,
+      1.0
+    ],
+    "sus_after_2": [
+      0.7,
+      0.3,
+      0.95
+    ],
+    "sus_after_3plus": [
+      0.5,
+      0.1,
+      0.9
+    ]
+  },
+  "mle_evaluation": {
+    "incidence": 73.92441833400058,
+    "age_distribution": [
+      0.010075566750629723,
+      0.010075566750629723,
+      0.037783375314861464,
+      0.9420654911838791
+    ],
+    "incidence_gof": 1.6823083575471907,
+    "age_gof": 2.8098309422369634
+  }
+}

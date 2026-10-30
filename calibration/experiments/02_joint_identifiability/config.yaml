@@ -1,0 +1,14 @@
+# Exp 02 — joint identifiability on optimized fits.
+# Pure analysis of trials already in the study DBs / logs; no new simulations.
+site: bangladesh
+calib_dir: /home/akraay/rotasim/rotasim/calibration   # where the study DBs + logs live (VM)
+
+# MAL-ED Bangladesh data target + a tolerance box used to ask "does any optimized
+# fit reach the data corner": the 6-11 mo peak, the first-infection median, and
+# the near-zero oldest bin must ALL be matched at once.
+target_peak_6_11: 5.37        # symptomatic IR /100 PM in 6-11 mo (the peak)
+target_first_med_mo: 7.98     # age-at-first-infection median (mo)
+target_oldest_24_35: 0.14     # symptomatic IR /100 PM in 24-35 mo (near zero)
+tol_peak_frac: 0.30           # 6-11 mo IR within +-30% of target
+tol_first_med_mo: 1.5         # first-inf median within +-1.5 mo of target
+tol_oldest_max: 0.5           # 24-35 mo IR must be <= this (data is 0.14)

@@ -1,0 +1,19 @@
+# Exp 12 — peaked age-symptom model + titer maternal (2x2 completion).
+# Same setup as exp 09-11 (homogeneous mixing, process_model obs, PersonTimeByAge,
+# Poisson objective); only cell that differs: age_only symptoms x titer maternal.
+site: bangladesh
+symptom_model: age_only
+maternal_model: titer
+fit_target: poisson
+n_trials: 40
+n_reps: 20
+n_jobs: 1
+n_agents: 100000
+demographics: bangladesh
+mixing: homogeneous
+observation: process_model
+denominator: PersonTimeByAge
+study: rota_maled_bangladesh_titer_poisson
+db: rota_maled_bangladesh_titer_poisson.db
+seed: exp-09/10 peaked betas + DK-titer config (see enqueue_seeds.py)
+compare_against: ../10_denominator_rerun   # peaked + Erlang baseline
