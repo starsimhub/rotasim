@@ -79,12 +79,12 @@ class EventStats(ss.Analyzer):
     def step(self):
         sim, ti, res = self.sim, self.ti, self.results
         if "births" in sim.results:
-            res.births[ti] = sim.results.births.new[ti]
-        res.deaths[ti] = sim.results.new_deaths[ti]
+            res.births[ti] = sim.results.births.birth[ti]
+        res.deaths[ti] = sim.results.died[ti]
         if self.reassortment is not None:
             res.reassortments[ti] = self.reassortment.results.n_reassortments[ti]
         res.recoveries[ti] = sum(d.results.new_recovered[ti] for d in self.diseases)
-        res.new_infections[ti] = sum(d.results.new_infections[ti] for d in self.diseases)
+        res.new_infections[ti] = sum(d.results.infection[ti] for d in self.diseases)
         strains = sum(d.infected.values.astype(int) for d in self.diseases)
         res.infected_agents[ti] = np.count_nonzero(strains >= 1)
         res.coinfected_agents[ti] = np.count_nonzero(strains >= 2)

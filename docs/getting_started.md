@@ -22,8 +22,8 @@ Each strain's results are under its name:
 ```python
 g1p8 = sim.results.G1P8
 g1p8.prevalence       # Share of people infected, over time
-g1p8.new_infections   # New infections, over time
-g1p8.cum_infections   # Cumulative infections, over time
+g1p8.infection        # New infections, over time
+g1p8.infection.cum    # Cumulative infections, over time
 ```
 
 ## Change a scenario

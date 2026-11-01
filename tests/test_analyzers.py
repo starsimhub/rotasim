@@ -26,8 +26,8 @@ def test_analyzers():
     assert np.nanmax(sum(res[f"{name}_proportion"] for name in sim.diseases.keys())) < 1.001  # Proportions add up to 1
 
     events = sim.analyzers.eventstats.results
-    assert events.births.sum() == sim.results.births.new.sum()
-    assert events.new_infections.sum() == sum(d.results.new_infections.sum() for d in sim.diseases.values())
+    assert events.births.sum() == sim.results.births.birth.sum()
+    assert events.new_infections.sum() == sum(d.results.infection.sum() for d in sim.diseases.values())
     assert events.reassortments.sum() > 0  # With two strains circulating, reassortants arise
     assert (events.infected_agents >= events.coinfected_agents).all()
 

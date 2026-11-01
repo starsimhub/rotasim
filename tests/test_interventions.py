@@ -62,7 +62,7 @@ def test_network():
     sim.run_one_step()
     assert np.isclose(2 * len(sim.networks.ageassortativenet) / n_agents, 8, rtol=0.05)  # Replaced each step, so they don't accumulate
     sim = rs.Sim(scenario="single", networks=rs.AgeAssortativeNet(), **pars).run()
-    assert sim.diseases.G1P8.results.cum_infections[-1] > 0  # It transmits
+    assert sim.diseases.G1P8.results.infection.cum[-1] > 0  # It transmits
 
 
 if __name__ == "__main__":
