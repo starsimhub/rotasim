@@ -18,7 +18,7 @@ dependencies = [
     "numpy",
     "matplotlib",
     "pandas",
-    "starsim>=4.0.0",
+    "starsim>=4.0.0rc1",
 ]
 
 [dependency-groups]
