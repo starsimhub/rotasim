@@ -55,13 +55,13 @@ def test_sim():
     sc.heading("Testing a full sim")
     sim = rs.Sim(scenario="simple", demographics=[ss.Births(birth_rate=ss.peryear(20)), ss.Deaths(death_rate=ss.peryear(10))], rand_seed=1, **pars).run()
     g1p8 = sim.diseases.G1P8
-    assert g1p8.results.cum_infections[-1] > 0  # It spreads
-    assert sim.results.births.new.sum() > 0 and sim.results.new_deaths.sum() > 0  # With demographics
+    assert g1p8.results.infection.cum[-1] > 0  # It spreads
+    assert sim.results.births.birth.sum() > 0 and sim.results.died.sum() > 0  # With demographics
     assert sim.people.age.mean() > 0  # Agents age
     assert np.nanmax(g1p8.rel_sus.values) <= 1 and np.nanmin(g1p8.rel_sus.values) >= 0  # Susceptibility stays a fraction
 
     repeat = rs.Sim(scenario="simple", demographics=[ss.Births(birth_rate=ss.peryear(20)), ss.Deaths(death_rate=ss.peryear(10))], rand_seed=1, **pars).run()
-    assert np.array_equal(g1p8.results.new_infections, repeat.diseases.G1P8.results.new_infections)  # The same seed gives the same result
+    assert np.array_equal(g1p8.results.infection, repeat.diseases.G1P8.results.infection)  # The same seed gives the same result
 
     msim = ss.parallel(rs.Sim(scenario="single", **pars), n_runs=2, parallel=False)
     assert len(msim.sims) == 2  # Runs with Starsim's multi-run tools
@@ -69,7 +69,7 @@ def test_sim():
     default = rs.Sim(n_agents=100, verbose=0)
     assert default.scenario == "baseline" and default.pars.dt.days == 1  # The default sim is daily
     plain = ss.Sim(diseases=rs.Rotavirus(G=1, P=8), networks="random", dt=ss.days(1), start="2000-01-01", stop="2000-03-01", n_agents=500, verbose=0).run()
-    assert plain.diseases.G1P8.results.cum_infections[-1] > 0  # The disease works in a plain sim, with no connectors
+    assert plain.diseases.G1P8.results.infection.cum[-1] > 0  # The disease works in a plain sim, with no connectors
 
 
 @sc.timer()
