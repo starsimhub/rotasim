@@ -119,6 +119,11 @@ class RotaVaccination(ss.Intervention):
         if dose_interval is None:
             self.pars.dose_interval = ss.days(28)  # 4 weeks between doses
 
+        # Bare numbers are in days
+        for key in ["dose_interval", "waning_delay"]:
+            if not isinstance(self.pars[key], ss.dur):
+                self.pars[key] = ss.days(self.pars[key])
+
         if dose_effectiveness is None:
             if n_doses == 1:
                 self.pars.dose_effectiveness = [0.7]
@@ -270,7 +275,7 @@ class RotaVaccination(ss.Intervention):
             still_need_doses = self.doses_eligible[eligible_uids] < self.pars.n_doses
             self.next_dose_due[eligible_uids] = np.where(
                 still_need_doses,
-                self.ti + self.pars.dose_interval,
+                self.ti + self.pars.dose_interval.days / self.dt.days,  # next_dose_due is in timesteps
                 self.next_dose_due[eligible_uids],  # Keep existing value if no more doses needed
             )
 
@@ -366,7 +371,7 @@ class RotaVaccination(ss.Intervention):
         # Sample waning times for each agent
         if hasattr(self.pars.waning_rate_dist, "rvs"):
             self.waning_rate[uids] = 1.0 / self.pars.waning_rate_dist.rvs(uids)
-        self.waning_delay[uids] = self.pars.waning_delay
+        self.waning_delay[uids] = self.pars.waning_delay.days
 
         if self.pars.verbose:
             covered_strains = [(d.G, d.P) for d in self.covered_diseases]
@@ -384,24 +389,20 @@ class RotaVaccination(ss.Intervention):
         if len(self.covered_diseases) == 0:
             return
 
-            # Only apply to agents who have received at least one dose
-        vaccinated_mask = self.doses_received > 0
-        if not np.any(vaccinated_mask):
+        # Only apply to agents who have received at least one dose
+        uids = (self.doses_received > 0).uids
+        if len(uids) == 0:
             return  # No one is vaccinated yet
 
         # Calculate time since last dose for vaccinated agents
+        days_since_vaccination = np.maximum(0, (self.ti - self.last_dose_ti[uids]) * self.dt.days)
+        days_since_waning = np.maximum(0, days_since_vaccination - self.waning_delay[uids])
 
-        days_since_vaccination = np.maximum(0, (self.ti - self.last_dose_ti) * self.dt.days)
-        days_since_waning = np.maximum(0, days_since_vaccination - self.waning_delay)
-
-        waned_effectiveness_factor = np.exp(-self.waning_rate * days_since_waning)
+        waned_effectiveness_factor = np.exp(-self.waning_rate[uids] * days_since_waning)
+        dose_effectiveness = np.array(self.pars.dose_effectiveness)[self.doses_received[uids] - 1]
 
         # Update waned protection for each covered disease
         for disease in self.covered_diseases:
-            dose_effectiveness = np.zeros_like(waned_effectiveness_factor)
-            dose_effectiveness[vaccinated_mask] = np.array(self.pars.dose_effectiveness)[
-                self.doses_received[vaccinated_mask] - 1
-            ]
             vx_eff = waned_effectiveness_factor * dose_effectiveness * self.disease_match_efficacies[disease.name]
 
             # Apply to disease rel_sus if vaccine protection is better
@@ -409,9 +410,7 @@ class RotaVaccination(ss.Intervention):
             vx_sus = 1.0 - vx_eff
 
             # Use the minimum susceptibility (most protective)
-            current_sus = disease.rel_sus[:]
-            new_sus = np.minimum(current_sus, vx_sus)
-            disease.rel_sus[:] = new_sus
+            disease.rel_sus[uids] = np.minimum(disease.rel_sus[uids], vx_sus)
 
     def get_vaccination_summary(self):
         """Get summary of vaccination program status"""
