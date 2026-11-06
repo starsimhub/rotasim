@@ -52,7 +52,7 @@ class Sim(ss.Sim):
         )
 
         kwargs.setdefault("dt", ss.days(1))
-        kwargs.setdefault("use_aging", True)
+        kwargs.setdefault("aging", True)
         kwargs.setdefault("networks", "random")
         if "stop" not in kwargs and "dur" not in kwargs:
             kwargs["dur"] = ss.years(10)

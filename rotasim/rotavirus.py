@@ -42,7 +42,7 @@ class Rotavirus(ss.Infection):
         dur_asymptomatic (ss.Dist): duration of the asymptomatic phase, the last part of the infection
         asymptomatic_shedding_rate (float): infectiousness during the asymptomatic phase, relative to the symptomatic phase
         waning_rate_dist (ss.Dist): mean duration of immunity after recovery, drawn per person; immunity then decays exponentially
-        waning_delay (ss.dur): time after recovery before immunity starts to wane
+        waning_delay (ss.Duration): time after recovery before immunity starts to wane
         fitness (float): the strain's relative transmissibility (see `rs.Sim`)
     """
 
@@ -58,7 +58,7 @@ class Rotavirus(ss.Infection):
             init_prevalence=0.04,
             init_prev=ss.bernoulli(p=init_prev_by_age),
             beta=ss.perday(0.16),
-            dur_inf=ss.lognorm_ex(mean=ss.days(13)),
+            dur_inf=ss.lognormal(mean=ss.days(13)),
             dur_asymptomatic=ss.constant(ss.days(8)),
             asymptomatic_shedding_rate=0.1,
             waning_rate_dist=ss.normal(loc=ss.days(91), scale=ss.days(14)),
