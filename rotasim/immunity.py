@@ -62,14 +62,14 @@ class RotaImmunityConnector(ss.Connector):
         baseline_immunity_exponential_rate (float): baseline protection is 1 - exp(-rate * episodes)
         maternal_immunity_model (str): how maternal immunity wanes: 'erlang' (the same for everyone of an age) or 'titer' (from each infant's antibody titer)
         maternal_immunity_efficacy (float): protection at birth; 0 turns maternal immunity off
-        maternal_immunity_half_life (ss.dur): half-life, which sets the mean duration if that is not given
+        maternal_immunity_half_life (ss.Duration): half-life, which sets the mean duration if that is not given
         maternal_immunity_n_stages (int): stages of Erlang waning (1 is exponential)
-        maternal_immunity_mean_duration (ss.dur): mean duration of Erlang waning
+        maternal_immunity_mean_duration (ss.Duration): mean duration of Erlang waning
         maternal_immunity_efficacy_slow (float): a second, slower component, e.g. from breastfeeding (Erlang model only)
-        maternal_immunity_half_life_slow (ss.dur): half-life of the slow component
+        maternal_immunity_half_life_slow (ss.Duration): half-life of the slow component
         maternal_titer_median (float): median initial titer, as a multiple of the titer that gives half protection (titer model)
         maternal_titer_gsd (float): geometric standard deviation of initial titers
-        maternal_titer_half_life (ss.dur): half-life of the titer
+        maternal_titer_half_life (ss.Duration): half-life of the titer
         maternal_hill_slope (float): slope of the Hill curve from titer to protection
     """
 

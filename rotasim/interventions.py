@@ -29,15 +29,15 @@ class RotaVaccination(ss.Intervention):
         end_date (str/ss.date): when vaccination ends (default: never)
         pars (dict): parameters
         n_doses (int): number of doses in the schedule
-        dose_interval (ss.dur): time between doses
+        dose_interval (ss.Duration): time between doses
         G_antigens (list): G genotypes in the vaccine
         P_antigens (list): P genotypes in the vaccine
         dose_effectiveness (list): effectiveness after each dose (default: depends on n_doses)
-        min_age (ss.dur): youngest age to vaccinate
-        max_age (ss.dur): oldest age to vaccinate
+        min_age (ss.Duration): youngest age to vaccinate
+        max_age (ss.Duration): oldest age to vaccinate
         uptake_dist (float/ss.bernoulli): probability of taking up each dose offered
         waning_rate_dist (ss.Dist): mean duration of protection, drawn per person at each dose
-        waning_delay (ss.dur): time after a dose before protection starts to wane
+        waning_delay (ss.Duration): time after a dose before protection starts to wane
         homotypic_efficacy (float): relative efficacy against a strain whose G and P are both in the vaccine
         partial_heterotypic_efficacy (float): relative efficacy against a strain whose G or P is in the vaccine
         complete_heterotypic_efficacy (float): relative efficacy against a strain with neither
@@ -65,7 +65,7 @@ class RotaVaccination(ss.Intervention):
             min_age=ss.days(42),
             max_age=ss.days(365),
             uptake_dist=ss.bernoulli(0.8),
-            waning_rate_dist=ss.lognorm_ex(mean=ss.days(365)),
+            waning_rate_dist=ss.lognormal(mean=ss.days(365)),
             waning_delay=ss.days(0),
             homotypic_efficacy=1.0,
             partial_heterotypic_efficacy=0.6,
