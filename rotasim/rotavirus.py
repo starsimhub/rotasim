@@ -20,7 +20,7 @@ def init_prev_by_age(module, sim, uids):
     return np.minimum(p, 1)
 
 
-class Rotavirus(ss.Infection):
+class Rotavirus(ss.AgentDisease):
     """
     One rotavirus strain, as a disease of its own
 
@@ -66,7 +66,7 @@ class Rotavirus(ss.Infection):
             fitness=1,
         )
 
-        # ss.Infection already provides susceptible, infected, rel_sus, rel_trans, ti_infected
+        # ss.AgentDisease already provides susceptible, infected, rel_sus, rel_trans, ti_infected
         self.define_states(
             ss.BoolState("asymptomatic", label="Asymptomatic"),
             ss.TimeArr("ti_asymptomatic", label="Time of asymptomatic phase start"),
