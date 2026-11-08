@@ -63,7 +63,7 @@ def test_sim():
     repeat = rs.Sim(scenario="simple", demographics=[ss.Births(birth_rate=ss.peryear(20)), ss.Deaths(death_rate=ss.peryear(10))], rand_seed=1, **pars).run()
     assert np.array_equal(g1p8.results.infection, repeat.diseases.G1P8.results.infection)  # The same seed gives the same result
 
-    msim = ss.parallel(rs.Sim(scenario="single", **pars), n_runs=2, parallel=False)
+    msim = ss.parallel(rs.Sim(scenario="single", **pars), n_runs=2, workers=1)
     assert len(msim.sims) == 2  # Runs with Starsim's multi-run tools
 
     default = rs.Sim(n_agents=100, verbose=0)
