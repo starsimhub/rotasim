@@ -109,7 +109,7 @@ class RotaVaccination(ss.Intervention):
 
     def init_results(self):
         super().init_results()
-        self.define_results(ss.Result("new_doses", label="Doses given", dtype=int, scale=True))
+        self.define_results(ss.Result("new_doses", label="Doses given", dtype=int))
 
     def match_efficacy_of(self, disease):
         """The relative efficacy against a strain, from how well it matches the vaccine"""

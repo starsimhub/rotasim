@@ -45,7 +45,7 @@ class RotaReassortmentConnector(ss.Connector):
 
     def init_results(self):
         super().init_results()
-        self.define_results(ss.Result("n_reassortments", label="Reassortment events", dtype=int, scale=True, summarize_by="sum"))
+        self.define_results(ss.Result("n_reassortments", label="Reassortment events", dtype=int, kind="flow"))
 
     def step(self):
         """Find the co-infected hosts, and infect those who reassort with a reassortant"""
@@ -68,6 +68,6 @@ class RotaReassortmentConnector(ss.Connector):
         pick = (self.rng_strain.rvs(hosts) * n_candidates).astype(int)
         chosen = (candidates.cumsum(axis=0) > pick).argmax(axis=0)
         for i in np.unique(chosen[n_candidates > 0]):
-            self.diseases[i].set_prognoses(hosts[(chosen == i) & (n_candidates > 0)])
+            self.diseases[i].infect(hosts[(chosen == i) & (n_candidates > 0)])
 
         self.results.n_reassortments[self.ti] = np.count_nonzero(n_candidates)

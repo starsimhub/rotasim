@@ -1,4 +1,4 @@
-# Last verified on: Starsim 4.0.0rc3 (84f1803ee)
+# Last verified on: Starsim 4.0.0rc3 (6239f72bf)
 
 # Package version
 from .version import __version__, __versiondate__

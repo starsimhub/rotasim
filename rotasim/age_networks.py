@@ -21,12 +21,11 @@ class AgeAssortativeNet(ss.DynamicNetwork):
         n_contacts (float): mean contacts per person per step
         assortativity (float): share of children's contacts that are with other children
         child_age_threshold (float): age in years below which people are children
-        beta (float): transmission multiplier of each contact
     """
 
     def __init__(self, pars=None, **kwargs):
         super().__init__()
-        self.define_pars(n_contacts=7, assortativity=0.5, child_age_threshold=5, beta=1.0)
+        self.define_pars(n_contacts=7, assortativity=0.5, child_age_threshold=5)
         self.update_pars(pars, **kwargs)
         self.rng_pairs = ss.random(name="rng_pairs")
 
@@ -52,4 +51,4 @@ class AgeAssortativeNet(ss.DynamicNetwork):
         p2 = np.concatenate([self.pick(children, n_children), self.pick(adults, n_adults), self.pick(adults, n_between)])
         keep = p1 != p2
         n = np.count_nonzero(keep)
-        self.append(p1=p1[keep], p2=p2[keep], beta=np.full(n, float(p.beta)), dur=np.zeros(n))
+        self.append(p1=p1[keep], p2=p2[keep], dur=np.zeros(n))

@@ -154,6 +154,6 @@ The last three turn infections into symptomatic cases with `rs.SymptomModel`, an
 Starsim's tools for multiple runs work as usual. This runs a sim with five different seeds, and shows the median and range of the results:
 
 ```python
-msim = ss.parallel(rs.Sim(scenario='single', n_agents=2000, start='2000-01-01', stop='2001-01-01'), n_runs=5, parallel=False)
+msim = ss.parallel(rs.Sim(scenario='single', n_agents=2000, start='2000-01-01', stop='2001-01-01'), n_runs=5, workers=1)
 msim.plot()
 ```

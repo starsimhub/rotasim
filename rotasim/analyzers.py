@@ -50,8 +50,8 @@ class StrainStats(ss.Analyzer):
         self.diseases = rotavirus_diseases(self.sim)
         for disease in self.diseases:
             self.define_results(
-                ss.Result(f"{disease.name}_proportion", dtype=float, scale=False),
-                ss.Result(f"{disease.name}_count", dtype=float, scale=True),
+                ss.Result(f"{disease.name}_proportion", dtype=float, kind="ratio"),
+                ss.Result(f"{disease.name}_count", dtype=float, kind="stock"),
             )
 
     def record_stocks(self):
@@ -69,12 +69,13 @@ class EventStats(ss.Analyzer):
     """
 
     event_types = ["births", "deaths", "recoveries", "new_infections", "reassortments", "infected_agents", "coinfected_agents"]
+    stock_types = ["infected_agents", "coinfected_agents"]  # The rest are flows
 
     def init_results(self):
         super().init_results()
         self.diseases = rotavirus_diseases(self.sim)
         self.reassortment = next((c for c in self.sim.connectors.values() if "n_reassortments" in c.results), None)
-        self.define_results(*[ss.Result(event, dtype=int, scale=True) for event in self.event_types])
+        self.define_results(*[ss.Result(event, dtype=int, kind="stock" if event in self.stock_types else "flow") for event in self.event_types])
 
     def step(self):
         sim, ti, res = self.sim, self.ti, self.results
@@ -98,7 +99,7 @@ class AgeStats(ss.Analyzer):
 
     def init_results(self):
         super().init_results()
-        self.define_results(*[ss.Result(label, dtype=int, scale=True) for label in self.age_labels])
+        self.define_results(*[ss.Result(label, dtype=int, kind="stock") for label in self.age_labels])
 
     def step(self):
         groups = np.digitize(self.sim.people.age.values, self.age_bins)

@@ -61,7 +61,7 @@ class Rotavirus(ss.AgentDisease):
             dur_inf=ss.lognormal(mean=ss.days(13)),
             dur_asymptomatic=ss.constant(ss.days(8)),
             asymptomatic_shedding_rate=0.1,
-            waning_rate_dist=ss.normal(loc=ss.days(91), scale=ss.days(14)),
+            waning_rate_dist=ss.normal(mean=ss.days(91), std=ss.days(14)),
             waning_delay=ss.days(0),
             fitness=1,
         )
@@ -82,16 +82,13 @@ class Rotavirus(ss.AgentDisease):
 
     def init_results(self):
         super().init_results()
-        self.define_results(ss.Result("new_recovered", label="New recoveries", dtype=int, scale=True))
+        self.define_results(ss.Result("new_recovered", label="New recoveries", dtype=int))
 
     def set_prognoses(self, uids, sources=None):
-        """Infect some agents, and schedule the end of each phase of their infection"""
-        super().set_prognoses(uids, sources)
-
-        self.infected[uids] = True
+        """What happens to those infected: schedule the end of each phase of their infection"""
+        super().set_prognoses(uids, sources)  # Infected, and no longer susceptible
         self.asymptomatic[uids] = False
         self.recovered[uids] = False
-        self.ti_infected[uids] = self.ti
         self.n_infections[uids] += 1
         self.rel_trans[uids] = 1.0
         self.waned_immunity_efficacy[uids] = 1.0
