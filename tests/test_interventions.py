@@ -48,7 +48,7 @@ def test_network():
     sim = rs.Sim(scenario="single", networks=net, **pars).init()
     sim.run_one_step()
     net = sim.networks.ageassortativenet
-    n_agents = sim.people.n_alive
+    n_agents = sim.people.alive.count()
     assert np.isclose(2 * len(net) / n_agents, 8, rtol=0.05)  # Everyone has about n_contacts, counting both ends of each
 
     age = sim.people.age.raw

@@ -32,7 +32,7 @@ def test_analyzers():
     assert (events.infected_agents >= events.coinfected_agents).all()
 
     ages = sim.analyzers.agestats.results
-    assert sum(ages[label][-1] for label in rs.AgeStats.age_labels) == sim.people.n_alive  # Everyone is in one age group
+    assert sum(ages[label][-1] for label in rs.AgeStats.age_labels) == sim.people.alive.count()  # Everyone is in one age group
 
     infections = sim.analyzers.infectedstrainstats.to_df()
     seeds = sum(int(d.pars.init_prevalence * pars["n_agents"]) for d in sim.diseases.values())
