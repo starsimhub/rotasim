@@ -54,7 +54,7 @@ class StrainStats(ss.Analyzer):
                 ss.Result(f"{disease.name}_count", dtype=float, kind="stock"),
             )
 
-    def record_stocks(self):
+    def record_states(self):
         counts = np.array([d.infected.sum() for d in self.diseases], dtype=float)
         total = counts.sum()
         for disease, count in zip(self.diseases, counts):
