@@ -53,14 +53,14 @@ def test_scenarios():
 @sc.timer()
 def test_sim():
     sc.heading("Testing a full sim")
-    sim = rs.Sim(scenario="simple", demographics=[ss.Births(birth_rate=ss.peryear(20)), ss.Deaths(death_rate=ss.peryear(10))], rand_seed=1, **pars).run()
+    sim = rs.Sim(scenario="simple", demographics=[ss.Births(birth_rate=ss.peryear(0.02)), ss.Deaths(death_rate=ss.peryear(0.01))], rand_seed=1, **pars).run()
     g1p8 = sim.diseases.G1P8
     assert g1p8.results.infection.cum[-1] > 0  # It spreads
-    assert sim.results.births.birth.sum() > 0 and sim.results.died.sum() > 0  # With demographics
+    assert sim.results.births.birth.sum() > 0 and sim.results.death.sum() > 0  # With demographics
     assert sim.people.age.mean() > 0  # Agents age
     assert np.nanmax(g1p8.rel_sus.values) <= 1 and np.nanmin(g1p8.rel_sus.values) >= 0  # Susceptibility stays a fraction
 
-    repeat = rs.Sim(scenario="simple", demographics=[ss.Births(birth_rate=ss.peryear(20)), ss.Deaths(death_rate=ss.peryear(10))], rand_seed=1, **pars).run()
+    repeat = rs.Sim(scenario="simple", demographics=[ss.Births(birth_rate=ss.peryear(0.02)), ss.Deaths(death_rate=ss.peryear(0.01))], rand_seed=1, **pars).run()
     assert np.array_equal(g1p8.results.infection, repeat.diseases.G1P8.results.infection)  # The same seed gives the same result
 
     msim = ss.parallel(rs.Sim(scenario="single", **pars), n_runs=2, workers=1)

@@ -8,7 +8,7 @@ import starsim as ss
 import rotasim as rs
 
 pars = dict(n_agents=5000, start="2020-01-01", stop="2022-01-01", verbose=0)
-demographics = [ss.Births(birth_rate=ss.peryear(30)), ss.Deaths(death_rate=ss.peryear(10))]
+demographics = [ss.Births(birth_rate=ss.peryear(0.03)), ss.Deaths(death_rate=ss.peryear(0.01))]
 
 
 @sc.timer()

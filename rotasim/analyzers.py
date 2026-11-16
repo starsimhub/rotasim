@@ -81,7 +81,7 @@ class EventStats(ss.Analyzer):
         sim, ti, res = self.sim, self.ti, self.results
         if "births" in sim.results:
             res.births[ti] = sim.results.births.birth[ti]
-        res.deaths[ti] = sim.results.died[ti]
+        res.deaths[ti] = sim.results.death[ti]
         if self.reassortment is not None:
             res.reassortments[ti] = self.reassortment.results.n_reassortments[ti]
         res.recoveries[ti] = sum(d.results.new_recovered[ti] for d in self.diseases)

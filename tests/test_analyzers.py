@@ -11,7 +11,7 @@ pars = dict(n_agents=2000, start="2000-01-01", stop="2003-01-01", verbose=0)
 
 
 def make_demographics():
-    return [ss.Births(birth_rate=ss.peryear(30)), ss.Deaths(death_rate=ss.peryear(10))]
+    return [ss.Births(birth_rate=ss.peryear(0.03)), ss.Deaths(death_rate=ss.peryear(0.01))]
 
 
 @sc.timer()

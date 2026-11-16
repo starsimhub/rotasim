@@ -65,7 +65,7 @@ sim = rs.Sim(
     start        = '2000-01-01',
     stop         = '2002-01-01',
     networks     = ss.RandomNet(n_contacts=7),
-    demographics = [ss.Births(birth_rate=ss.peryear(20)), ss.Deaths(death_rate=ss.peryear(7))],
+    demographics = [ss.Births(birth_rate=ss.peryear(0.02)), ss.Deaths(death_rate=ss.peryear(0.007))],
 )
 sim.run()
 ```
@@ -115,7 +115,7 @@ for label, intervention in scenarios.items():
         n_agents      = 2000,
         start         = '2000-01-01',
         stop          = '2003-01-01',
-        demographics  = [ss.Births(birth_rate=ss.peryear(20)), ss.Deaths(death_rate=ss.peryear(7))],
+        demographics  = [ss.Births(birth_rate=ss.peryear(0.02)), ss.Deaths(death_rate=ss.peryear(0.007))],
         interventions = intervention,
     ).run()
 
